@@ -1,3 +1,5 @@
+import { adminFetch } from "../lib/adminFetch";
+import { useAppointments } from "../hooks/useAppointments";
 import { validateBooking } from "../utils/bookingValidation";
 import { useEffect, useState } from "react";
 import { dayLabel, isDay, todayInRome } from "../utils/calendar";
@@ -15,6 +17,7 @@ function consentDate(value) {
 export default function BookingsPage() {
   const requested = new URLSearchParams(window.location.search).get("date");
   const date = isDay(requested) ? requested : todayInRome();
+  const { appointments: realtimeRows } = useAppointments('all');
   const [bookings, setBookings] = useState(null);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -46,7 +49,7 @@ export default function BookingsPage() {
     setCreateError("");
     setCreateSuccess("");
     try {
-      const response = await fetch("/api/admin/bookings", {
+      const response = await adminFetch("/api/admin/bookings", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", "X-Admin-Request": "1" },
@@ -74,7 +77,7 @@ export default function BookingsPage() {
     setConsentSaving(true);
     setConsentError("");
     try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}/marketing-consent`, {
+      const response = await adminFetch(`/api/admin/bookings/${bookingId}/marketing-consent`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", "X-Admin-Request": "1" },
@@ -100,7 +103,7 @@ export default function BookingsPage() {
     setConsentSaving(true);
     setConsentError("");
     try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}/marketing-consent/revoke`, {
+      const response = await adminFetch(`/api/admin/bookings/${bookingId}/marketing-consent/revoke`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "X-Admin-Request": "1" },
@@ -124,7 +127,7 @@ export default function BookingsPage() {
     setArrivalSavingId(booking.id);
     setArrivalError(null);
     try {
-      const response = await fetch(`/api/admin/bookings/${booking.id}/arrived`, {
+      const response = await adminFetch(`/api/admin/bookings/${booking.id}/arrived`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "X-Admin-Request": "1" },
@@ -146,7 +149,7 @@ export default function BookingsPage() {
     setError("");
     async function load() {
       try {
-        const response = await fetch(`/api/admin/bookings?date=${date}`, {
+        const response = await adminFetch(`/api/admin/bookings?date=${date}`, {
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
         if (response.status === 401) { window.location.replace("/"); return; }
@@ -159,7 +162,7 @@ export default function BookingsPage() {
     }
     load();
     return () => controller.abort();
-  }, [date, refresh]);
+  }, [date, refresh, realtimeRows]);
   const covers = bookings?.filter((booking) => booking.status === "confirmed")
     .reduce((sum, booking) => sum + booking.party_size, 0);
 
@@ -257,7 +260,7 @@ export default function BookingsPage() {
                             ? "WhatsApp non è disponibile: l’email si apre pronta da inviare."
                             : "Serve un numero di telefono oppure un indirizzo email valido per preparare la conferma."}</small>
                       </>}
-                      {booking.source === "staff" && confirmed && <div className="marketing-consent-panel">
+                      {booking.source === "agenda" && confirmed && <div className="marketing-consent-panel">
                         {booking.marketing_consent_active ? <p className="marketing-consent-status is-active">
                           Consenso marketing attivo fino al {consentDate(booking.marketing_expires_at)}.
                         </p> : <p className="marketing-consent-status">

@@ -1,42 +1,18 @@
-import { useEffect, useState } from "react";
-
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 export default function AdminAccess({ children }) {
-  const [status, setStatus] = useState("checking");
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    let controller;
-    async function verify() {
-      controller?.abort();
-      controller = new AbortController();
-      const signal = controller.signal;
-      setStatus("checking");
-      try {
-        const response = await fetch("/api/admin/session", { credentials: "same-origin", cache: "no-store", signal });
-        if (signal.aborted) return;
-        if (response.status === 401) {
-          window.location.replace("/");
-          return;
-        }
-        setStatus(response.ok ? "ready" : "error");
-      } catch (error) {
-        if (error.name !== "AbortError") setStatus("error");
-      }
+    if (!supabase) return;
+    let active = true;
+    function check(session) {
+      if (!active) return;
+      if (!session || !['staff', 'admin'].includes(session.user.app_metadata?.role)) { window.location.replace('/'); return; }
+      setReady(true);
     }
-    function onVisible() { if (document.visibilityState === "visible") verify(); }
-    verify();
-    window.addEventListener("pageshow", verify);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      controller?.abort();
-      window.removeEventListener("pageshow", verify);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
+    supabase.auth.getSession().then(({ data }) => check(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => check(session));
+    return () => { active = false; data.subscription.unsubscribe(); };
   }, []);
-  if (status === "ready") return children;
-  return <main className="booking-admin">
-    <h1>Area gestore</h1>
-    {status === "checking" ? <p role="status">Verifica dell’accesso…</p> : <>
-      <p role="alert">Non riesco a verificare l’accesso. Controlla che il backend sia avviato e configurato.</p>
-      <a href="/">Torna al login</a>
-    </>}
-  </main>;
+  return ready ? children : <main className="booking-admin"><p role="status">{supabase ? 'Verifica dell’accesso…' : 'Configura Supabase per accedere.'}</p></main>;
 }

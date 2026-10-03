@@ -28,15 +28,15 @@
   --admin-disabled: #a8b3bf;
 
   /* accenti */
---admin-cyan: #d94a4a;
---admin-cyan-hover: #b83232;
---admin-cyan-soft: rgb(217 74 74 / 8%);
---admin-cyan-soft-strong: rgba(93, 74, 217, 0.201);
+  --admin-cyan: #d94a4a;
+  --admin-cyan-hover: #b83232;
+  --admin-cyan-soft: rgb(217 74 74 / 8%);
+  --admin-cyan-soft-strong: rgb(217 74 74 / 14%);
 
---admin-magenta: #2cd012;
---admin-magenta-soft: rgb(139 92 246 / 9%);
+  --admin-magenta: #2cd012;
+  --admin-magenta-soft: rgb(139 92 246 / 9%);
 
---admin-ink: #ffffff;
+  --admin-ink: #ffffff;
 
   /* danger */
   --admin-danger: #b42345;
@@ -766,7 +766,7 @@ a.booking-confirmation:active,
 .calendar-weekdays {
   border-block: 1px solid var(--admin-border);
 
-  background: rgb(10 14 20 / 80%);
+  background: var(--admin-panel-2);
 }
 
 .calendar-weekdays span {
@@ -797,7 +797,7 @@ a.booking-confirmation:active,
 }
 
 .calendar-blank {
-  background: rgba(211, 234, 242, 0.924);
+  background: var(--admin-panel-2);
 }
 
 .calendar-day {
@@ -824,29 +824,6 @@ a.booking-confirmation:active,
     border-color var(--transition-fast);
 }
 
-.calendar-day.has-bookings {
-  background:
-    linear-gradient(
-      180deg,
-      rgb(24 169 193 / 9%) 0%,
-      rgb(24 169 193 / 3%) 65%,
-      #ffffff 100%
-    );
-}
-
-@media (hover: hover) {
-  .calendar-day:hover {
-    z-index: 1;
-
-    background: #fbfdff;
-
-    box-shadow:
-      inset 0 0 0 1px var(--admin-cyan),
-      0 8px 20px rgb(20 40 60 / 8%);
-
-    transform: translateY(-1px);
-  }
-}
 .calendar-day-number {
   display: flex;
   align-items: center;
@@ -857,7 +834,7 @@ a.booking-confirmation:active,
 }
 
 .calendar-day-number small {
-  color: var(--admin-magenta);
+  color: var(--admin-cyan);
 
   font-size: 10px;
   font-weight: 600;
@@ -893,8 +870,7 @@ a.booking-confirmation:active,
     linear-gradient(
       180deg,
       var(--admin-cyan-soft-strong) 0%,
-      rgb(79 216 232 / 4%) 52%,
-      transparent 100%
+      var(--admin-panel) 100%
     ),
     var(--admin-panel);
 }
@@ -909,7 +885,7 @@ a.booking-confirmation:active,
   position: absolute;
   inset: 5px;
 
-  border: 2px solid var(--admin-magenta);
+  border: 1px solid var(--admin-cyan);
   border-radius: var(--radius-sm);
 
   pointer-events: none;
@@ -932,7 +908,9 @@ a.booking-confirmation:active,
 
     box-shadow:
       inset 0 0 0 1px var(--admin-cyan),
-      0 6px 18px rgb(0 0 0 / 20%);
+      0 6px 18px rgb(20 40 60 / 8%);
+
+    transform: translateY(-1px);
   }
 }
 

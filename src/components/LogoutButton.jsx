@@ -1,3 +1,4 @@
+import { supabase } from "../lib/supabase";
 import { useState } from "react";
 
 export default function LogoutButton() {
@@ -7,10 +8,8 @@ export default function LogoutButton() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/logout", {
-        method: "POST", credentials: "same-origin", headers: { "X-Admin-Request": "1" },
-      });
-      if (!response.ok) throw new Error("Uscita non riuscita. Riprova.");
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       window.location.replace("/");
     } catch {
       setError("Uscita non riuscita. Riprova.");

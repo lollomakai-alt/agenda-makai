@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useAppointments } from "../hooks/useAppointments";
 import { calendarCells, dayLabel, isMonth, monthLabel, shiftMonth, todayInRome } from "../utils/calendar";
 
 const weekdays = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -7,34 +7,17 @@ export default function CalendarPage() {
   const today = todayInRome();
   const requested = new URLSearchParams(window.location.search).get("month");
   const month = isMonth(requested) ? requested : today.slice(0, 7);
-  const [days, setDays] = useState(null);
-  const [error, setError] = useState("");
-  const [refresh, setRefresh] = useState(0);
+  const { appointments, loading, error: failure, refresh } = useAppointments('all');
+  const error = failure?.message || '';
   const previous = shiftMonth(month, -1);
   const next = shiftMonth(month, 1);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setDays(null);
-    setError("");
-    async function load() {
-      try {
-        const response = await fetch(`/api/admin/bookings/month?month=${month}`, {
-          credentials: "same-origin", cache: "no-store", signal: controller.signal,
-        });
-        if (response.status === 401) { window.location.replace("/"); return; }
-        if (!response.ok) throw new Error("Non è stato possibile caricare i coperti del mese. Riprova.");
-        const data = await response.json();
-        if (!controller.signal.aborted) setDays(Object.fromEntries(data.days.map((day) => [day.date, day])));
-      } catch (failure) {
-        if (!controller.signal.aborted) setError(failure.message || "Connessione non disponibile.");
-      }
+  const days = loading || error ? null : appointments.reduce((result, booking) => {
+    if (booking.status === 'confirmed' && booking.booking_date.startsWith(month)) {
+      const day = result[booking.booking_date] ||= { covers: 0 };
+      day.covers += booking.party_size;
     }
-    load();
-    return () => controller.abort();
-  }, [month, refresh]);
-
-  const loading = days === null && !error;
+    return result;
+  }, {});
   const total = days && Object.values(days).reduce((sum, day) => sum + day.covers, 0);
 
   return <main className="booking-admin calendar-page">
@@ -50,7 +33,7 @@ export default function CalendarPage() {
         </div>
         <div className="calendar-actions">
           <a className="admin-button" href="/prenotazioni">Oggi</a>
-          <button className="admin-button" type="button" disabled={loading} onClick={() => setRefresh((value) => value + 1)}>Aggiorna</button>
+          <button className="admin-button" type="button" disabled={loading} onClick={refresh}>Aggiorna</button>
         </div>
       </div>
       <div className="calendar-summary" aria-live="polite">
