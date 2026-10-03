@@ -6,9 +6,11 @@ import "./styles/admin.css";
 
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
+const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage"));
 
 const routes = {
   "/": { title: "Accesso", Page: LoginPage, restricted: false },
+  "/reimposta-password": { title: "Reimposta password", Page: PasswordResetPage, restricted: false },
   "/prenotazioni": { title: "Calendario", Page: CalendarPage, restricted: true },
   "/prenotazioni/giorno": { title: "Giornata", Page: BookingsPage, restricted: true },
 };

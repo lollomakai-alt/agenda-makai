@@ -38,7 +38,7 @@ export default async function handler(request, response) {
     if (auth.status === 401 || auth.status === 403) return response.status(401).json({ detail: 'Sessione non valida. Accedi di nuovo.' });
     if (!auth.ok) return response.status(503).json({ detail: 'Verifica dell’accesso momentaneamente non disponibile.' });
     const user = await auth.json();
-    if (!user.id || !['staff', 'admin'].includes(user.app_metadata?.role)) {
+    if (!user.id || user.app_metadata?.role !== 'admin') {
       return response.status(403).json({ detail: 'Accesso riservato allo staff.' });
     }
   } catch {

@@ -602,6 +602,34 @@ a.booking-confirmation:active,
   margin-top: 0;
 }
 
+.auth-text-button {
+  margin-top: 16px;
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+  color: var(--admin-cyan);
+
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-text-button:hover {
+  color: var(--admin-cyan-hover);
+}
+
+.auth-notice {
+  padding: 12px 14px;
+
+  border: 1px solid var(--admin-success-border);
+  border-radius: var(--radius-sm);
+
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+}
+
 
 /* =========================================================
    Prenotazione manuale

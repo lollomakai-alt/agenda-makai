@@ -4,6 +4,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/reimposta-password", "destination": "/index.html" },
     { "source": "/prenotazioni", "destination": "/index.html" },
     { "source": "/prenotazioni/giorno", "destination": "/index.html" }
   ]

@@ -41,21 +41,23 @@ test('missing secret and malformed destinations deny access without network call
 }));
 
 test('invalid sessions, auth outages and user_metadata staff cannot reach backend', () => isolated(async () => {
-  for (const [authStatus,user,expected] of [[401,{},401],[500,{},503],[200,{ id:'customer',user_metadata:{role:'staff'},app_metadata:{} },403]]) {
+  for (const [authStatus,user,expected] of [[401,{},401],[500,{},503],
+    [200,{ id:'customer',user_metadata:{role:'admin'},app_metadata:{} },403],
+    [200,{ id:'legacy-staff',app_metadata:{role:'staff'} },403]]) {
     let calls=0;
     globalThis.fetch=async url => { calls++; assert.equal(url.hostname,'auth.invalid'); return Response.json(user,{status:authStatus}); };
     const res=response(); await handler(request(),res); assert.equal(res.code,expected); assert.equal(calls,1);
   }
 }));
 
-test('verified staff forwards only server key, bearer and request fields; preserves errors', () => isolated(async () => {
+test('verified admin forwards only server key, bearer and request fields; preserves errors', () => isolated(async () => {
   let calls=0;
   globalThis.fetch=async (url,options) => {
     calls++;
     if (url.hostname==='auth.invalid') {
       assert.equal(options.headers.Authorization,'Bearer test-session');
       assert.equal(options.headers['x-agenda-backend-key'],undefined);
-      return Response.json({id:'staff-id',app_metadata:{role:'staff'}});
+      return Response.json({id:'admin-id',app_metadata:{role:'admin'}});
     }
     assert.equal(url.href,'https://backend.invalid/api/admin/bookings?date=2026-10-03');
     assert.equal(options.headers.authorization,'Bearer test-session');

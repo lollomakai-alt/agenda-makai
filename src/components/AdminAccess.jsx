@@ -7,7 +7,7 @@ export default function AdminAccess({ children }) {
     let active = true;
     function check(session) {
       if (!active) return;
-      if (!session || !['staff', 'admin'].includes(session.user.app_metadata?.role)) { window.location.replace('/'); return; }
+      if (!session || session.user.app_metadata?.role !== 'admin') { window.location.replace('/'); return; }
       setReady(true);
     }
     supabase.auth.getSession().then(({ data }) => check(data.session));
