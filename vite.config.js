@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
       target: env.API_PROXY_TARGET || 'http://127.0.0.1:8000',
       // Preserve the browser Host so local origin checks and cookies keep working.
       changeOrigin: false,
+      headers: { 'X-Agenda-Backend-Key': env.AGENDA_BACKEND_SECRET || '' },
     },
   };
   return {

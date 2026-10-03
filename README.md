@@ -71,6 +71,7 @@ Nel progetto Vercel dell’Agenda configura:
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Chiave publishable del medesimo progetto |
 | `VITE_PUBLIC_SITE_URL` | Dominio HTTPS del sito pubblico Makai, per il link privacy |
 | `API_PROXY_TARGET` | Origine HTTPS del backend condiviso, senza `/api` o altri percorsi |
+| `AGENDA_BACKEND_SECRET` | Chiave casuale condivisa con il backend, solo server, almeno 32 caratteri |
 
 Le variabili `VITE_*` sono incluse nel browser: non contengono segreti. `API_PROXY_TARGET` è letto dalla funzione Vercel e non dal bundle. Dopo aver aggiornato le variabili pubbliche, esegui un nuovo deploy.
 
@@ -83,3 +84,15 @@ In Supabase Authentication → URL Configuration imposta come Site URL il domini
 Account staff: `makaistiki@gmail.com`. Dopo la creazione dell’utente Auth, un amministratore assegna `app_metadata.role = staff`. Per gli inviti, configura in Supabase Auth l’URL del sito e autorizza il callback `/?setup=password` (per esempio `http://localhost:5174/?setup=password` in sviluppo). La pagina di login riconosce inviti e recupero password e permette di impostare la nuova password.
 
 Account verificato e ruolo `staff` assegnato a `makaistiki@gmail.com`. Dopo la modifica del ruolo, esci e rientra per ottenere un token aggiornato.
+
+## Protezione delle API amministrative
+
+Il gateway Vercel verifica il bearer token chiamando Supabase Auth, autorizza soltanto `app_metadata.role` staff/admin e inoltra solo le rotte amministrative previste. Un ruolo dichiarato in `user_metadata` non concede accesso. Solo dopo la verifica aggiunge `X-Agenda-Backend-Key`, usando `AGENDA_BACKEND_SECRET` dall’ambiente server. La chiave inviata dal browser viene ignorata; cookie e chiavi riservate non sono inoltrati al servizio Auth.
+
+FastAPI protegge tutte le rotte `/api/admin/*` con la stessa chiave condivisa, confrontata senza scorciatoie basate sul primo carattere differente. Poi verifica separatamente la sessione dell’utente e il ruolo staff. Se la chiave manca o è troppo corta, il servizio rifiuta le richieste. La chiave autorizza il gateway, non sostituisce l’autenticazione dell’utente. Menu, chat e disponibilità pubblica continuano ad avere le rispettive regole esistenti.
+
+Questa è protezione dell’accesso applicativo, non isolamento di rete: l’indirizzo HTTPS del servizio resta raggiungibile, ma le API admin respingono le chiamate dirette senza credenziale gateway.
+
+Per attivarla online, configura **la stessa** `AGENDA_BACKEND_SECRET` nei progetti Vercel Agenda e backend. Non usare `VITE_`, non inserirla in Git e non inviarla in chat. I due `.env` locali sono già predisposti con la stessa chiave casuale. Dopo le modifiche riavvia i server locali per ricaricare l’ambiente. Sul backend pubblica anche `api/admin_auth.py` e `api/index.py`; poi pubblica il gateway dell’Agenda. Il login Supabase del browser resta diretto. Il vecchio login FastAPI non è inoltrato dal gateway Vercel.
+
+La verifica locale comprende chiamate senza chiave, chiave errata, sessione non valida, ruolo falsificato e staff autorizzato. Questi test non inseriscono dati nel database. La verifica della protezione in produzione va eseguita dopo la configurazione delle variabili e il rilascio di entrambi i progetti.
