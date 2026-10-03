@@ -96,3 +96,11 @@ Questa è protezione dell’accesso applicativo, non isolamento di rete: l’ind
 Per attivarla online, configura **la stessa** `AGENDA_BACKEND_SECRET` nei progetti Vercel Agenda e backend. Non usare `VITE_`, non inserirla in Git e non inviarla in chat. I due `.env` locali sono già predisposti con la stessa chiave casuale. Dopo le modifiche riavvia i server locali per ricaricare l’ambiente. Sul backend pubblica anche `api/admin_auth.py` e `api/index.py`; poi pubblica il gateway dell’Agenda. Il login Supabase del browser resta diretto. Il vecchio login FastAPI non è inoltrato dal gateway Vercel.
 
 La verifica locale comprende chiamate senza chiave, chiave errata, sessione non valida, ruolo falsificato, staff rifiutato e admin autorizzato. Questi test non inseriscono dati nel database. La verifica della protezione in produzione va eseguita dopo la configurazione delle variabili e il rilascio di entrambi i progetti.
+
+## Chiusura delle prenotazioni online per un giorno
+
+Nell’agenda del giorno, **Chiudi prenotazioni online** salva la data in `public.online_booking_closures`; **Riapri prenotazioni online** elimina la chiusura. Solo l’amministratore può leggere e modificare le chiusure dall’Agenda. Gli inserimenti manuali (`source=agenda`) e le prenotazioni esistenti restano disponibili.
+
+`supabase/online-closures.sql` è lo script già applicato al progetto Supabase: non rieseguirlo. Il trigger controlla nuovi inserimenti e cambi di data/ora/coperti delle prenotazioni online sotto lo stesso lock delle prenotazioni e delle chiusure. Questo protegge anche la Edge Function e gli invii da pagine già aperte.
+
+Il backend del sito deve pubblicare le modifiche a `api/bookings/public_availability.py` e `api/bookings/service.py`: il calendario pubblico mostra le date chiuse come non prenotabili e l’invio restituisce un messaggio leggibile. Pubblicare anche la nuova build dell’Agenda per rendere visibile il tasto in produzione.

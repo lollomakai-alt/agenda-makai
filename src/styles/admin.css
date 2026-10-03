@@ -1642,3 +1642,7 @@ a.booking-confirmation:active,
     color: #000;
   }
 }
+
+.online-booking-control { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin: 1rem 0; padding: 1rem; border: 1px solid #ffffff30; border-radius: 12px; }
+.online-booking-control p { margin: .4rem 0 0; }
+@media print { .online-booking-control { display: none !important; } }

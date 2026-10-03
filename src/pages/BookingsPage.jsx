@@ -1,7 +1,8 @@
 import { adminFetch } from "../lib/adminFetch";
 import { useAppointments } from "../hooks/useAppointments";
 import { validateBooking } from "../utils/bookingValidation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 import { dayLabel, isDay, todayInRome } from "../utils/calendar";
 import {
   confirmationEmailUrl,
@@ -32,6 +33,44 @@ export default function BookingsPage() {
   const [consentError, setConsentError] = useState("");
   const [arrivalSavingId, setArrivalSavingId] = useState(null);
   const [arrivalError, setArrivalError] = useState(null);
+
+  const [onlineClosed, setOnlineClosed] = useState(null);
+  const [closureSaving, setClosureSaving] = useState(false);
+  const [closureError, setClosureError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setOnlineClosed(null);
+    setClosureError("");
+    supabase.from("online_booking_closures").select("booking_date").eq("booking_date", date)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) setClosureError("Non riesco a verificare la chiusura online. Ricarica la pagina.");
+        else setOnlineClosed(data.length > 0);
+      });
+    return () => { active = false; };
+  }, [date]);
+
+  async function toggleOnlineBookings() {
+    if (closureSaving || onlineClosed === null) return;
+    setClosureSaving(true);
+    setClosureError("");
+    try {
+      const { error } = onlineClosed
+        ? await supabase.from("online_booking_closures").delete().eq("booking_date", date)
+        : await supabase.from("online_booking_closures").insert({ booking_date: date });
+      if (error && error.code !== "23505") throw error;
+      const { data, error: readError } = await supabase.from("online_booking_closures")
+        .select("booking_date").eq("booking_date", date);
+      if (readError) throw readError;
+      setOnlineClosed(data.length > 0);
+    } catch {
+      setClosureError("Modifica non confermata. Ricarica la pagina per verificare lo stato e riprova.");
+      setOnlineClosed(null);
+    } finally {
+      setClosureSaving(false);
+    }
+  }
 
   async function createBooking(event) {
     event.preventDefault();
@@ -163,6 +202,17 @@ export default function BookingsPage() {
           {showCreate ? "Chiudi" : "+ Nuova prenotazione"}
         </button>
       </div>
+      <div className="online-booking-control">
+        <div aria-live="polite">
+          <strong>{onlineClosed === null ? "Stato prenotazioni online da verificare" : onlineClosed ? "Prenotazioni online chiuse" : "Prenotazioni online aperte"}</strong>
+          <p>Puoi sempre inserire prenotazioni manuali. Quelle già ricevute restano valide.</p>
+        </div>
+        <button className="admin-button admin-button-secondary" type="button"
+          disabled={closureSaving || onlineClosed === null} onClick={toggleOnlineBookings}>
+          {closureSaving ? "Salvataggio…" : onlineClosed ? "Riapri prenotazioni online" : "Chiudi prenotazioni online"}
+        </button>
+        {closureError && <p role="alert">{closureError}</p>}
+      </div>
       {showCreate && <form id="manual-booking-form" className="booking-admin-form manual-booking-form" noValidate onSubmit={createBooking}>
         <div className="manual-booking-heading">
           <h2>Inserisci prenotazione telefonica</h2>
@@ -226,7 +276,9 @@ export default function BookingsPage() {
                     </div>}
                     <details className="booking-row-details">
                       <summary>Dettagli{booking.notes ? " · note" : ""}{confirmed ? " e messaggio" : ""}{booking.marketing_consent_active ? " · marketing attivo" : ""}</summary>
-                      <p>Tavoli: {booking.tables || "Non assegnati"}</p>
+                      {booking.status === "confirmed" && !booking.tables?.trim() ? (
+                        <p role="status" style={{ color: "#ffd166", fontWeight: 800 }}>TAVOLO DA ASSEGNARE</p>
+                      ) : <p>Tavoli: {booking.tables || "Non assegnati"}</p>}
                       {booking.notes && <p>Note: {booking.notes}</p>}
                       {booking.arrived_at && <p>Arrivo registrato: {consentDate(booking.arrived_at)}.
                         {booking.marketing_consent_active
