@@ -1,7 +1,7 @@
 import { adminFetch } from "../lib/adminFetch";
 import { useAppointments } from "../hooks/useAppointments";
 import { validateBooking } from "../utils/bookingValidation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { dayLabel, isDay, todayInRome } from "../utils/calendar";
 import {
   confirmationEmailUrl,
@@ -17,10 +17,11 @@ function consentDate(value) {
 export default function BookingsPage() {
   const requested = new URLSearchParams(window.location.search).get("date");
   const date = isDay(requested) ? requested : todayInRome();
-  const { appointments: realtimeRows } = useAppointments('all');
-  const [bookings, setBookings] = useState(null);
-  const [error, setError] = useState("");
-  const [refresh, setRefresh] = useState(0);
+  const { appointments, loading, error: appointmentsError, refresh: refreshAppointments } = useAppointments('all');
+  const error = appointmentsError?.message || "";
+  const bookings = loading || appointmentsError
+    ? null
+    : appointments.filter((booking) => booking.booking_date === date);
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -63,7 +64,7 @@ export default function BookingsPage() {
       }
       form.reset();
       setCreateSuccess("Prenotazione aggiunta. Puoi preparare la conferma dall’agenda via WhatsApp o, se non disponibile, via email.");
-      setRefresh((value) => value + 1);
+      refreshAppointments();
     } catch (failure) {
       setCreateError(failure.message || "Connessione non disponibile.");
     } finally {
@@ -90,7 +91,7 @@ export default function BookingsPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "Consenso non salvato.");
       setConsentEditorId(null);
-      setRefresh((value) => value + 1);
+      refreshAppointments();
     } catch (failure) {
       setConsentError(failure.message || "Connessione non disponibile.");
     } finally {
@@ -111,7 +112,7 @@ export default function BookingsPage() {
       if (response.status === 401) { window.location.replace("/"); return; }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "Revoca non salvata.");
-      setRefresh((value) => value + 1);
+      refreshAppointments();
     } catch (failure) {
       setConsentError(failure.message || "Connessione non disponibile.");
     } finally {
@@ -135,7 +136,7 @@ export default function BookingsPage() {
       if (response.status === 401) { window.location.replace("/"); return; }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "Arrivo non salvato.");
-      setRefresh((value) => value + 1);
+      refreshAppointments();
     } catch (failure) {
       setArrivalError({ bookingId: booking.id, message: failure.message || "Connessione non disponibile." });
     } finally {
@@ -143,29 +144,6 @@ export default function BookingsPage() {
     }
   }
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setBookings(null);
-    setError("");
-    async function load() {
-      try {
-        const response = await adminFetch(`/api/admin/bookings?date=${date}`, {
-          credentials: "same-origin", cache: "no-store", signal: controller.signal,
-        });
-        if (response.status === 401) { window.location.replace("/"); return; }
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.detail || data.error || `Il backend ha risposto con errore HTTP ${response.status}.`);
-        }
-        if (!Array.isArray(data.bookings)) throw new Error("Il backend ha risposto, ma il formato delle prenotazioni non è valido.");
-        if (!controller.signal.aborted) setBookings(data.bookings);
-      } catch (failure) {
-        if (!controller.signal.aborted) setError(failure.message || "Connessione non disponibile.");
-      }
-    }
-    load();
-    return () => controller.abort();
-  }, [date, refresh, realtimeRows]);
   const covers = bookings?.filter((booking) => booking.status === "confirmed")
     .reduce((sum, booking) => sum + booking.party_size, 0);
 
@@ -203,7 +181,7 @@ export default function BookingsPage() {
       </form>}
       <div className="day-summary" aria-live="polite">
         <span>{bookings ? <><strong>{covers}</strong> coperti confermati</> : error ? "Coperti non disponibili" : "Caricamento…"}</span>
-        <button className="admin-button" type="button" disabled={!bookings && !error} onClick={() => setRefresh((value) => value + 1)}>Aggiorna</button>
+          <button className="admin-button" type="button" disabled={loading} onClick={refreshAppointments}>Aggiorna</button>
       </div>
       {error && <p role="alert">{error}</p>}
       <div aria-live="polite">
