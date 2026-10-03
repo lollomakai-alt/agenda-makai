@@ -153,8 +153,11 @@ export default function BookingsPage() {
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
         if (response.status === 401) { window.location.replace("/"); return; }
-        if (!response.ok) throw new Error("Non è stato possibile caricare le prenotazioni. Riprova.");
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.detail || data.error || `Il backend ha risposto con errore HTTP ${response.status}.`);
+        }
+        if (!Array.isArray(data.bookings)) throw new Error("Il backend ha risposto, ma il formato delle prenotazioni non è valido.");
         if (!controller.signal.aborted) setBookings(data.bookings);
       } catch (failure) {
         if (!controller.signal.aborted) setError(failure.message || "Connessione non disponibile.");
