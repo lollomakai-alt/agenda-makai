@@ -6,7 +6,6 @@ import { supabase } from "../lib/supabase";
 import { dayLabel, isDay, todayInRome } from "../utils/calendar";
 import {
   confirmationMessage,
-  confirmationWhatsAppUrl,
 } from "../utils/bookingConfirmation";
 
 import { BOOKING_STATUSES, bookingStatus, bookingStatusLabel, saveBookingStatus } from "../utils/bookingStatus";
@@ -340,8 +339,6 @@ export default function BookingsPage() {
             </h2>
             <div className="booking-time-list">
               {group.map((booking) => {
-                const whatsappUrl = confirmationWhatsAppUrl(booking);
-                const confirmationChannel = whatsappUrl ? "whatsapp" : "email";
                 const confirmed = bookingStatus(booking.status) === "confirmed";
                 const delayNotification = bookingDelayNotification(booking, now);
                 const noShow = noShowEligibility(booking, now);
@@ -385,8 +382,7 @@ export default function BookingsPage() {
                         aria-label={`Chiama cliente: ${booking.name}`}>Chiama cliente</a> :
                         <button className="admin-button admin-button-secondary" type="button" disabled
                           title="Numero di telefono mancante o non valido">Chiama cliente</button>}
-                      {whatsappUrl && <a className="admin-button admin-button-secondary" href={whatsappUrl}
-                        target="_blank" rel="noreferrer" aria-label={`Prepara messaggio WhatsApp per ${booking.name}`}>WhatsApp ↗</a>}
+
                       <button className="admin-button admin-button-secondary" type="button"
                         disabled={statusSavingId !== null || editingId !== null || bookingStatus(booking.status) === 'cancelled'}
                         onClick={() => changeStatus(booking, 'cancelled')}>
@@ -410,12 +406,8 @@ export default function BookingsPage() {
                           ? ` Visite registrate con consenso: ${booking.marketing_visit_count}.`
                           : " Nessun conteggio personale attivo senza consenso marketing."}</p>}
                       {confirmed && <>
-                        <p className="booking-confirmation-preview">{confirmationMessage(booking, confirmationChannel)}</p>
-                        <small>{whatsappUrl
-                          ? "Il messaggio si apre pronto da inviare su WhatsApp."
-                          : emailUrl
-                            ? "WhatsApp non è disponibile: l’email si apre pronta da inviare."
-                            : "Serve un numero di telefono oppure un indirizzo email valido per preparare la conferma."}</small>
+                        <p className="booking-confirmation-preview">{confirmationMessage(booking, "whatsapp")}</p>
+                        <small>Usa Comunicazioni e log per inviare l’email o aprire la chat WhatsApp.</small>
                       </>}
                       {booking.source === "agenda" && confirmed && <div className="marketing-consent-panel">
                         {booking.marketing_consent_active ? <p className="marketing-consent-status is-active">
