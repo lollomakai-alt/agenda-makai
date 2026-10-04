@@ -5,10 +5,25 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { dayLabel, isDay, todayInRome } from "../utils/calendar";
 import {
-  confirmationEmailUrl,
   confirmationMessage,
   confirmationWhatsAppUrl,
 } from "../utils/bookingConfirmation";
+
+import { BOOKING_STATUSES, bookingStatus, bookingStatusLabel, saveBookingStatus } from "../utils/bookingStatus";
+import BookingRequests from "../components/BookingRequests";
+import BookingCommunications from "../components/BookingCommunications";
+import BookingHistory from "../components/BookingHistory";
+import BookingEditor from "../components/BookingEditor";
+import { bookingDelayNotification } from "../utils/bookingDelay";
+import { noShowEligibility } from "../utils/bookingNoShow";
+import { bookingCallUrl } from "../utils/bookingCall";
+import CustomerCard from "../components/CustomerCard";
+import { previousCustomerNoShowCount } from "../utils/customerBookings";
+import TableMap from "../components/TableMap";
+import { BOOKING_TYPES, bookingType, bookingTypeLabel } from "../utils/bookingType";
+import { createAfterDinnerBooking, validateAfterDinnerBooking } from "../utils/afterDinnerBooking";
+import { canAcceptBooking, DAILY_COVER_LIMIT } from "../utils/bookingCapacity";
+import tables from "../config/tables.json" with { type: "json" };
 
 function consentDate(value) {
   if (!value) return "";
@@ -18,7 +33,7 @@ function consentDate(value) {
 export default function BookingsPage() {
   const requested = new URLSearchParams(window.location.search).get("date");
   const date = isDay(requested) ? requested : todayInRome();
-  const { appointments, loading, error: appointmentsError, refresh: refreshAppointments } = useAppointments('all');
+  const { appointments, loading, error: appointmentsError, refresh: refreshAppointments, applyUpdate } = useAppointments('all');
   const error = appointmentsError?.message || "";
   const bookings = loading || appointmentsError
     ? null
@@ -28,11 +43,44 @@ export default function BookingsPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
+  const [createType, setCreateType] = useState('normale');
   const [consentEditorId, setConsentEditorId] = useState(null);
   const [consentSaving, setConsentSaving] = useState(false);
   const [consentError, setConsentError] = useState("");
-  const [arrivalSavingId, setArrivalSavingId] = useState(null);
-  const [arrivalError, setArrivalError] = useState(null);
+  const [statusSavingId, setStatusSavingId] = useState(null);
+  const [statusError, setStatusError] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editFeedback, setEditFeedback] = useState(null);
+  const [requestRevision, setRequestRevision] = useState(0);
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    let timer;
+    const timeout = window.setTimeout(() => {
+      setNow(Date.now());
+      timer = window.setInterval(() => setNow(Date.now()), 60000);
+    }, 60000 - (Date.now() % 60000));
+    return () => {
+      window.clearTimeout(timeout);
+      if (timer) window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (editingId !== null && !appointments.some(booking => booking.id === editingId)) setEditingId(null);
+  }, [appointments, editingId]);
+
+  useEffect(() => {
+    if (loading) return;
+    function focusBooking() {
+      if (!/^#booking-[1-9]\d*$/.test(window.location.hash)) return;
+      const row = document.getElementById(window.location.hash.slice(1));
+      if (row) { row.scrollIntoView({ block: 'center' }); row.focus({ preventScroll: true }); }
+    }
+    focusBooking();
+    window.addEventListener('hashchange', focusBooking);
+    return () => window.removeEventListener('hashchange', focusBooking);
+  }, [loading, date]);
 
   const [onlineClosed, setOnlineClosed] = useState(null);
   const [closureSaving, setClosureSaving] = useState(false);
@@ -77,7 +125,13 @@ export default function BookingsPage() {
     if (saving) return;
     const form = event.currentTarget;
     const fields = new FormData(form);
-    const validation = validateBooking({ ...Object.fromEntries(fields), date });
+    const rawValues = Object.fromEntries(fields);
+    const values = {
+      name: rawValues.name, phone: rawValues.phone, email: rawValues.email,
+      time: rawValues.time, party_size: rawValues.party_size,
+      notes: rawValues.notes, table: rawValues.table, date,
+    };
+    const validation = createType === 'dopocena' ? validateAfterDinnerBooking(values) : validateBooking(values);
     setFieldErrors(validation.errors);
     setCreateError("");
     setCreateSuccess("");
@@ -85,10 +139,24 @@ export default function BookingsPage() {
       form.elements.namedItem(Object.keys(validation.errors)[0])?.focus();
       return;
     }
+    if (!bookings || !canAcceptBooking(appointments, date, validation.data.party_size)) {
+      setCreateError(bookings
+        ? `Limite giornaliero di ${DAILY_COVER_LIMIT} coperti raggiunto.`
+        : "Non riesco a verificare i coperti della giornata. Aggiorna e riprova.");
+      return;
+    }
     setSaving(true);
     setCreateError("");
     setCreateSuccess("");
     try {
+      if (createType === 'dopocena') {
+        await createAfterDinnerBooking(supabase, values);
+        form.reset();
+        setCreateType('normale');
+        setCreateSuccess("Prenotazione dopocena aggiunta all’agenda.");
+        refreshAppointments();
+        return;
+      }
       const response = await adminFetch("/api/admin/bookings", {
         method: "POST",
         credentials: "same-origin",
@@ -101,8 +169,16 @@ export default function BookingsPage() {
         const detail = typeof data.detail === "string" ? data.detail : "Controlla i campi della prenotazione e riprova.";
         throw new Error(detail);
       }
+      const createdId = data.id ?? data.booking_id ?? data.booking?.id;
+      let activityWarning = "";
+      if (createdId) {
+        const { error: activityError } = await supabase.rpc("admin_record_booking_creation", { p_booking_id: createdId });
+        if (activityError) activityWarning = " La prenotazione è salvata, ma l’attività non è stata registrata: verifica il SQL dell’activity log.";
+      } else {
+        activityWarning = " La prenotazione è salvata, ma il backend non ha restituito l’ID per registrare l’attività.";
+      }
       form.reset();
-      setCreateSuccess("Prenotazione aggiunta. Puoi preparare la conferma dall’agenda via WhatsApp o, se non disponibile, via email.");
+      setCreateSuccess(`Prenotazione aggiunta.${activityWarning}`);
       refreshAppointments();
     } catch (failure) {
       setCreateError(failure.message || "Connessione non disponibile.");
@@ -159,31 +235,32 @@ export default function BookingsPage() {
     }
   }
 
-  async function markArrived(booking) {
-    const note = booking.marketing_consent_active
-      ? "La visita sarà aggiunta al contatore del cliente."
-      : "L’arrivo sarà registrato, ma la visita non sarà conteggiata senza un consenso marketing attivo.";
-    if (!window.confirm(`Confermi che il cliente è arrivato?\n\n${note}`)) return;
-    setArrivalSavingId(booking.id);
-    setArrivalError(null);
+  async function changeStatus(booking, status) {
+    if (statusSavingId !== null || editingId !== null || status === bookingStatus(booking.status)) return;
+    if (status === 'no_show') {
+      const eligibility = noShowEligibility(booking, now);
+      if (!eligibility.allowed) {
+        setStatusError({ bookingId: booking.id, message: eligibility.message });
+        return;
+      }
+      if (!window.confirm(`Confermi che ${booking.name} non si è presentato alla prenotazione del ${booking.booking_date} alle ${booking.booking_time.slice(0, 5)}?\n\nLo stato diventerà “No-show”. La prenotazione resterà conservata nel database e nello storico.`)) return;
+    }
+    if (status === 'cancelled' && !window.confirm(
+      `Confermi la cancellazione della prenotazione di ${booking.name} del ${booking.booking_date} alle ${booking.booking_time.slice(0, 5)}?\n\nLo stato diventerà “Cancellata”. La prenotazione resterà conservata nel database e nello storico.`
+    )) return;
+    setStatusSavingId(booking.id);
+    setStatusError(null);
     try {
-      const response = await adminFetch(`/api/admin/bookings/${booking.id}/arrived`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "X-Admin-Request": "1" },
-      });
-      if (response.status === 401) { window.location.replace("/"); return; }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || "Arrivo non salvato.");
+      await saveBookingStatus(supabase, booking.id, status);
       refreshAppointments();
     } catch (failure) {
-      setArrivalError({ bookingId: booking.id, message: failure.message || "Connessione non disponibile." });
+      setStatusError({ bookingId: booking.id, message: failure.message || "Connessione non disponibile." });
     } finally {
-      setArrivalSavingId(null);
+      setStatusSavingId(null);
     }
   }
 
-  const covers = bookings?.filter((booking) => booking.status === "confirmed")
+  const covers = bookings?.filter((booking) => bookingStatus(booking.status) === "confirmed")
     .reduce((sum, booking) => sum + booking.party_size, 0);
 
   const timeGroups = Object.entries((bookings || []).reduce((groups, booking) => {
@@ -194,6 +271,8 @@ export default function BookingsPage() {
 
   return (
     <main className="booking-admin">
+      <BookingRequests appointments={appointments} disabled={loading || Boolean(appointmentsError) || editingId !== null || statusSavingId !== null}
+        onChanged={() => { refreshAppointments(); setRequestRevision(value => value + 1); }} />
       <a href={`/prenotazioni?month=${date.slice(0, 7)}`}>← Torna al mese</a>
       <div className="agenda-heading">
         <div><p className="agenda-eyebrow">Agenda del giorno</p><h1>{dayLabel(date)}</h1></div>
@@ -216,13 +295,21 @@ export default function BookingsPage() {
       {showCreate && <form id="manual-booking-form" className="booking-admin-form manual-booking-form" noValidate onSubmit={createBooking}>
         <div className="manual-booking-heading">
           <h2>Inserisci prenotazione telefonica</h2>
-          <p>La conferma partirà da WhatsApp; se il numero non è disponibile useremo l’email.</p>
+          <p>La conferma email e la chat WhatsApp manuale sono disponibili in Comunicazioni e log.</p>
         </div>
+        <label>Tipo prenotazione<select name="booking_type" value={createType}
+          onChange={(event) => { setCreateType(event.target.value); setFieldErrors({}); }}>
+          {Object.entries(BOOKING_TYPES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label>
         <label>Nome e cognome<input name="name" aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "error-name" : undefined} required minLength="2" maxLength="60" autoComplete="name" />{fieldErrors.name && <small className="field-error" id="error-name">{fieldErrors.name}</small>}</label>
         <label>Telefono<input name="phone" aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "error-phone" : undefined} required minLength="8" maxLength="30" inputMode="tel" autoComplete="tel" placeholder="+39…" />{fieldErrors.phone && <small className="field-error" id="error-phone">{fieldErrors.phone}</small>}</label>
         <label>Email facoltativa<input name="email" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "error-email" : undefined} type="email" maxLength="120" autoComplete="email" />{fieldErrors.email && <small className="field-error" id="error-email">{fieldErrors.email}</small>}</label>
-        <label>Ora<input name="time" aria-invalid={Boolean(fieldErrors.time)} aria-describedby={fieldErrors.time ? "error-time" : undefined} type="time" required min="18:00" max="23:00" step="1800" />{fieldErrors.time && <small className="field-error" id="error-time">{fieldErrors.time}</small>}</label>
+        <label>Ora<input name="time" aria-invalid={Boolean(fieldErrors.time)} aria-describedby={fieldErrors.time ? "error-time" : undefined} type="time" required min={createType === 'dopocena' ? "22:00" : "18:00"} max={createType === 'dopocena' ? "23:30" : "23:00"} step="1800" />{fieldErrors.time && <small className="field-error" id="error-time">{fieldErrors.time}</small>}</label>
         <label>Persone<input name="party_size" aria-invalid={Boolean(fieldErrors.party_size)} aria-describedby={fieldErrors.party_size ? "error-party_size" : undefined} type="number" required min="1" max="6" inputMode="numeric" />{fieldErrors.party_size && <small className="field-error" id="error-party_size">{fieldErrors.party_size}</small>}</label>
+        {createType === 'dopocena' && <label>Tavolo<select name="table" required aria-invalid={Boolean(fieldErrors.table)}>
+          <option value="">Scegli tavolo</option>
+          {Object.entries(tables).map(([id, capacity]) => <option key={id} value={id}>Tavolo {id} · {capacity} posti</option>)}
+        </select>{fieldErrors.table && <small className="field-error">{fieldErrors.table}</small>}</label>}
         <label className="manual-booking-notes">Note facoltative<textarea name="notes" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "error-notes" : undefined} maxLength="300" rows="3" placeholder="Es. compleanno, seggiolone, richieste…" />{fieldErrors.notes && <small className="field-error" id="error-notes">{fieldErrors.notes}</small>}</label>
         <button className="admin-button" type="submit" disabled={saving}>{saving ? "Salvataggio…" : "Aggiungi all’agenda"}</button>
         {fieldErrors.date && <p className="manual-booking-feedback is-error" role="alert">{fieldErrors.date}</p>}
@@ -230,14 +317,21 @@ export default function BookingsPage() {
         {createSuccess && <p className="manual-booking-feedback is-success" role="status">{createSuccess}</p>}
       </form>}
       <div className="day-summary" aria-live="polite">
-        <span>{bookings ? <><strong>{covers}</strong> coperti confermati</> : error ? "Coperti non disponibili" : "Caricamento…"}</span>
+        <span>{bookings ? <><strong>{covers}</strong> / {DAILY_COVER_LIMIT} coperti confermati</> : error ? "Coperti non disponibili" : "Caricamento…"}</span>
           <button className="admin-button" type="button" disabled={loading} onClick={refreshAppointments}>Aggiorna</button>
       </div>
       {error && <p role="alert">{error}</p>}
+      {editFeedback && <p className="manual-booking-feedback is-success" role="status">
+        Modifiche salvate.
+        {editFeedback.date !== date && <> <a href={`/prenotazioni/giorno?date=${editFeedback.date}`}>Apri la nuova data</a></>}
+      </p>}
       <div aria-live="polite">
         {bookings?.length === 0 && <p>Nessuna prenotazione per questa data.</p>}
         {bookings && bookings.length > 0 && <p>{bookings.length} prenotazioni trovate.</p>}
       </div>
+      {bookings && <TableMap key={date} appointments={bookings} date={date}
+        disabled={statusSavingId !== null || editingId !== null}
+        onSaved={result => { applyUpdate(result.booking); setRequestRevision(value => value + 1); window.dispatchEvent(new Event('admin-notifications-changed')); }} />}
       <div className="booking-time-groups">
         {timeGroups.map(([time, group]) => (
           <section key={time} className="booking-time-group" aria-labelledby={`time-${time}`}>
@@ -247,44 +341,74 @@ export default function BookingsPage() {
             <div className="booking-time-list">
               {group.map((booking) => {
                 const whatsappUrl = confirmationWhatsAppUrl(booking);
-                const emailUrl = whatsappUrl ? null : confirmationEmailUrl(booking);
-                const confirmationUrl = whatsappUrl || emailUrl;
                 const confirmationChannel = whatsappUrl ? "whatsapp" : "email";
-                const confirmed = booking.status === "confirmed";
+                const confirmed = bookingStatus(booking.status) === "confirmed";
+                const delayNotification = bookingDelayNotification(booking, now);
+                const noShow = noShowEligibility(booking, now);
+                const callUrl = bookingCallUrl(booking.phone);
+                const previousNoShows = previousCustomerNoShowCount(booking, appointments, now);
                 return (
-                  <article key={booking.id} className={`booking-row${confirmed ? "" : " is-cancelled"}`}>
+                  <article id={`booking-${booking.id}`} tabIndex={-1} key={booking.id} className={`booking-row${["cancelled", "no_show"].includes(bookingStatus(booking.status)) ? " is-cancelled" : ""}`}>
                     <div className="booking-row-main">
                       <span className="booking-row-covers"><span aria-hidden="true">👥</span><span className="admin-sr-only">Coperti: </span><strong>{booking.party_size}</strong></span>
                       <h3 className="booking-row-name"><span aria-hidden="true">👤</span><span className="admin-sr-only">Nome: </span>{booking.name}</h3>
                       <span className="booking-row-phone"><span aria-hidden="true">📞</span><span className="admin-sr-only">Telefono: </span>{booking.phone || "Non presente"}</span>
-                      <span className={`booking-status${confirmed ? "" : " is-cancelled"}`}>{booking.arrived_at ? "Arrivato" : confirmed ? "Confermata" : "Annullata"}</span>
+                      <span className={`booking-status status-${bookingStatus(booking.status).toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
+                      <span className={`booking-type booking-type-${bookingType(booking.booking_type)}`}>{bookingTypeLabel(booking.booking_type)}</span>
                     </div>
-                    {confirmed && <div className="booking-confirmation-action">
-                      {!booking.arrived_at && <button className="admin-button booking-arrived" type="button"
-                        disabled={arrivalSavingId === booking.id} onClick={() => markArrived(booking)}>
-                        {arrivalSavingId === booking.id ? "Salvataggio…" : "Segna arrivato"}
-                      </button>}
-                      {confirmationUrl ? <a className="booking-confirmation" href={confirmationUrl}
-                        target={whatsappUrl ? "_blank" : undefined} rel={whatsappUrl ? "noopener noreferrer" : undefined}
-                        aria-label={`Prepara conferma ${emailUrl ? "email" : "WhatsApp"} per ${booking.name}`}
-                        title="Prepara la conferma: l’invio resta manuale">
-                        {whatsappUrl ? "WhatsApp ↗" : "Email ↗"}
-                      </a> : <>
-                        <button className="booking-confirmation" type="button" disabled aria-describedby={`confirmation-help-${booking.id}`}>Conferma ↗</button>
-                        <small id={`confirmation-help-${booking.id}`}>Email e telefono mancanti o non validi</small>
-                      </>}
-                    </div>}
+                    {previousNoShows > 0 && <p className="booking-customer-warning" role="status">
+                      Cliente con <strong>{previousNoShows}</strong> {previousNoShows === 1 ? 'precedente' : 'precedenti'} NO_SHOW
+                    </p>}
+                    {delayNotification && <p className="booking-delay-notification" role="status">{delayNotification.message}</p>}
+                    <CustomerCard booking={booking} appointments={appointments} now={now} />
+                    <div className="booking-status-editor">
+                      <label htmlFor={`status-${booking.id}`}>Cambia stato</label>
+                      <select id={`status-${booking.id}`} value={bookingStatus(booking.status)}
+                        disabled={statusSavingId !== null || editingId !== null}
+                        onChange={(event) => changeStatus(booking, event.target.value)}>
+                        {!Object.hasOwn(BOOKING_STATUSES, bookingStatus(booking.status)) &&
+                          <option value={bookingStatus(booking.status)}>{bookingStatusLabel(booking.status)}</option>}
+                        {Object.entries(BOOKING_STATUSES).map(([value, label]) => <option key={value} value={value}
+                          disabled={value === 'no_show' && !noShow.allowed}>{label}</option>)}
+                      </select>
+                      {statusSavingId === booking.id && <span role="status">Salvataggio…</span>}
+                      {statusError?.bookingId === booking.id && <p className="manual-booking-feedback is-error" role="alert">{statusError.message}</p>}
+                    </div>
+                    <BookingCommunications booking={booking} />
                     <details className="booking-row-details">
                       <summary>Dettagli{booking.notes ? " · note" : ""}{confirmed ? " e messaggio" : ""}{booking.marketing_consent_active ? " · marketing attivo" : ""}</summary>
-                      {booking.status === "confirmed" && !booking.tables?.trim() ? (
+                      {bookingStatus(booking.status) === "confirmed" && !booking.tables?.trim() ? (
                         <p role="status" style={{ color: "#ffd166", fontWeight: 800 }}>TAVOLO DA ASSEGNARE</p>
                       ) : <p>Tavoli: {booking.tables || "Non assegnati"}</p>}
                       {booking.notes && <p>Note: {booking.notes}</p>}
+                      {callUrl ? <a className="admin-button admin-button-secondary" href={callUrl}
+                        aria-label={`Chiama cliente: ${booking.name}`}>Chiama cliente</a> :
+                        <button className="admin-button admin-button-secondary" type="button" disabled
+                          title="Numero di telefono mancante o non valido">Chiama cliente</button>}
+                      {whatsappUrl && <a className="admin-button admin-button-secondary" href={whatsappUrl}
+                        target="_blank" rel="noreferrer" aria-label={`Prepara messaggio WhatsApp per ${booking.name}`}>WhatsApp ↗</a>}
+                      <button className="admin-button admin-button-secondary" type="button"
+                        disabled={statusSavingId !== null || editingId !== null || bookingStatus(booking.status) === 'cancelled'}
+                        onClick={() => changeStatus(booking, 'cancelled')}>
+                        Cancella prenotazione
+                      </button>
+                      <button className="admin-button admin-button-secondary" type="button"
+                        disabled={statusSavingId !== null || editingId !== null || !noShow.allowed}
+                        title={noShow.message}
+                        onClick={() => changeStatus(booking, 'no_show')}>
+                        Segna come No-show
+                      </button>
+                      <BookingEditor booking={booking} appointments={appointments} disabled={statusSavingId !== null || (editingId !== null && editingId !== booking.id)}
+                        onEditing={open => setEditingId(open ? booking.id : null)}
+                        onSaved={result => {
+                          setEditingId(null);
+                          applyUpdate(result.booking);
+                          setEditFeedback({ date: result.booking.booking_date });
+                        }} />
                       {booking.arrived_at && <p>Arrivo registrato: {consentDate(booking.arrived_at)}.
                         {booking.marketing_consent_active
                           ? ` Visite registrate con consenso: ${booking.marketing_visit_count}.`
                           : " Nessun conteggio personale attivo senza consenso marketing."}</p>}
-                      {arrivalError?.bookingId === booking.id && <p className="manual-booking-feedback is-error" role="alert">{arrivalError.message}</p>}
                       {confirmed && <>
                         <p className="booking-confirmation-preview">{confirmationMessage(booking, confirmationChannel)}</p>
                         <small>{whatsappUrl
@@ -324,6 +448,8 @@ export default function BookingsPage() {
                         </form>}
                       </div>}
                     </details>
+                    <BookingHistory bookingId={booking.id}
+                      revision={JSON.stringify([requestRevision, booking.status, booking.booking_date, booking.booking_time, booking.party_size, booking.tables, booking.notes])} />
                   </article>
                 );
               })}

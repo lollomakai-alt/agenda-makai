@@ -1,3 +1,5 @@
+import BookingRequests from "../components/BookingRequests";
+import { bookingStatus } from "../utils/bookingStatus";
 import { useAppointments } from "../hooks/useAppointments";
 import { calendarCells, dayLabel, isMonth, monthLabel, shiftMonth, todayInRome } from "../utils/calendar";
 
@@ -12,7 +14,7 @@ export default function CalendarPage() {
   const previous = shiftMonth(month, -1);
   const next = shiftMonth(month, 1);
   const days = loading || error ? null : appointments.reduce((result, booking) => {
-    if (booking.status === 'confirmed' && booking.booking_date.startsWith(month)) {
+    if (bookingStatus(booking.status) === 'confirmed' && booking.booking_date.startsWith(month)) {
       const day = result[booking.booking_date] ||= { covers: 0 };
       day.covers += booking.party_size;
     }
@@ -24,6 +26,7 @@ export default function CalendarPage() {
     <div className="agenda-heading">
       <div><p className="agenda-eyebrow">Agenda prenotazioni</p><h1>Calendario</h1></div>
     </div>
+    <BookingRequests appointments={appointments} disabled={loading || Boolean(error)} onChanged={refresh} />
     <section className="calendar-panel" aria-label="Calendario mensile">
       <div className="calendar-toolbar">
         <div className="calendar-month-nav">

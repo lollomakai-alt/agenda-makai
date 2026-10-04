@@ -1,0 +1,63 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { tableMapForDate, tableRooms, unverifiedTableBookings, tableGroupsForPhysicalTable, availableMapAssignments, assignMapTable } from '../src/utils/tableMap.js';
+import { todayInRome } from '../src/utils/calendar.js';
+const date='2026-10-04';
+const future=new Date(`${todayInRome()}T12:00:00Z`);future.setUTCDate(future.getUTCDate()+1);if(future.getUTCDay()===1)future.setUTCDate(future.getUTCDate()+1);
+const booking={id:42,booking_date:future.toISOString().slice(0,10),booking_time:'20:00',party_size:2,tables:'',notes:'Seggiolone',status:'confirmed',booking_type:'normale'};
+
+test('map uses all 14 physical tables and distinguishes reserved/occupied/free with linked bookings',()=>{
+  const rows=[{id:1,booking_date:date,tables:'10+11',status:'confirmed'},{id:2,booking_date:date,tables:'12',status:'arrived'},{id:3,booking_date:date,tables:'13+14',status:'completed'}];
+  const map=tableMapForDate(rows,date);
+  assert.equal(map.length,14);
+  assert.deepEqual(map.filter(t=>t.status==='reserved').map(t=>t.id),['10','11']);
+  assert.deepEqual(map.filter(t=>t.status==='occupied').map(t=>t.id),['12','13','14']);
+  assert.equal(map.find(t=>t.id==='15').status,'free');
+  assert.deepEqual(map.find(t=>t.id==='10').bookings,[rows[0]]);
+  assert.deepEqual(map.find(t=>t.id==='11').bookings,[rows[0]]);
+});
+test('type filter separates normal/dopocena and occupancy takes precedence in the combined view',()=>{
+  const rows=[{id:1,booking_date:date,tables:'15+16',status:'confirmed',booking_type:'dopocena'},{id:2,booking_date:date,tables:'15+16',status:'arrived',booking_type:'normale'}];
+  const all=tableMapForDate(rows,date);
+  assert.equal(all.find(t=>t.id==='15').status,'occupied');
+  assert.deepEqual(all.find(t=>t.id==='16').bookingTypes,['dopocena','normale']);
+  assert.equal(tableMapForDate(rows,date,'dopocena').find(t=>t.id==='15').status,'reserved');
+  assert.deepEqual(tableMapForDate(rows,date,'normale').find(t=>t.id==='16').bookings,[rows[1]]);
+});
+test('inactive and other-date rows are excluded; missing/invalid assignments are explicitly unverified',()=>{
+  const rows=[{id:1,booking_date:date,tables:'10+11',status:'cancelled'},{id:2,booking_date:date,tables:'12',status:'no_show'},{id:3,booking_date:'2026-10-05',tables:'12',status:'confirmed'},{id:4,booking_date:date,tables:'99',status:'confirmed'},{id:5,booking_date:date,tables:'',status:'confirmed'}];
+  assert.ok(tableMapForDate(rows,date).every(t=>t.status==='free'));
+  assert.deepEqual(unverifiedTableBookings(rows,date).map(b=>b.id),[4,5]);
+  assert.equal(tableMapForDate([{booking_date:date,tables:'23'}],date).find(t=>t.id==='23').status,'reserved');
+});
+test('rooms and configured group capacities follow the real layout, not sums of physical capacities',()=>{
+  assert.deepEqual(tableRooms(tableMapForDate([],date)).map(room=>[room.name,room.tables.map(t=>t.id)]),[
+    ['Sala Principale',['10','11','12','13','14','15','16','17','18','19']],['Sala Nami',['20','21','22','23']],
+  ]);
+  assert.deepEqual(tableGroupsForPhysicalTable('10'),[['10+11',3]]);
+  assert.deepEqual(tableGroupsForPhysicalTable('11'),[['10+11',3]]);
+  assert.deepEqual(tableGroupsForPhysicalTable('15'),[['15+16+17',6],['15+16',4]]);
+  assert.deepEqual(tableGroupsForPhysicalTable('20'),[['20+21',4]]);
+});
+test('assignment options honor capacity, physical conflicts, configuration, active status and booking type',()=>{
+  assert.deepEqual(availableMapAssignments({...booking,party_size:6},[],'15'),[['15+16+17',6]]);
+  assert.deepEqual(availableMapAssignments({...booking,party_size:4},[],'10'),[]);
+  const busy={...booking,id:43,tables:'15+16+17'};
+  assert.deepEqual(availableMapAssignments(booking,[busy],'17'),[]);
+  assert.ok(availableMapAssignments(booking,[{...busy,booking_type:'dopocena'}],'17').length);
+  assert.ok(availableMapAssignments(booking,[{...busy,status:'cancelled'}],'17').length);
+  for(const status of ['completed','cancelled','no_show'])assert.deepEqual(availableMapAssignments({...booking,status},[],'12'),[]);
+  assert.deepEqual(availableMapAssignments({...booking,booking_date:'2020-01-01'},[],'12'),[]);
+  assert.deepEqual(availableMapAssignments(booking,[],'99'),[]);
+});
+test('map assignment reuses editor RPC and preserves contacts, scheduling, notes and optimistic concurrency',async()=>{
+  const calls=[];const client={rpc:async(name,args)=>{calls.push([name,args]);return {data:{booking:{...booking,...args.changes}}};}};
+  await assignMapTable(client,booking,'10+11',[],'11');
+  assert.equal(calls[0][0],'admin_update_booking');
+  assert.deepEqual(calls[0][1].changes,{tables:'10+11'});
+  assert.deepEqual(calls[0][1].expected,{booking_date:booking.booking_date,booking_time:'20:00',party_size:2,tables:'',notes:'Seggiolone'});
+  await assert.rejects(assignMapTable(client,booking,'12',[{...booking,id:43,tables:'12'}],'12'),/non disponibile/);
+  assert.equal(calls.length,1);
+  await assert.rejects(assignMapTable({rpc:async()=>({error:{message:'Prenotazione cambiata'}})},booking,'12',[],'12'),/cambiata/);
+  await assert.rejects(assignMapTable({rpc:async()=>({data:{booking:{id:999}}})},booking,'12',[],'12'),/non confermato/);
+});

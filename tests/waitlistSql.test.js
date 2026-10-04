@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+
+test('SQL waitlist: conversion keeps history and contacts, existing availability, rollback, duplicates and RLS',async()=>{
+  const db=new PGlite();
+  try {
+    await db.exec(`
+      create role anon; create role authenticated; create schema auth; create schema private;
+      create function auth.jwt() returns jsonb language sql as $$select current_setting('request.jwt.claims',true)::jsonb$$;
+      create function auth.uid() returns uuid language sql as $$select (auth.jwt()->>'sub')::uuid$$;
+      grant usage on schema auth,private to authenticated;
+      create table bookings(id bigint generated always as identity primary key,name text,phone text,email text,booking_date text,booking_time text,party_size integer,tables text,notes text,status text,source text,reminder_status text,booking_type text default 'normale');
+      create table booking_history(id bigint generated always as identity primary key,booking_id bigint,action text,old_data jsonb,new_data jsonb,created_at timestamptz default now());
+      grant select,insert,update on bookings to authenticated; grant usage on sequence bookings_id_seq to authenticated;
+      alter table bookings enable row level security;
+      create policy admin_bookings on bookings for all to authenticated using(auth.jwt()->'app_metadata'->>'role'='admin') with check(auth.jwt()->'app_metadata'->>'role'='admin');
+      set request.jwt.claims='{"sub":"11111111-1111-1111-1111-111111111111","app_metadata":{"role":"admin"}}';
+    `);
+    for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','waitlist.sql']) await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
+    await db.exec(await readFile(new URL('../supabase/waitlist.sql',import.meta.url),'utf8'));
+    const date=(await db.query(`select to_char(d,'YYYY-MM-DD') as day from generate_series((now() at time zone 'Europe/Rome')::date+1,(now() at time zone 'Europe/Rome')::date+7,'1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].day;
+    await db.exec('set role authenticated');
+    const create=async(overrides={})=>{
+      const v={name:'Mario Rossi',phone:'+393331234567',email:'mario@example.com',date,time:'20:00',party:2,notes:'Seggiolone',...overrides};
+      return (await db.query('select admin_create_waitlist_entry($1,$2,$3,$4,$5,$6,$7) as r',[v.name,v.phone,v.email,v.date,v.time,v.party,v.notes])).rows[0].r;
+    };
+    const convert=async(id,table)=>(await db.query('select admin_convert_waitlist_entry($1,$2) as r',[id,table])).rows[0].r;
+    const status=async(id,next,expected)=>(await db.query('select admin_set_waitlist_status($1,$2,$3) as r',[id,next,expected])).rows[0].r;
+    const bookCount=async()=>Number((await db.query('select count(*) as n from bookings')).rows[0].n);
+    const hist=async(id)=>(await db.query('select * from waitlist_history where waitlist_id=$1 order by id',[id])).rows;
+    const get=async(id)=>(await db.query('select * from waitlist where id=$1',[id])).rows[0];
+    const first=await create(); assert.equal(first.status,'WAITING'); assert.equal(await bookCount(),0); assert.equal((await hist(first.id)).length,1);
+    await status(first.id,'CONTACTED','WAITING');
+    await assert.rejects(status(first.id,'CANCELLED','WAITING'),/cambiata/);
+    const converted=await convert(first.id,'12');
+    assert.equal(converted.id,first.id); assert.equal(converted.status,'CONVERTED'); assert.ok(converted.booking_id);
+    const booking=(await db.query('select * from bookings where id=$1',[converted.booking_id])).rows[0];
+    for(const field of ['name','phone','email','booking_date','booking_time','party_size','notes']) assert.equal(booking[field],first[field]);
+    assert.equal(booking.source,'agenda'); assert.equal(booking.reminder_status,'skipped'); assert.equal(booking.tables,'12');
+    assert.deepEqual((await hist(first.id)).map(e=>e.new_data.status),['WAITING','CONTACTED','CONVERTED']);
+    assert.ok((await db.query('select action from booking_history where booking_id=$1',[booking.id])).rows.some(r=>r.action==='waitlist_converted'));
+    await assert.rejects(convert(first.id,'22'),/già convertita/); assert.equal(await bookCount(),1);
+    await assert.rejects(status(first.id,'CANCELLED','CONVERTED'),/già gestita/);
+    const conflict=await create({phone:'',email:'only@example.com'});
+    await assert.rejects(convert(conflict.id,'12'),/già assegnato/);
+    assert.equal(await bookCount(),1); assert.equal((await get(conflict.id)).status,'WAITING'); assert.equal((await hist(conflict.id)).length,1);
+    await assert.rejects(convert(conflict.id,'unknown'),/Assegnazioni|assegnazione|configurata/i); assert.equal(await bookCount(),1);
+    const capacity=await create({party:3}); await assert.rejects(convert(capacity.id,'22'),/Capienza/); assert.equal(await bookCount(),1);
+    const rollback=await create();
+    await db.exec('reset role; revoke insert on waitlist_history from authenticated; set role authenticated');
+    await assert.rejects(convert(rollback.id,'22'),/permission denied/);
+    assert.equal(await bookCount(),1); assert.equal((await get(rollback.id)).status,'WAITING'); assert.equal((await hist(rollback.id)).length,1);
+    await db.exec('reset role; grant insert on waitlist_history to authenticated; set role authenticated');
+    await convert(rollback.id,'22'); assert.equal(await bookCount(),2);
+    const cancelled=await create(); await status(cancelled.id,'CANCELLED','WAITING');
+    await assert.rejects(convert(cancelled.id,'23'),/cancellata/); assert.equal((await hist(cancelled.id)).length,2);
+    const emailOnly=await create({phone:'',email:'EMAIL@EXAMPLE.COM'}); const result=await convert(emailOnly.id,'23');
+    assert.equal((await db.query('select email,phone from bookings where id=$1',[result.booking_id])).rows[0].email,'email@example.com');
+    for(const bad of [{phone:'',email:''},{phone:'bad'},{email:'bad'},{date:'2026-02-30'},{time:'20:15'},{party:7},{notes:'x'.repeat(301)}]) await assert.rejects(create(bad));
+    await assert.rejects(db.query(`update waitlist set name='Changed',status='CONTACTED' where id=$1`,[conflict.id]),/immutabili/);
+    await assert.rejects(db.query(`update waitlist set booking_id=$2,status='CONVERTED',conversion_table='23' where id=$1`,[conflict.id,booking.id]),/riservato/);
+    await assert.rejects(db.query('delete from waitlist'),/permission denied/);
+    await assert.rejects(db.query(`update waitlist_history set action='forged'`),/permission denied/);
+    await db.exec(`set request.jwt.claims='{"sub":"11111111-1111-1111-1111-111111111111","user_metadata":{"role":"admin"}}'`);
+    assert.equal((await db.query('select * from waitlist')).rows.length,0); assert.equal((await db.query('select * from waitlist_history')).rows.length,0);
+    await assert.rejects(create(),/staff/); await assert.rejects(convert(conflict.id,'23'),/non accessibile/);
+    await db.exec('reset role; set role anon');
+    await assert.rejects(db.query('select * from waitlist'),/permission denied/); await assert.rejects(create(),/permission denied/);
+  } finally {await db.close();}
+});

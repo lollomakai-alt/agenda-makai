@@ -5,6 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/reimposta-password", "destination": "/index.html" },
+    { "source": "/attivita", "destination": "/index.html" },
     { "source": "/prenotazioni", "destination": "/index.html" },
     { "source": "/prenotazioni/giorno", "destination": "/index.html" }
   ]

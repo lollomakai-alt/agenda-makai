@@ -38,6 +38,15 @@ begin
     end if;
   end if;
   new.updated_at := now();
+  if new.status='confirmed' and
+    (tg_op='INSERT' or old.status is distinct from new.status or
+     new.booking_date is distinct from old.booking_date or new.party_size is distinct from old.party_size) then
+    perform pg_advisory_xact_lock(734512);
+    if (select coalesce(sum(b.party_size),0) from public.bookings b
+        where b.id<>new.id and b.status='confirmed' and b.booking_date=new.booking_date) + new.party_size > 25 then
+      raise exception 'Limite giornaliero di 25 coperti raggiunto' using errcode='P0001';
+    end if;
+  end if;
   if new.source='booking' and new.status='confirmed' and
     (tg_op='INSERT' or new.booking_date is distinct from old.booking_date or
      new.booking_time is distinct from old.booking_time or new.party_size is distinct from old.party_size) then

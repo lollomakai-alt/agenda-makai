@@ -6,6 +6,9 @@ export function useAppointments(view = 'all') {
   const [state, setState] = useState({ appointments: [], loading: true, error: null });
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision(value => value + 1), []);
+  const applyUpdate = useCallback(booking => setState(previous => ({ ...previous,
+    appointments: previous.appointments.map(item => String(item.id) === String(booking.id) ? { ...item, ...booking } : item),
+  })), []);
   useEffect(() => {
     let active = true;
     let generation = 0;
@@ -55,5 +58,5 @@ export function useAppointments(view = 'all') {
     document.addEventListener('visibilitychange', visible);
     return () => { active = false; generation++; auth.subscription.unsubscribe(); document.removeEventListener('visibilitychange', visible); if (channel) void supabase.removeChannel(channel); };
   }, [view, revision]);
-  return { ...state, refresh };
+  return { ...state, refresh, applyUpdate };
 }

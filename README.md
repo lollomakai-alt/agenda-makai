@@ -2,6 +2,21 @@
 
 Applicazione Vite + React autonoma, con dipendenze, stili e build propri. Non importa file dal sito Makai.
 
+La gestione dei cinque stati è descritta in [docs/booking-status.md](docs/booking-status.md).
+Il SQL degli stati è stato applicato manualmente; la verifica reale è rimandata.
+
+Lo storico persistente è descritto in [docs/booking-history.md](docs/booking-history.md).
+Applicare manualmente `supabase/booking-history.sql` per abilitare registrazione e lettura ADMIN.
+
+L'editor delle prenotazioni è descritto in [docs/booking-edit.md](docs/booking-edit.md).
+Richiede la RPC di `supabase/booking-edit.sql`, da applicare manualmente; riutilizza lo storico esistente.
+
+Il no-show manuale dopo almeno 30 minuti è descritto in [docs/booking-no-show.md](docs/booking-no-show.md).
+Per imporre il limite anche sul database applicare manualmente `supabase/booking-no-show.sql`.
+
+Il controllo tavoli nella stessa data è descritto in [docs/table-conflicts.md](docs/table-conflicts.md).
+Richiede l'applicazione manuale di `supabase/table-conflicts.sql` per proteggere le scritture anche lato database.
+
 ## Avvio locale
 
 ```bash
