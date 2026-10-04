@@ -1,3 +1,4 @@
+import MobileSection from "../components/MobileSection";
 import BookingRequests from "../components/BookingRequests";
 import { bookingStatus } from "../utils/bookingStatus";
 import { useAppointments } from "../hooks/useAppointments";
@@ -26,7 +27,9 @@ export default function CalendarPage() {
     <div className="agenda-heading">
       <div><p className="agenda-eyebrow">Agenda prenotazioni</p><h1>Calendario</h1></div>
     </div>
+      <MobileSection title="Richieste clienti">
     <BookingRequests appointments={appointments} disabled={loading || Boolean(error)} onChanged={refresh} />
+      </MobileSection>
     <section className="calendar-panel" aria-label="Calendario mensile">
       <div className="calendar-toolbar">
         <div className="calendar-month-nav">

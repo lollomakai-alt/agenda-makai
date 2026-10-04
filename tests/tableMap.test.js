@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tableMapForDate, tableRooms, unverifiedTableBookings, tableGroupsForPhysicalTable, availableMapAssignments, assignMapTable } from '../src/utils/tableMap.js';
+import { tableMapForDate, tableRooms, unverifiedTableBookings, tableGroupsForPhysicalTable, availableMapAssignments, rankedMapAssignments, assignMapTable } from '../src/utils/tableMap.js';
 import { todayInRome } from '../src/utils/calendar.js';
 const date='2026-10-04';
 const future=new Date(`${todayInRome()}T12:00:00Z`);future.setUTCDate(future.getUTCDate()+1);if(future.getUTCDay()===1)future.setUTCDate(future.getUTCDate()+1);
@@ -60,4 +60,26 @@ test('map assignment reuses editor RPC and preserves contacts, scheduling, notes
   assert.equal(calls.length,1);
   await assert.rejects(assignMapTable({rpc:async()=>({error:{message:'Prenotazione cambiata'}})},booking,'12',[],'12'),/cambiata/);
   await assert.rejects(assignMapTable({rpc:async()=>({data:{booking:{id:999}}})},booking,'12',[],'12'),/non confermato/);
+});
+
+test('UI recommendation minimizes sufficient capacity then physical tables without changing manual choices',()=>{
+  const four=Object.freeze({...booking,party_size:4});
+  const ranked=rankedMapAssignments(four,[]);
+  assert.equal(ranked[0][0],'15+16');
+  assert.ok(ranked.findIndex(([group])=>group==='15+16+17')>ranked.findIndex(([group])=>group==='15+16'));
+  assert.ok(availableMapAssignments(four,[],'15').some(([group])=>group==='15+16+17')); // Still manually allowed.
+  assert.equal(rankedMapAssignments({...booking,party_size:2},[])[0][0],'12'); // One table instead of 13+14.
+  assert.equal(rankedMapAssignments({...booking,party_size:3},[])[0][0],'10+11');
+  assert.equal(rankedMapAssignments({...booking,party_size:6},[])[0][0],'15+16+17');
+  assert.equal(four.tables,'');
+});
+test('recommendations exclude conflicts, insufficient groups and invalid bookings and preserve type separation',()=>{
+  const four={...booking,party_size:4};
+  const busy={...booking,id:43,tables:'15+16',party_size:4};
+  assert.equal(rankedMapAssignments(four,[busy])[0][0],'18+19');
+  assert.ok(!rankedMapAssignments(four,[busy]).some(([group])=>group.includes('15')));
+  assert.equal(rankedMapAssignments(four,[{...busy,booking_type:'dopocena'}])[0][0],'15+16');
+  assert.deepEqual(rankedMapAssignments({...booking,status:'cancelled'},[]),[]);
+  assert.deepEqual(rankedMapAssignments({...booking,party_size:7},[]),[]);
+  assert.deepEqual(rankedMapAssignments({...booking,party_size:6},[busy]),[]);
 });

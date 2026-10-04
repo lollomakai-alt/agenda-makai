@@ -26,9 +26,11 @@ export default function BookingCommunications({ booking }) {
   <summary>Comunicazioni e log</summary>
   <p>Le email si inviano dal pulsante. WhatsApp apre una chat pronta: invia il messaggio manualmente.</p>
   {error&&<p role="alert">{error}</p>}
-  <button className="admin-button" disabled={busy} onClick={()=>action(async()=>{await prepareCommunication(supabase,booking.id,'email');})}>Prepara email</button>{' '}
-  <button className="admin-button admin-button-secondary" disabled={busy||!booking.phone} onClick={()=>action(whatsapp)}>WhatsApp ↗</button>{' '}
+  <div className="booking-communication-actions">
+  <button className="admin-button admin-button-secondary" disabled={busy} onClick={()=>action(async()=>{await prepareCommunication(supabase,booking.id,'email');})}>Prepara email</button>{' '}
+  <button className="admin-button booking-detail-primary" disabled={busy||!booking.phone} onClick={()=>action(whatsapp)}>WhatsApp ↗</button>{' '}
   <button className="admin-button admin-button-secondary" disabled={busy} onClick={()=>setRevision(n=>n+1)}>Aggiorna log</button>
+  </div>
   <ul>{rows.map(row=><li key={row.id}>
    <p>{KINDS[row.kind]} · {row.channel} · {COMMUNICATION_STATUSES[row.status]} · {new Date(row.created_at).toLocaleString('it-IT')}{row.error_code&&` · ${row.error_code}`}</p>
    {row.channel==='email'&&(row.status==='queued'||(row.status==='failed'&&Date.parse(row.created_at)>Date.now()-23*3600000))&&<button className="admin-button" disabled={busy} onClick={()=>action(()=>sendCommunication(supabase,row.id))}>{row.status==='failed'?'Riprova email':'Invia email'}</button>}

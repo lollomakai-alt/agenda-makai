@@ -60,7 +60,8 @@ export default function AdminNotifications() {
   return <section className="admin-notifications" aria-label="Centro notifiche ADMIN">
     <button type="button" className="admin-button admin-button-secondary" aria-expanded={open} aria-controls="admin-notification-panel"
       onClick={() => { setOpen(value => !value); void load(); }}>
-      Notifiche <span className="notification-badge" aria-live="polite">{state.loading || state.error ? '—' : unread}</span>
+      <svg className="notification-bell" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+      <span className="notification-button-label">Notifiche</span> <span className="notification-badge" aria-live="polite">{state.loading || state.error ? '—' : unread}</span>
       <span className="notification-count-label"> non lette</span>
     </button>
     {open && <div id="admin-notification-panel" className="notification-panel">
@@ -75,7 +76,7 @@ export default function AdminNotifications() {
         const href = notificationBookingUrl(entry);
         return <li key={entry.id} className={`notification-item ${entry.read_at ? 'is-read' : 'is-unread'}`}>
           <p><strong>{NOTIFICATION_PRIORITIES[entry.priority] || entry.priority}</strong> · {entry.read_at ? 'Letta' : 'Non letta'}</p>
-          <p>{href ? <a href={href}>{entry.message} · Prenotazione #{entry.booking_id}</a> : entry.message}</p>
+          <p>{href ? <a href={href} onClick={() => setOpen(false)}>{entry.message} · Prenotazione #{entry.booking_id}</a> : entry.message}</p>
           <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</time>
           {!entry.read_at && <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id)}>
             {saving === entry.id ? 'Salvataggio…' : 'Segna come letta'}

@@ -30,7 +30,7 @@ export default function BookingEditor({ booking, appointments, disabled, onSaved
     Modifica prenotazione
   </button>;
 
-  return <form className="booking-admin-form manual-booking-form" noValidate onSubmit={save}>
+  return <form className="booking-admin-form manual-booking-form booking-detail-edit-form" noValidate onSubmit={save}>
     <h4>Modifica prenotazione</h4>
     <fieldset disabled={saving} className="booking-edit-fields">
       <label>Data<input name="booking_date" type="date" required value={values.booking_date} onChange={change} aria-invalid={Boolean(errors.booking_date)} />{errors.booking_date && <small className="field-error">{errors.booking_date}</small>}</label>

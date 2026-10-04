@@ -60,3 +60,10 @@ export async function assignMapTable(client, booking, tables, appointments, tabl
   }
   return saveBookingEdit(client, booking, { ...editableBookingValues(booking), tables }, appointments);
 }
+
+// Solo suggerimento UI: le disponibilità e il salvataggio usano i controlli esistenti.
+export function rankedMapAssignments(booking, appointments) {
+  return Object.entries(TABLE_ASSIGNMENTS)
+    .filter(([group]) => availableMapAssignments(booking, appointments, physicalTableIds(group)[0]).some(([available]) => available === group))
+    .sort((a, b) => a[1] - b[1] || physicalTableIds(a[0]).length - physicalTableIds(b[0]).length);
+}

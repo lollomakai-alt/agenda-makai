@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect } from "react";
 import AdminNotifications from "./components/AdminNotifications";
 import AdminAccess from "./components/AdminAccess";
+import MobileSection from "./components/MobileSection";
 import LogoutButton from "./components/LogoutButton";
 import LoginPage from "./pages/LoginPage";
 import "./styles/admin.css";
@@ -54,20 +55,25 @@ export default function App() {
     page = restricted ? <AdminAccess><AdminNotifications /><Page /></AdminAccess> : <Page />;
   }
 
-  return <div className="admin-shell">
+  return <div className={`admin-shell${restricted ? " admin-shell-private" : ""}`}>
     <header className="admin-header">
       <a href={restricted ? "/prenotazioni" : "/"} className="admin-brand">Makai <span>Agenda</span></a>
-      {restricted && <div className="admin-header-actions">
+      {restricted && <MobileSection title="Menu" className="mobile-header-menu"><div className="admin-header-actions">
         <a href="/lista-attesa">Lista d’attesa</a>
         <a href="/attivita">Attività</a>
         <span className="admin-area-label">Area riservata</span>
         <LogoutButton />
-      </div>}
+      </div></MobileSection>}
     </header>
     <ErrorBoundary>
       <Suspense fallback={<main className="booking-admin"><p aria-live="polite">Caricamento…</p></main>}>
         {page}
       </Suspense>
     </ErrorBoundary>
+    {restricted && <nav className="admin-mobile-nav" aria-label="Navigazione Agenda">
+      <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
+      <a href="/lista-attesa" aria-current={path === "/lista-attesa" ? "page" : undefined}>Lista d’attesa</a>
+      <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
+    </nav>}
   </div>;
 }

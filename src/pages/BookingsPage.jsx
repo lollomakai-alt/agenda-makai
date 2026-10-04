@@ -1,7 +1,9 @@
+import useMobileLayout from "../hooks/useMobileLayout";
+import MobileSection from "../components/MobileSection";
 import { adminFetch } from "../lib/adminFetch";
 import { useAppointments } from "../hooks/useAppointments";
 import { validateBooking } from "../utils/bookingValidation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { dayLabel, isDay, todayInRome } from "../utils/calendar";
 import {
@@ -30,6 +32,7 @@ function consentDate(value) {
 }
 
 export default function BookingsPage() {
+  const mobile = useMobileLayout();
   const requested = new URLSearchParams(window.location.search).get("date");
   const date = isDay(requested) ? requested : todayInRome();
   const { appointments, loading, error: appointmentsError, refresh: refreshAppointments, applyUpdate } = useAppointments('all');
@@ -51,7 +54,10 @@ export default function BookingsPage() {
   const [editingId, setEditingId] = useState(null);
   const [editFeedback, setEditFeedback] = useState(null);
   const [requestRevision, setRequestRevision] = useState(0);
+  const [assignmentBookingId, setAssignmentBookingId] = useState(null);
+  const [showAssigned, setShowAssigned] = useState(() => /^#booking-[1-9]\d*$/.test(window.location.hash));
   const [now, setNow] = useState(Date.now);
+  const focusedBooking = useRef(null);
 
   useEffect(() => {
     let timer;
@@ -74,12 +80,18 @@ export default function BookingsPage() {
     function focusBooking() {
       if (!/^#booking-[1-9]\d*$/.test(window.location.hash)) return;
       const row = document.getElementById(window.location.hash.slice(1));
-      if (row) { row.scrollIntoView({ block: 'center' }); row.focus({ preventScroll: true }); }
+      if (!row) { setShowAssigned(true); return; }
+      if (focusedBooking.current === row) return;
+      focusedBooking.current = row;
+      const details = row.querySelector('.booking-card-disclosure');
+      if (details) details.open = true;
+      row.scrollIntoView({ block: 'center' });
+      row.focus({ preventScroll: true });
     }
     focusBooking();
     window.addEventListener('hashchange', focusBooking);
     return () => window.removeEventListener('hashchange', focusBooking);
-  }, [loading, date]);
+  }, [loading, date, showAssigned, assignmentBookingId, appointments]);
 
   const [onlineClosed, setOnlineClosed] = useState(null);
   const [closureSaving, setClosureSaving] = useState(false);
@@ -262,24 +274,36 @@ export default function BookingsPage() {
   const covers = bookings?.filter((booking) => bookingStatus(booking.status) === "confirmed")
     .reduce((sum, booking) => sum + booking.party_size, 0);
 
-  const timeGroups = Object.entries((bookings || []).reduce((groups, booking) => {
+  const assignmentBooking = bookings?.find(booking => String(booking.id) === String(assignmentBookingId));
+  const visibleBookings = (bookings || []).filter(booking => showAssigned || (!booking.tables?.trim() && ['confirmed', 'arrived'].includes(bookingStatus(booking.status))));
+  const timeGroups = Object.entries(visibleBookings.reduce((groups, booking) => {
     const time = booking.booking_time.slice(0, 5);
     (groups[time] ||= []).push(booking);
     return groups;
   }, {})).sort(([first], [second]) => first.localeCompare(second));
 
+  if (assignmentBooking) return <main className="booking-admin table-assignment-view">
+    <button className="admin-button assignment-back" type="button" onClick={() => setAssignmentBookingId(null)}>← Torna all’elenco prenotazioni</button>
+    <TableMap key={`${date}-${assignmentBooking.id}`} appointments={bookings} date={date} assignmentBooking={assignmentBooking}
+      disabled={statusSavingId !== null || editingId !== null}
+      onSaved={result => { applyUpdate(result.booking); setRequestRevision(value => value + 1); window.dispatchEvent(new Event('admin-notifications-changed')); }} />
+  </main>;
+
   return (
-    <main className="booking-admin">
-      <BookingRequests appointments={appointments} disabled={loading || Boolean(appointmentsError) || editingId !== null || statusSavingId !== null}
-        onChanged={() => { refreshAppointments(); setRequestRevision(value => value + 1); }} />
+    <main className="booking-admin bookings-day-page">
       <a href={`/prenotazioni?month=${date.slice(0, 7)}`}>← Torna al mese</a>
       <div className="agenda-heading">
         <div><p className="agenda-eyebrow">Agenda del giorno</p><h1>{dayLabel(date)}</h1></div>
-        <button className="admin-button" type="button" aria-expanded={showCreate}
+        <button className="admin-button mobile-primary-action" type="button" aria-expanded={showCreate}
           aria-controls="manual-booking-form" onClick={() => setShowCreate((value) => !value)}>
           {showCreate ? "Chiudi" : "+ Nuova prenotazione"}
         </button>
       </div>
+      <MobileSection title="Richieste clienti">
+      <BookingRequests appointments={appointments} disabled={loading || Boolean(appointmentsError) || editingId !== null || statusSavingId !== null}
+        onChanged={() => { refreshAppointments(); setRequestRevision(value => value + 1); }} />
+      </MobileSection>
+      <MobileSection title="Prenotazioni online">
       <div className="online-booking-control">
         <div aria-live="polite">
           <strong>{onlineClosed === null ? "Stato prenotazioni online da verificare" : onlineClosed ? "Prenotazioni online chiuse" : "Prenotazioni online aperte"}</strong>
@@ -291,6 +315,7 @@ export default function BookingsPage() {
         </button>
         {closureError && <p role="alert">{closureError}</p>}
       </div>
+      </MobileSection>
       {showCreate && <form id="manual-booking-form" className="booking-admin-form manual-booking-form" noValidate onSubmit={createBooking}>
         <div className="manual-booking-heading">
           <h2>Inserisci prenotazione telefonica</h2>
@@ -328,9 +353,12 @@ export default function BookingsPage() {
         {bookings?.length === 0 && <p>Nessuna prenotazione per questa data.</p>}
         {bookings && bookings.length > 0 && <p>{bookings.length} prenotazioni trovate.</p>}
       </div>
-      {bookings && <TableMap key={date} appointments={bookings} date={date}
-        disabled={statusSavingId !== null || editingId !== null}
-        onSaved={result => { applyUpdate(result.booking); setRequestRevision(value => value + 1); window.dispatchEvent(new Event('admin-notifications-changed')); }} />}
+      <div className="assignment-list-controls">
+        <h2>Prenotazioni da assegnare</h2>
+        <label><input type="checkbox" checked={showAssigned} onChange={event => setShowAssigned(event.target.checked)} /> Mostra tutte le prenotazioni</label>
+        {!loading && !error && !visibleBookings.length && <p>Nessuna prenotazione senza tavolo.</p>}
+        <p>Apri una prenotazione per vedere i dettagli e assegnare i tavoli.</p>
+      </div>
       <div className="booking-time-groups">
         {timeGroups.map(([time, group]) => (
           <section key={time} className="booking-time-group" aria-labelledby={`time-${time}`}>
@@ -346,18 +374,32 @@ export default function BookingsPage() {
                 const previousNoShows = previousCustomerNoShowCount(booking, appointments, now);
                 return (
                   <article id={`booking-${booking.id}`} tabIndex={-1} key={booking.id} className={`booking-row${["cancelled", "no_show"].includes(bookingStatus(booking.status)) ? " is-cancelled" : ""}`}>
-                    <div className="booking-row-main">
-                      <span className="booking-row-covers"><span aria-hidden="true">👥</span><span className="admin-sr-only">Coperti: </span><strong>{booking.party_size}</strong></span>
-                      <h3 className="booking-row-name"><span aria-hidden="true">👤</span><span className="admin-sr-only">Nome: </span>{booking.name}</h3>
-                      <span className="booking-row-phone"><span aria-hidden="true">📞</span><span className="admin-sr-only">Telefono: </span>{booking.phone || "Non presente"}</span>
-                      <span className={`booking-status status-${bookingStatus(booking.status).toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
-                      <span className={`booking-type booking-type-${bookingType(booking.booking_type)}`}>{bookingTypeLabel(booking.booking_type)}</span>
-                    </div>
-                    {previousNoShows > 0 && <p className="booking-customer-warning" role="status">
-                      Cliente con <strong>{previousNoShows}</strong> {previousNoShows === 1 ? 'precedente' : 'precedenti'} NO_SHOW
-                    </p>}
-                    {delayNotification && <p className="booking-delay-notification" role="status">{delayNotification.message}</p>}
-                    <CustomerCard booking={booking} appointments={appointments} now={now} />
+                    <details className="booking-card-disclosure" name={mobile ? "mobile-agenda-area" : undefined}>
+                      <summary className="booking-card-summary" aria-label={`Dettagli prenotazione di ${booking.name}`}>
+                        <time className="booking-card-time">{booking.booking_time?.slice(0,5)}</time>
+                        <strong className="booking-card-name">{booking.name}</strong>
+                        <span className="booking-card-covers">{booking.party_size} persone</span>
+                        <span className={`booking-status status-${bookingStatus(booking.status).toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
+                        <span className="booking-card-tables">Tavolo: {booking.tables || 'Da assegnare'}</span>
+                      </summary>
+                      <div className="booking-card-content">
+                        <dl className="booking-detail-meta">
+                          <div><dt>Telefono</dt><dd>{booking.phone || 'Non presente'}</dd></div>
+                          <div><dt>Tipo</dt><dd>{bookingTypeLabel(booking.booking_type)}</dd></div>
+                        </dl>
+                        <section className="booking-detail-management" aria-label="Gestione prenotazione">
+                          <h3>Gestione prenotazione</h3>
+                          <div className="booking-management-actions">
+                        <button type="button" className="admin-button booking-detail-primary" disabled={statusSavingId !== null || editingId !== null}
+                          onClick={() => setAssignmentBookingId(booking.id)} aria-label={`Apri mappa tavoli per ${booking.name}`}>Apri mappa tavoli</button>
+                      <BookingEditor booking={booking} appointments={appointments} disabled={statusSavingId !== null || (editingId !== null && editingId !== booking.id)}
+                        onEditing={open => setEditingId(open ? booking.id : null)}
+                        onSaved={result => {
+                          setEditingId(null);
+                          applyUpdate(result.booking);
+                          setEditFeedback({ date: result.booking.booking_date });
+                        }} />
+                          </div>
                     <div className="booking-status-editor">
                       <label htmlFor={`status-${booking.id}`}>Cambia stato</label>
                       <select id={`status-${booking.id}`} value={bookingStatus(booking.status)}
@@ -371,11 +413,17 @@ export default function BookingsPage() {
                       {statusSavingId === booking.id && <span role="status">Salvataggio…</span>}
                       {statusError?.bookingId === booking.id && <p className="manual-booking-feedback is-error" role="alert">{statusError.message}</p>}
                     </div>
+                        </section>
+                    {previousNoShows > 0 && <p className="booking-customer-warning" role="status">
+                      Cliente con <strong>{previousNoShows}</strong> {previousNoShows === 1 ? 'precedente' : 'precedenti'} NO_SHOW
+                    </p>}
+                    {delayNotification && <p className="booking-delay-notification" role="status">{delayNotification.message}</p>}
                     <BookingCommunications booking={booking} />
+                    <CustomerCard booking={booking} appointments={appointments} now={now} />
                     <details className="booking-row-details">
                       <summary>Dettagli{booking.notes ? " · note" : ""}{confirmed ? " e messaggio" : ""}{booking.marketing_consent_active ? " · marketing attivo" : ""}</summary>
                       {bookingStatus(booking.status) === "confirmed" && !booking.tables?.trim() ? (
-                        <p role="status" style={{ color: "#ffd166", fontWeight: 800 }}>TAVOLO DA ASSEGNARE</p>
+                        <p role="status" className="booking-table-warning">TAVOLO DA ASSEGNARE</p>
                       ) : <p>Tavoli: {booking.tables || "Non assegnati"}</p>}
                       {booking.notes && <p>Note: {booking.notes}</p>}
                       {callUrl ? <a className="admin-button admin-button-secondary" href={callUrl}
@@ -383,24 +431,18 @@ export default function BookingsPage() {
                         <button className="admin-button admin-button-secondary" type="button" disabled
                           title="Numero di telefono mancante o non valido">Chiama cliente</button>}
 
-                      <button className="admin-button admin-button-secondary" type="button"
+                      <button className="admin-button admin-button-secondary booking-action-danger" type="button"
                         disabled={statusSavingId !== null || editingId !== null || bookingStatus(booking.status) === 'cancelled'}
                         onClick={() => changeStatus(booking, 'cancelled')}>
                         Cancella prenotazione
                       </button>
-                      <button className="admin-button admin-button-secondary" type="button"
+                      <button className="admin-button admin-button-secondary booking-action-caution" type="button"
                         disabled={statusSavingId !== null || editingId !== null || !noShow.allowed}
                         title={noShow.message}
                         onClick={() => changeStatus(booking, 'no_show')}>
                         Segna come No-show
                       </button>
-                      <BookingEditor booking={booking} appointments={appointments} disabled={statusSavingId !== null || (editingId !== null && editingId !== booking.id)}
-                        onEditing={open => setEditingId(open ? booking.id : null)}
-                        onSaved={result => {
-                          setEditingId(null);
-                          applyUpdate(result.booking);
-                          setEditFeedback({ date: result.booking.booking_date });
-                        }} />
+
                       {booking.arrived_at && <p>Arrivo registrato: {consentDate(booking.arrived_at)}.
                         {booking.marketing_consent_active
                           ? ` Visite registrate con consenso: ${booking.marketing_visit_count}.`
@@ -442,6 +484,8 @@ export default function BookingsPage() {
                     </details>
                     <BookingHistory bookingId={booking.id}
                       revision={JSON.stringify([requestRevision, booking.status, booking.booking_date, booking.booking_time, booking.party_size, booking.tables, booking.notes])} />
+                      </div>
+                    </details>
                   </article>
                 );
               })}
