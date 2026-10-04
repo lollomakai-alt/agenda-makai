@@ -53,7 +53,7 @@ test('assignment options honor capacity, physical conflicts, configuration, acti
 test('map assignment reuses editor RPC and preserves contacts, scheduling, notes and optimistic concurrency',async()=>{
   const calls=[];const client={rpc:async(name,args)=>{calls.push([name,args]);return {data:{booking:{...booking,...args.changes}}};}};
   await assignMapTable(client,booking,'10+11',[],'11');
-  assert.equal(calls[0][0],'admin_update_booking');
+  assert.equal(calls[0][0],'admin_assign_booking_tables');
   assert.deepEqual(calls[0][1].changes,{tables:'10+11'});
   assert.deepEqual(calls[0][1].expected,{booking_date:booking.booking_date,booking_time:'20:00',party_size:2,tables:'',notes:'Seggiolone'});
   await assert.rejects(assignMapTable(client,booking,'12',[{...booking,id:43,tables:'12'}],'12'),/non disponibile/);
@@ -61,6 +61,7 @@ test('map assignment reuses editor RPC and preserves contacts, scheduling, notes
   await assert.rejects(assignMapTable({rpc:async()=>({error:{message:'Prenotazione cambiata'}})},booking,'12',[],'12'),/cambiata/);
   await assert.rejects(assignMapTable({rpc:async()=>({data:{booking:{id:999}}})},booking,'12',[],'12'),/non confermato/);
 });
+
 
 test('UI recommendation minimizes sufficient capacity then physical tables without changing manual choices',()=>{
   const four=Object.freeze({...booking,party_size:4});
@@ -82,4 +83,26 @@ test('recommendations exclude conflicts, insufficient groups and invalid booking
   assert.deepEqual(rankedMapAssignments({...booking,status:'cancelled'},[]),[]);
   assert.deepEqual(rankedMapAssignments({...booking,party_size:7},[]),[]);
   assert.deepEqual(rankedMapAssignments({...booking,party_size:6},[busy]),[]);
+});
+
+test('manual assignment permits overcapacity with warning, recommendation remains strict and physical conflicts block',async()=>{
+ const five={...booking,party_size:5};
+ assert.ok(availableMapAssignments(five,[],'15',{manualTables:true}).some(([g])=>g==='15+16'));
+ assert.ok(!rankedMapAssignments(five,[]).some(([g])=>g==='15+16'));
+ const calls=[];const client={rpc:async(name,args)=>{calls.push([name,args]);return {data:{booking:{...five,tables:args.changes.tables}}};}};
+ await assignMapTable(client,five,'15+16',[],'15');
+ assert.equal(calls[0][0],'admin_assign_booking_tables');assert.deepEqual(calls[0][1].changes,{tables:'15+16'});
+ await assert.rejects(assignMapTable(client,five,'15+16',[{...booking,id:43,tables:'15+16',status:'arrived'}],'15'),/non disponibile/);
+ const {tableCapacityWarning}=await import('../src/utils/tableConflicts.js');
+ assert.match(tableCapacityWarning('15+16',5),/Sovracapienza/);assert.equal(tableCapacityWarning('15+16',4),'');
+});
+
+
+test('a manual choice and recommendation preserve the sole six-person group needed by an online booking', () => {
+ const online={id:301,name:'Pending Online',booking_date:'2026-10-15',booking_time:'20:00',party_size:6,tables:'',status:'confirmed',source:'booking',booking_type:'normale'};
+ const small={...online,id:302,name:'Staff Choice',party_size:2,source:'agenda'};
+ const entries=[online,small];
+ assert.ok(!availableMapAssignments(small,entries,'15',{manualTables:true}).some(([group])=>group==='15+16+17' || group==='15+16'));
+ assert.ok(availableMapAssignments(small,entries,'12',{manualTables:true}).some(([group])=>group==='12'));
+ assert.ok(!rankedMapAssignments(small,entries).some(([group])=>group==='15+16'));
 });

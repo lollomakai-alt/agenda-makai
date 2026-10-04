@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { availableMapAssignments, rankedMapAssignments, assignMapTable, tableGroupsForPhysicalTable, tableMapForDate, tableRooms, TABLE_MAP_STATUSES, unverifiedTableBookings } from '../utils/tableMap';
 import { bookingType, bookingTypeLabel } from '../utils/bookingType';
 import { bookingStatus, bookingStatusLabel } from '../utils/bookingStatus';
-import { physicalTableIds } from '../utils/tableConflicts';
+import { tableCapacityWarning, physicalTableIds } from '../utils/tableConflicts';
 import { notificationBookingUrl } from '../utils/adminNotifications';
 
 export default function TableMap({ appointments, date, disabled = false, onSaved, assignmentBooking }) {
@@ -20,7 +20,7 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
   const table = map.find(item => item.id === selected);
   const candidates = appointments.filter(booking => booking.booking_date === date && ['confirmed','arrived'].includes(bookingStatus(booking.status)) && (type === 'all' || bookingType(booking.booking_type) === type));
   const booking = candidates.find(item => String(item.id) === bookingId);
-  const available = availableMapAssignments(booking, appointments, selected);
+  const available = availableMapAssignments(booking, appointments, selected, { manualTables: true });
   const suggestions = rankedMapAssignments(booking, appointments);
   const recommended = suggestions[0]?.[0];
   const recommendedTables = physicalTableIds(recommended || '');
@@ -93,6 +93,7 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
           <label>Nuova assegnazione<select value={assignment} onChange={event => setAssignment(event.target.value)}>
             <option value="">Seleziona combinazione</option>{available.map(([group,capacity]) => <option key={group} value={group}>{group} · {capacity} posti{group === recommended ? ' · Consigliata' : ''}</option>)}
           </select></label>
+          {booking && tableCapacityWarning(assignment, booking.party_size) && <p role="status">{tableCapacityWarning(assignment, booking.party_size)}</p>}
           {booking && <p>Assegnazione attuale: {booking.tables || 'Da assegnare'}. La combinazione scelta sostituisce l’intera assegnazione tavoli.</p>}
           {booking && !available.length && <p>Nessuna nuova assegnazione valida per questo tavolo. Controlla data, configurazione e conflitti.</p>}
           <button className="admin-button" type="submit" disabled={!available.some(([group]) => group === assignment)}>Salva assegnazione</button>

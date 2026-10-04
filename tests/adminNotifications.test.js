@@ -35,3 +35,7 @@ test('mark read uses only notification RPC; unconfirmed writes and failures neve
   for (const data of [{id:'other',read_at:'2026-10-04T10:00:00Z'},{id:'request:9',read_at:null},{id:'request:9',read_at:'bad'}]) await assert.rejects(markNotificationRead({rpc:async()=>({data})},'request:9'),/non confermata/);
   await assert.rejects(markNotificationRead({rpc:async()=>({error:{message:'Non accessibile'}})},'request:9'),/accessibile/);
 });
+
+test('online notification opens map with exact selected booking', () => {
+ assert.equal(notificationBookingUrl({kind:'online_booking',booking_id:42,booking_date:'2026-10-04'}),'/prenotazioni/giorno?date=2026-10-04&assign=42#booking-42');
+});

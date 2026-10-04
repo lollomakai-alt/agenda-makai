@@ -14,7 +14,7 @@ export function editableBookingValues(booking) {
   };
 }
 
-export function validateBookingEdit(values, original) {
+export function validateBookingEdit(values, original, { manualTables = false } = {}) {
   const errors = {};
   const partySize = Number(values.party_size);
   const tables = String(values.tables || '').trim();
@@ -56,14 +56,14 @@ export function validateBookingEdit(values, original) {
   const changes = Object.fromEntries(EDITABLE_BOOKING_FIELDS.filter(key =>
     key === 'party_size' ? normalized[key] !== Number(previous[key]) : normalized[key] !== previous[key]
   ).map(key => [key, normalized[key]]));
-  if (!errors.tables && changesAvailability) errors.tables = tableAssignmentError(tables, partySize);
+  if (!errors.tables && changesAvailability) errors.tables = tableAssignmentError(tables, partySize, { allowOverCapacity: manualTables && Object.keys(changes).every(key => key === 'tables') });
   if (!errors.tables) delete errors.tables;
   if (!Object.keys(errors).length && !Object.keys(changes).length) errors.form = 'Non hai modificato nessun campo.';
   return { errors, changes };
 }
 
-export async function saveBookingEdit(client, original, values, appointments = []) {
-  const { errors, changes } = validateBookingEdit(values, original);
+export async function saveBookingEdit(client, original, values, appointments = [], { manualTables = false } = {}) {
+  const { errors, changes } = validateBookingEdit(values, original, { manualTables });
   if (Object.keys(errors).length) throw new Error(errors.form || 'Controlla i campi della prenotazione.');
   if (['booking_date', 'booking_time', 'party_size', 'tables'].some(key => Object.hasOwn(changes, key))) {
     const candidate = { ...original, ...changes };
@@ -73,11 +73,11 @@ export async function saveBookingEdit(client, original, values, appointments = [
     if (configurationError) throw new Error(`${configurationError} Modifica non salvata.`);
   }
   const expected = Object.fromEntries(EDITABLE_BOOKING_FIELDS.map(key => [key, original[key] ?? null]));
-  const { data, error } = await client.rpc('admin_update_booking', {
+  const { data, error } = await client.rpc(manualTables && Object.keys(changes).every(key => key === 'tables') ? 'admin_assign_booking_tables' : 'admin_update_booking', {
     booking_id: original.id, changes, expected,
   });
   if (error) {
-    if (error.code === 'PGRST202') throw new Error('Modifica prenotazione non ancora configurata: applicare supabase/booking-edit.sql.');
+    if (error.code === 'PGRST202') throw new Error('Modifica prenotazione non ancora configurata: applicare supabase/booking-edit.sql e supabase/manual-table-assignment.sql.');
     throw new Error(error.message || 'Modifica non salvata.');
   }
   if (!data?.booking || String(data.booking.id) !== String(original.id)) {

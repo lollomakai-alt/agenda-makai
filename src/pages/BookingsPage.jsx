@@ -54,7 +54,10 @@ export default function BookingsPage() {
   const [editingId, setEditingId] = useState(null);
   const [editFeedback, setEditFeedback] = useState(null);
   const [requestRevision, setRequestRevision] = useState(0);
-  const [assignmentBookingId, setAssignmentBookingId] = useState(null);
+  const [assignmentBookingId, setAssignmentBookingId] = useState(() => {
+    const id = new URLSearchParams(window.location.search).get('assign');
+    return /^[1-9]\d*$/.test(id || '') ? id : null;
+  });
   const [showAssigned, setShowAssigned] = useState(() => /^#booking-[1-9]\d*$/.test(window.location.hash));
   const [now, setNow] = useState(Date.now);
   const focusedBooking = useRef(null);

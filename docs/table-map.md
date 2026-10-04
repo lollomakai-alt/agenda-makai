@@ -25,3 +25,9 @@ trigger Supabase e storico esistenti. Anche con snapshot client obsoleto, un
 conflitto database annulla assegnazione e storico. Stati terminali non assegnabili.
 Nessun nuovo SQL o modifica alle policy. Richiede gli SQL editor/storico/conflitti
 con configurazioni attuali già presenti. Nessun nuovo algoritmo di disponibilità.
+
+## Sovracapienza manuale
+
+La mappa e l’editor, quando cambia soltanto il campo tavoli, consentono allo staff di assegnare 5 persone a `15+16` (4 posti consigliati), mostrando un avviso. Suggerimenti e disponibilità automatica rimangono vincolati alla capienza. Gruppi configurati, configurazioni 15–19 e conflitti fisici restano obbligatori.
+
+Applicare `supabase/manual-table-assignment.sql` dopo booking-edit.sql e after-dinner-bookings.sql: aggiunge `admin_assign_booking_tables`, riservata ADMIN, senza modificare `admin_update_booking` o i trigger esistenti. La RPC accetta esclusivamente tavoli, conserva controllo concorrenza e storico atomico. Nessuna modifica alla capienza configurata o alla UI mobile.

@@ -26,6 +26,9 @@ export default function AdminNotifications() {
     active.current = true;
     void load();
     const timer = window.setInterval(load, 30000);
+    const channel = supabase.channel(`online-notifications-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, load)
+      .subscribe(status => { if (status === 'SUBSCRIBED') void load(); });
     function visible() { if (document.visibilityState === 'visible') void load(); }
     document.addEventListener('visibilitychange', visible);
     window.addEventListener('admin-notifications-changed', load);
@@ -36,7 +39,7 @@ export default function AdminNotifications() {
     });
     return () => {
       active.current = false; generation.current++;
-      window.clearInterval(timer); data.subscription.unsubscribe();
+      window.clearInterval(timer); data.subscription.unsubscribe(); void supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', visible);
       window.removeEventListener('admin-notifications-changed', load);
     };

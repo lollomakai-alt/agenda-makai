@@ -36,6 +36,12 @@ test('giornata renders confirmed bookings without phone/email and with phone, wi
   const linkedHtml=renderToString(React.createElement(Page));
   assert.match(linkedHtml,/id="booking-2"/);
   assert.match(linkedHtml,/type="checkbox" checked=""/);
+  globalThis.window.location.search='?date=2026-10-04&assign=1';
+  const mapHtml=renderToString(React.createElement(Page));
+  assert.match(mapHtml,/Mappa tavoli/);assert.match(mapHtml,/assignment-selected-booking/);
+  assert.match(mapHtml,/Senza Contatti/);assert.match(mapHtml,/combinazione consigliata/);
+  assert.match(mapHtml,/Seleziona consigliata/);assert.doesNotMatch(mapHtml,/<article id=/);
+  globalThis.window.location.search='?date=2026-10-04';
   globalThis.window.location.hash='';
   globalThis.__agendaMobileFixture=true;
   const mobileHtml=renderToString(React.createElement(Page));

@@ -1,3 +1,4 @@
+import { tableCapacityWarning } from '../utils/tableConflicts';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { editableBookingValues, saveBookingEdit, validateBookingEdit } from '../utils/bookingEdit';
@@ -13,13 +14,13 @@ export default function BookingEditor({ booking, appointments, disabled, onSaved
   async function save(event) {
     event.preventDefault();
     if (saving) return;
-    const validation = validateBookingEdit(values, original);
+    const validation = validateBookingEdit(values, original, { manualTables: true });
     setErrors(validation.errors);
     setError('');
     if (Object.keys(validation.errors).length) return;
     setSaving(true);
     try {
-      const result = await saveBookingEdit(supabase, original, values, appointments);
+      const result = await saveBookingEdit(supabase, original, values, appointments, { manualTables: true });
       onSaved(result);
       close();
     } catch (failure) { setError(failure.message || 'Modifica non salvata.'); }
@@ -39,6 +40,7 @@ export default function BookingEditor({ booking, appointments, disabled, onSaved
       <label>Tavolo/tavoli<input name="tables" value={values.tables} maxLength="200" placeholder="Es. 10+11,12" onChange={change} aria-invalid={Boolean(errors.tables)} />{errors.tables && <small className="field-error">{errors.tables}</small>}</label>
       <label>Note<textarea name="notes" value={values.notes} maxLength="300" rows="3" onChange={change} aria-invalid={Boolean(errors.notes)} />{errors.notes && <small className="field-error">{errors.notes}</small>}</label>
     </fieldset>
+    {tableCapacityWarning(values.tables, values.party_size) && <p role="status">{tableCapacityWarning(values.tables, values.party_size)}</p>}
     <button className="admin-button" type="submit" disabled={saving}>{saving ? 'Salvataggio…' : 'Salva modifiche'}</button>
     <button className="admin-button admin-button-secondary" type="button" disabled={saving} onClick={close}>Annulla</button>
     {errors.form && <p className="manual-booking-feedback is-error" role="alert">{errors.form}</p>}

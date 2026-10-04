@@ -50,6 +50,12 @@ begin
     from public.booking_requests r join public.bookings b on b.id = r.booking_id
     where r.status = 'pending'
     union all
+    select 'online:' || b.id::text, b.id, b.booking_date, 'online_booking', 'normal',
+      'Nuova prenotazione online · Tavolo da assegnare', b.created_at
+    from public.bookings b
+    where b.source='booking' and b.status='confirmed' and coalesce(btrim(b.tables),'')=''
+      and b.booking_date >= to_char((now() at time zone 'Europe/Rome')::date,'YYYY-MM-DD')
+    union all
     select 'delay:' || s.id::text || ':' || to_char(s.scheduled_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS'),
       s.id, s.booking_date, 'delay',
       case when now() >= s.scheduled_at + interval '30 minutes' then 'high' else 'normal' end,

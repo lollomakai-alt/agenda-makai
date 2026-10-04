@@ -12,7 +12,7 @@ test('SQL notification feed: thresholds, priority, personal persisted reads, RLS
       create function auth.jwt() returns jsonb language sql as $$ select current_setting('request.jwt.claims',true)::jsonb $$;
       create function auth.uid() returns uuid language sql as $$ select (auth.jwt()->>'sub')::uuid $$;
       grant usage on schema auth to authenticated;
-      create table bookings(id bigint primary key,booking_date text,booking_time text,status text);
+      create table bookings(id bigint primary key,booking_date text,booking_time text,status text,source text default 'agenda',tables text default '',created_at timestamptz default now());
       create table booking_requests(id bigint primary key,booking_id bigint references bookings(id),request_type text,status text,created_at timestamptz default now());
       alter table bookings enable row level security;
       alter table booking_requests enable row level security;
@@ -25,11 +25,11 @@ test('SQL notification feed: thresholds, priority, personal persisted reads, RLS
     await db.exec(sql);
     await db.exec(sql); // Safe reapplication.
     await db.exec(`begin;
-      insert into bookings select id, to_char((now() at time zone 'Europe/Rome') - late,'YYYY-MM-DD'),to_char((now() at time zone 'Europe/Rome')-late,'HH24:MI:SS'),status
+      insert into bookings(id,booking_date,booking_time,status) select id, to_char((now() at time zone 'Europe/Rome') - late,'YYYY-MM-DD'),to_char((now() at time zone 'Europe/Rome')-late,'HH24:MI:SS'),status
       from (values (1,interval '14 minutes 59 seconds','confirmed'),(2,interval '15 minutes','confirmed'),(3,interval '30 minutes','confirmed'),
         (4,interval '30 minutes','arrived'),(5,interval '30 minutes','cancelled'),(6,interval '30 minutes','completed'),(7,interval '30 minutes','no_show'),
         (8,interval '25 hours','confirmed'),(9,interval '-1 hour','confirmed'),(10,interval '20 minutes','CONFIRMED')) as x(id,late,status);
-      insert into bookings values(11,'2026-02-30','20:00','confirmed');
+      insert into bookings(id,booking_date,booking_time,status) values(11,'2026-02-30','20:00','confirmed');
       insert into booking_requests(id,booking_id,request_type,status) values(1,1,'note','pending'),(2,1,'cancellazione','pending'),(3,1,'data','approved'),(4,1,'ora','rejected');
       set local role authenticated;
     `);
@@ -80,6 +80,16 @@ test('SQL notification feed: thresholds, priority, personal persisted reads, RLS
     await reject(feed,/permission denied/);
     await reject(() => mark('request:2'),/permission denied/);
     await reject(() => db.query('select * from admin_notification_reads'),/permission denied/);
+    await db.exec(`reset role;
+      set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","app_metadata":{"role":"admin"}}';
+      insert into bookings(id,booking_date,booking_time,status,source,tables)
+        values(12,to_char((now() at time zone 'Europe/Rome')::date+1,'YYYY-MM-DD'),'20:00','confirmed','booking','');
+      set local role authenticated;`);
+    assert.equal((await feed()).find(x=>x.id==='online:12').kind,'online_booking');
+    await mark('online:12');
+    assert.ok((await feed()).find(x=>x.id==='online:12').read_at);
+    await db.exec(`reset role;update bookings set tables='12' where id=12;set local role authenticated;`);
+    assert.ok(!(await feed()).some(x=>x.id==='online:12'));
     await db.exec('rollback');
   } finally { await db.close(); }
 });

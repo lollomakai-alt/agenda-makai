@@ -4,7 +4,8 @@ export const NOTIFICATION_PRIORITIES = Object.freeze({ high: 'Alta', normal: 'No
 
 export function notificationBookingUrl(notification) {
   if (!/^[1-9]\d*$/.test(String(notification.booking_id)) || !isDay(notification.booking_date)) return null;
-  return `/prenotazioni/giorno?date=${notification.booking_date}#booking-${notification.booking_id}`;
+  const map = notification.kind === 'online_booking' ? `&assign=${notification.booking_id}` : '';
+  return `/prenotazioni/giorno?date=${notification.booking_date}${map}#booking-${notification.booking_id}`;
 }
 
 export function unreadNotificationCount(notifications) {
