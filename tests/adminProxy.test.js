@@ -102,3 +102,23 @@ test('communication route allowlist rejects invalid ids, paths and methods', () 
     assert.equal(res.code,404);
   }
 }));
+
+
+test('rewritten nested communication routes retain allowlist, auth and original query', () => isolated(async () => {
+  let calls=0;
+  globalThis.fetch=async (url,options)=>{
+    calls++;
+    if(url.hostname==='auth.invalid') return Response.json({id:'admin',app_metadata:{role:'admin'}});
+    assert.equal(url.pathname,'/api/admin/bookings/42/communications');
+    assert.equal(url.search,'?limit=5');
+    assert.equal(options.headers['x-agenda-backend-key'],secret);
+    return Response.json({communications:[]});
+  };
+  const res=response();await handler(request({url:'/api/agenda-gateway?__agenda_route=bookings/42/communications&limit=5'}),res);
+  assert.equal(res.code,200);assert.equal(calls,2);
+  for(const route of ['unknown','bookings/0/communications','../bookings','bookings/42/communications?x=1']){
+    const res=response();await handler(request({url:'/api/agenda-gateway',query:{__agenda_route:route}}),res);assert.equal(res.code,404);
+  }
+  const denied=response();await handler(request({url:'/api/agenda-gateway',query:{__agenda_route:'bookings/42/communications'},headers:{}}),denied);
+  assert.equal(denied.code,401);
+}));

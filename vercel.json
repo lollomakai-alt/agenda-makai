@@ -4,9 +4,25 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/reimposta-password", "destination": "/index.html" },
-    { "source": "/attivita", "destination": "/index.html" },
-    { "source": "/prenotazioni", "destination": "/index.html" },
-    { "source": "/prenotazioni/giorno", "destination": "/index.html" }
+    {
+      "source": "/api/admin/:path*",
+      "destination": "/api/agenda-gateway?__agenda_route=:path*"
+    },
+    {
+      "source": "/reimposta-password",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/attivita",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/prenotazioni",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/prenotazioni/giorno",
+      "destination": "/index.html"
+    }
   ]
 }
