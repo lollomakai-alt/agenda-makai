@@ -16,6 +16,14 @@ export function bookingStatusLabel(value) {
   return BOOKING_STATUSES[status] || `Stato non riconosciuto: ${value}`;
 }
 
+// Solo transizioni supportate dal contratto di stato esistente.
+export function bookingStatusAction(value) {
+  const status = bookingStatus(value);
+  if (status === 'confirmed') return { label: 'Arrivato', status: 'arrived' };
+  if (status === 'arrived') return { label: 'Libera tavolo', status: 'completed' };
+  return null;
+}
+
 export async function saveBookingStatus(client, id, status) {
   if (!Object.hasOwn(BOOKING_STATUSES, status)) throw new Error('Stato non valido.');
   const { data, error } = await client.rpc('admin_set_booking_status_with_history', {

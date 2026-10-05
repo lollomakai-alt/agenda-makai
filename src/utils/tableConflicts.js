@@ -1,6 +1,6 @@
 import { TABLE_ASSIGNMENTS, TABLE_15_19_CONFIGURATIONS } from '../config/tableAssignments.js';
 import { bookingStatus } from './bookingStatus.js';
-import { bookingType } from './bookingType.js';
+import { bookingInterval, bookingsOverlap } from './bookingTime.js';
 
 export function assignedTableIds(value) {
   return String(value || '').split(',').map(id => id.trim()).filter(Boolean);
@@ -29,16 +29,25 @@ function isAvailabilityBlocking(booking) {
 
 export function tableConfigurationError(booking, appointments) {
   if (!isAvailabilityBlocking(booking)) return '';
-  const assignments = new Set(assignedTableIds(booking.tables));
-  for (const other of appointments) {
-    if (String(other.id) === String(booking.id) || other.booking_date !== booking.booking_date) continue;
-    if (bookingType(other.booking_type) !== bookingType(booking.booking_type) || !isAvailabilityBlocking(other)) continue;
-    for (const assignment of assignedTableIds(other.tables)) assignments.add(assignment);
+  const others = appointments.filter(other => String(other.id) !== String(booking.id)
+    && isAvailabilityBlocking(other) && bookingsOverlap(booking, other));
+  const interval = bookingInterval(booking);
+  // Ogni configurazione deve essere compatibile solo dove è simultaneamente in uso.
+  const points = interval ? [interval.start, ...others.map(bookingInterval)
+    .filter(other => other && other.start > interval.start && other.start < interval.end).map(other => other.start)] : [null];
+  for (const point of points) {
+    const assignments = new Set(assignedTableIds(booking.tables));
+    for (const other of others) {
+      const otherInterval = bookingInterval(other);
+      if (point !== null && otherInterval && !(otherInterval.start <= point && point < otherInterval.end)) continue;
+      for (const assignment of assignedTableIds(other.tables)) assignments.add(assignment);
+    }
+    const selected = [...assignments].filter(assignment => physicalTableIds(assignment).some(id => Number(id) >= 15 && Number(id) <= 19));
+    if (selected.length && !TABLE_15_19_CONFIGURATIONS.some(configuration => selected.every(assignment => configuration.includes(assignment)))) {
+      return 'La configurazione dei tavoli 15-19 non è consentita.';
+    }
   }
-  const selected = [...assignments].filter(assignment => physicalTableIds(assignment).some(id => Number(id) >= 15 && Number(id) <= 19));
-  if (!selected.length) return '';
-  const valid = TABLE_15_19_CONFIGURATIONS.some(configuration => selected.every(assignment => configuration.includes(assignment)));
-  return valid ? '' : 'La configurazione dei tavoli 15-19 non è consentita.';
+  return '';
 }
 
 export function conflictingTableIds(booking, appointments) {
@@ -46,8 +55,7 @@ export function conflictingTableIds(booking, appointments) {
   const selected = new Set(physicalTableIds(booking.tables));
   const conflicts = new Set();
   for (const other of appointments) {
-    if (String(other.id) === String(booking.id) || other.booking_date !== booking.booking_date) continue;
-    if (bookingType(other.booking_type) !== bookingType(booking.booking_type)) continue;
+    if (String(other.id) === String(booking.id) || !bookingsOverlap(booking, other)) continue;
     if (!isAvailabilityBlocking(other)) continue;
     for (const id of physicalTableIds(other.tables)) if (selected.has(id)) conflicts.add(id);
   }

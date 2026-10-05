@@ -68,7 +68,7 @@ export async function saveBookingEdit(client, original, values, appointments = [
   if (['booking_date', 'booking_time', 'party_size', 'tables'].some(key => Object.hasOwn(changes, key))) {
     const candidate = { ...original, ...changes };
     const conflicts = conflictingTableIds(candidate, appointments);
-    if (conflicts.length) throw new Error(`Tavoli già assegnati nella stessa data: ${conflicts.join(', ')}. Modifica non salvata.`);
+    if (conflicts.length) throw new Error(`Tavoli già assegnati nello stesso intervallo: ${conflicts.join(', ')}. Modifica non salvata.`);
     const configurationError = tableConfigurationError(candidate, appointments);
     if (configurationError) throw new Error(`${configurationError} Modifica non salvata.`);
   }

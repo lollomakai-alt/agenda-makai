@@ -44,7 +44,7 @@ test('assignment options honor capacity, physical conflicts, configuration, acti
   assert.deepEqual(availableMapAssignments({...booking,party_size:4},[],'10'),[]);
   const busy={...booking,id:43,tables:'15+16+17'};
   assert.deepEqual(availableMapAssignments(booking,[busy],'17'),[]);
-  assert.ok(availableMapAssignments(booking,[{...busy,booking_type:'dopocena'}],'17').length);
+  assert.ok(availableMapAssignments(booking,[{...busy,booking_type:'dopocena',booking_time:'23:00'}],'17').length);
   assert.ok(availableMapAssignments(booking,[{...busy,status:'cancelled'}],'17').length);
   for(const status of ['completed','cancelled','no_show'])assert.deepEqual(availableMapAssignments({...booking,status},[],'12'),[]);
   assert.deepEqual(availableMapAssignments({...booking,booking_date:'2020-01-01'},[],'12'),[]);
@@ -79,7 +79,7 @@ test('recommendations exclude conflicts, insufficient groups and invalid booking
   const busy={...booking,id:43,tables:'15+16',party_size:4};
   assert.equal(rankedMapAssignments(four,[busy])[0][0],'18+19');
   assert.ok(!rankedMapAssignments(four,[busy]).some(([group])=>group.includes('15')));
-  assert.equal(rankedMapAssignments(four,[{...busy,booking_type:'dopocena'}])[0][0],'15+16');
+  assert.equal(rankedMapAssignments(four,[{...busy,booking_type:'dopocena',booking_time:'23:00'}])[0][0],'15+16');
   assert.deepEqual(rankedMapAssignments({...booking,status:'cancelled'},[]),[]);
   assert.deepEqual(rankedMapAssignments({...booking,party_size:7},[]),[]);
   assert.deepEqual(rankedMapAssignments({...booking,party_size:6},[busy]),[]);

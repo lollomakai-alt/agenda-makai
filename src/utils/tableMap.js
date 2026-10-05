@@ -1,18 +1,20 @@
 import tables from '../config/tables.json' with { type: 'json' };
 import { TABLE_ASSIGNMENTS } from '../config/tableAssignments.js';
 import { bookingStatus } from './bookingStatus.js';
+import { bookingsOverlap } from './bookingTime.js';
 import { bookingType } from './bookingType.js';
-import { physicalTableIds, conflictingTableIds, tableConfigurationError, tableAssignmentError, assignedTableIds } from './tableConflicts.js';
+import { physicalTableIds, conflictingTableIds, tableConfigurationError, tableAssignmentError } from './tableConflicts.js';
 import { editableBookingValues, saveBookingEdit, validateBookingEdit } from './bookingEdit.js';
 
 export const TABLE_MAP_STATUSES = Object.freeze({ free: 'Libero', reserved: 'Prenotato', occupied: 'Occupato' });
 const inactiveStatuses = new Set(['cancelled', 'no_show']);
 
-export function tableMapForDate(appointments, date, type = 'all') {
+export function tableMapForDate(appointments, date, type = 'all', referenceBooking = null) {
   const linked = new Map();
   for (const booking of appointments || []) {
-    if (booking.booking_date !== date || inactiveStatuses.has(bookingStatus(booking.status))) continue;
-    if (type !== 'all' && bookingType(booking.booking_type) !== type) continue;
+    if (inactiveStatuses.has(bookingStatus(booking.status))) continue;
+    if (referenceBooking ? !bookingsOverlap(referenceBooking, booking) : booking.booking_date !== date) continue;
+    if (!referenceBooking && type !== 'all' && bookingType(booking.booking_type) !== type) continue;
     for (const tableId of new Set(physicalTableIds(booking.tables))) {
       if (!Object.hasOwn(tables, tableId)) continue;
       if (!linked.has(tableId)) linked.set(tableId, []);
@@ -72,29 +74,23 @@ export function rankedMapAssignments(booking, appointments) {
 // group. Choices remain suggestions; this search never saves another booking.
 export function preservesUnassignedBookings(candidate, appointments) {
   const rows = [...appointments.filter(item => String(item.id) !== String(candidate.id)), candidate]
-    .filter(item => item.booking_date === candidate.booking_date && bookingType(item.booking_type) === bookingType(candidate.booking_type)
-      && !inactiveStatuses.has(bookingStatus(item.status)));
-  const pending = rows.filter(item => !String(item.tables || '').trim());
+    .filter(item => bookingsOverlap(candidate, item) && !inactiveStatuses.has(bookingStatus(item.status)));
+  const pending = rows.filter(item => !String(item.tables || '').trim())
+    .sort((a,b) => Number(b.party_size) - Number(a.party_size));
   if (!pending.length) return true;
-  const used = new Set();
-  const groups = [];
-  for (const item of rows.filter(item => String(item.tables || '').trim())) {
-    if (tableAssignmentError(item.tables, Number(item.party_size), { allowOverCapacity: true })) return false;
-    for (const id of physicalTableIds(item.tables)) { if (used.has(id)) return false; used.add(id); }
-    groups.push(...assignedTableIds(item.tables));
-  }
-  const parties = pending.map(item => Number(item.party_size)).sort((a,b) => b-a);
-  if (parties.some(size => !Number.isSafeInteger(size) || size < 1) || parties.length > 10) return false;
-  function fit(index, occupied, selected, minimum = '') {
-    if (index === parties.length) return true;
+  if (pending.length > 10 || pending.some(item => !Number.isSafeInteger(Number(item.party_size)) || Number(item.party_size) < 1)) return false;
+  const fixed = rows.filter(item => String(item.tables || '').trim());
+  if (fixed.some(item => tableAssignmentError(item.tables, Number(item.party_size), { allowOverCapacity: true })
+    || conflictingTableIds(item, fixed).length || tableConfigurationError(item, fixed))) return false;
+  function fit(index, assigned) {
+    if (index === pending.length) return true;
     for (const [group, capacity] of Object.entries(TABLE_ASSIGNMENTS)) {
-      const ids = physicalTableIds(group);
-      if (capacity < parties[index] || group <= minimum || ids.some(id => occupied.has(id))) continue;
-      const next = [...selected, group];
-      if (tableConfigurationError({ ...candidate, tables: next.join(',') }, [])) continue;
-      if (fit(index+1, new Set([...occupied,...ids]), next, parties[index+1] === parties[index] ? group : '')) return true;
+      if (capacity < Number(pending[index].party_size)) continue;
+      const next = { ...pending[index], tables: group };
+      if (conflictingTableIds(next, assigned).length || tableConfigurationError(next, assigned)) continue;
+      if (fit(index + 1, [...assigned, next])) return true;
     }
     return false;
   }
-  return !tableConfigurationError({ ...candidate, tables: groups.join(',') }, []) && fit(0,used,groups);
+  return fit(0, fixed);
 }

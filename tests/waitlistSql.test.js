@@ -18,7 +18,7 @@ test('SQL waitlist: conversion keeps history and contacts, existing availability
       create policy admin_bookings on bookings for all to authenticated using(auth.jwt()->'app_metadata'->>'role'='admin') with check(auth.jwt()->'app_metadata'->>'role'='admin');
       set request.jwt.claims='{"sub":"11111111-1111-1111-1111-111111111111","app_metadata":{"role":"admin"}}';
     `);
-    for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','waitlist.sql']) await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
+    for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','temporal-table-conflicts.sql','waitlist.sql']) await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
     await db.exec(await readFile(new URL('../supabase/waitlist.sql',import.meta.url),'utf8'));
     const date=(await db.query(`select to_char(d,'YYYY-MM-DD') as day from generate_series((now() at time zone 'Europe/Rome')::date+1,(now() at time zone 'Europe/Rome')::date+7,'1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].day;
     await db.exec('set role authenticated');

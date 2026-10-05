@@ -6,7 +6,13 @@ export function communicationMessage(snapshot, kind) {
   return { subject: `${KINDS[kind]} Makai - ${day}/${month}/${year}`,
     text: `Ciao ${name}!\n\n${KINDS[kind].toUpperCase()}\n\nData: ${day}/${month}/${year}\nOra: ${String(booking_time).slice(0,5)}\nPersone: ${party_size}\n\n${kind === 'cancelled' ? 'La prenotazione è stata cancellata.' : kind === 'updated' ? 'La modifica richiesta è stata approvata. Questi sono i dati aggiornati.' : 'La prenotazione è confermata. Ti aspettiamo al Makai Grand Line Pigneto!'}` };
 }
+export function whatsappConfirmationMessage(snapshot) {
+  const [year, month, day] = String(snapshot.booking_date).split('-');
+  const table = String(snapshot.tables || '').trim();
+  return `Ahoy ${snapshot.name}! 🏴‍☠️\nLa tua rotta verso Makai Pigneto è confermata.\n\n📅 ${day}/${month}/${year}\n⏰ ${String(snapshot.booking_time).slice(0,5)}\n👥 ${snapshot.party_size} persone${table ? `\n🪑 Tavolo ${table}` : ''}\n\nL'equipaggio Makai ti aspetta.\nA presto a bordo! 🌴`;
+}
+
 export function whatsappCommunicationUrl(row) {
   if (row.channel !== 'whatsapp' || row.status !== 'opened' || !/^\+[1-9][0-9]{7,14}$/.test(row.recipient)) throw new Error('Chat non disponibile.');
-  return `https://wa.me/${row.recipient.slice(1)}?text=${encodeURIComponent(communicationMessage(row.snapshot,row.kind).text)}`;
+  return `https://wa.me/${row.recipient.slice(1)}?text=${encodeURIComponent(row.kind === 'confirmation' ? whatsappConfirmationMessage(row.snapshot) : communicationMessage(row.snapshot,row.kind).text)}`;
 }

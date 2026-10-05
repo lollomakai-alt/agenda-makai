@@ -1,5 +1,8 @@
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+
+// Le fixture del servizio usano il 4 ottobre: isolare i test dalla data reale.
+beforeEach(context => context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-04T12:00:00Z') }));
 import { createAfterDinnerBooking, validateAfterDinnerBooking } from '../src/utils/afterDinnerBooking.js';
 
 const values = {

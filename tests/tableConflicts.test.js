@@ -1,13 +1,16 @@
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+
+// Le fixture del servizio usano il 4 ottobre: isolare i test dalla data reale.
+beforeEach(context => context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-04T12:00:00Z') }));
 import { conflictingTableIds, tableAssignmentError, tableConfigurationError } from '../src/utils/tableConflicts.js';
 import { editableBookingValues, saveBookingEdit } from '../src/utils/bookingEdit.js';
 
 const original = { id: 42, booking_date: '2026-10-04', booking_time: '19:00', party_size: 2, tables: '12', notes: '', status: 'confirmed' };
 
-test('same-date table conflicts ignore time; cancelled/no-show, different dates and own id are excluded', () => {
+test('overlapping table conflicts; cancelled/no-show, different dates and own id are excluded', () => {
   const rows = [original,
-    { ...original, id: 1, booking_time: '23:00', tables: '12,13+14', status: 'completed' },
+    { ...original, id: 1, booking_time: '19:30', tables: '12,13+14', status: 'completed' },
     { ...original, id: 2, booking_date: '2026-10-05', tables: '22' }];
   assert.deepEqual(conflictingTableIds({ ...original, tables: '12,22' }, rows), ['12']);
   for (const status of ['confirmed', 'arrived', 'completed']) {
@@ -20,12 +23,13 @@ test('same-date table conflicts ignore time; cancelled/no-show, different dates 
   assert.deepEqual(conflictingTableIds({ ...original, tables: '' }, rows), []);
 });
 
-test('normal and dopocena may reuse a table, while same-type bookings still conflict', () => {
+test('normal and dopocena reuse tables only at separate times', () => {
   const normal = { ...original, booking_type: 'normale' };
   const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:00' };
   assert.deepEqual(conflictingTableIds(afterDinner, [normal]), []);
   assert.deepEqual(conflictingTableIds(afterDinner, [{ ...afterDinner, id: 100 }]), ['12']);
   assert.deepEqual(conflictingTableIds(normal, [{ ...normal, id: 101 }]), ['12']);
+  assert.deepEqual(conflictingTableIds({ ...normal, booking_time: '21:00' }, [afterDinner]), ['12']);
 });
 
 test('configuration validates grouped tables, physical duplicates and capacity', () => {

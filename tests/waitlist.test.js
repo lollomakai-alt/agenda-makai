@@ -13,13 +13,13 @@ test('waitlist validates existing booking fields and accepts telephone or email,
   assert.equal(validateWaitlist({...values,phone:'',email:'Mario@Example.com'}).data.email,'mario@example.com');
   for(const invalid of [{phone:'',email:''},{phone:'foo'},{email:'bad'},{date:'2026-02-30'},{time:'20:15'},{party_size:'7'},{notes:'x'.repeat(301)}]) assert.ok(Object.keys(validateWaitlist({...values,...invalid}).errors).length);
 });
-test('available tables reuse capacity, physical conflicts, daily configurations and type separation',()=>{
+test('available tables reuse capacity, physical conflicts, temporal conflicts and allowed configurations',()=>{
   const occupied=[{id:1,booking_date:entry.booking_date,booking_type:'normale',status:'confirmed',tables:'12,15+16+17,18+19'}];
   const available=availableWaitlistTables(entry,occupied).map(([id])=>id);
   assert.ok(!available.includes('12') && !available.includes('15+16') && !available.includes('17') && !available.includes('18'));
   assert.ok(available.includes('10+11'));
   assert.ok(availableWaitlistTables(entry,[{...occupied[0],status:'cancelled'}]).some(([id])=>id==='12'));
-  assert.ok(availableWaitlistTables(entry,[{...occupied[0],booking_type:'dopocena'}]).some(([id])=>id==='12'));
+  assert.ok(availableWaitlistTables(entry,[{...occupied[0],booking_type:'dopocena',booking_time:'22:00'}]).some(([id])=>id==='12'));
   assert.deepEqual(availableWaitlistTables({...entry,status:'CONVERTED'},[]),[]);
   assert.deepEqual(availableWaitlistTables({...entry,party_size:6},[]).map(([id])=>id),['15+16+17']);
 });

@@ -2282,3 +2282,35 @@ a.booking-confirmation:active,
   .waitlist-filters, .activity-filters { grid-template-columns: minmax(0, 1fr); }
   .booking-communication-actions { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Scheda operativa: informazioni e azioni dirette, senza accordion. */
+.booking-row:has(> .booking-card-operational) { display: block; padding: 0; min-height: 0; }
+.booking-card-operational > .booking-card-summary { cursor: default; padding-bottom: 8px; }
+.booking-card-operational .booking-card-content { padding-top: 8px; }
+.booking-card-operational .booking-detail-meta { margin: 0 0 8px; }
+.booking-card-operational .booking-detail-management { padding: 0; border: 0; background: transparent; }
+.booking-card-operational .booking-status-editor { margin-top: 8px; padding-top: 8px; }
+.booking-card-operational .booking-communications.is-compact { margin: 8px 0; padding: 0; border: 0; }
+.booking-communications.is-compact ul:empty { display: none; }
+.booking-communications.is-compact ul { list-style: none; padding: 0; margin: 8px 0 0; }
+.booking-operational-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.booking-operational-actions > p { flex: 1 1 100%; margin: 0; overflow-wrap: anywhere; }
+
+.booking-status-feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0; font-size: .875rem; }
+
+.booking-contacts { position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.booking-contacts > button { display: inline-flex; align-items: center; gap: 7px; }
+.booking-contacts-unavailable { color: var(--admin-muted); font-size: .75rem; }
+.booking-contacts-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; display: grid; gap: 4px; width: 160px; max-width: calc(100vw - 40px); padding: 6px; background: var(--admin-panel); border: 1px solid var(--admin-border-strong); border-radius: var(--radius-sm); box-shadow: 0 6px 18px #0003; }
+.booking-contacts-menu .admin-button { display: flex; align-items: center; justify-content: flex-start; min-height: 44px; width: 100%; }
+
+.booking-table-controls { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.booking-table-pencil { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 8px !important; }
+.booking-table-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 10; display: grid; gap: 4px; width: 210px; max-width: calc(100vw - 40px); padding: 6px; background: var(--admin-panel); border: 1px solid var(--admin-border-strong); border-radius: var(--radius-sm); box-shadow: 0 6px 18px #0003; }
+.booking-table-menu .admin-button { min-height: 44px; width: 100%; text-align: left; }
+.booking-table-controls > [role="alert"] { flex-basis: 100%; }
+
+.table-map-assignment .table-map-item.is-unavailable { opacity: .35; cursor: not-allowed; box-shadow: none; }
+.table-map-assignment .table-map-item.is-available { cursor: pointer; }
+.table-assignment-confirmation { margin: 12px 0; padding: 12px; border: 1px solid var(--admin-border-strong); border-radius: var(--radius-sm); background: var(--admin-panel); }
+.table-assignment-confirmation p { margin: 0 0 8px; }

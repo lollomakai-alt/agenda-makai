@@ -27,6 +27,7 @@ test('online SQL shares grouped rules, reserves unassigned covers, saves without
   await db.exec('create trigger prepare_booking before insert or update on bookings for each row execute function private.prepare_booking()');
   const guard=await readFile(new URL('../supabase/pending-online-capacity.sql',import.meta.url),'utf8');
   await db.exec(guard);await db.exec(guard);
+  await db.exec(await readFile(new URL('../supabase/temporal-table-conflicts.sql',import.meta.url),'utf8'));
 
   const groups=(await db.query('select * from private.online_table_groups()')).rows;
   assert.deepEqual(Object.fromEntries(groups.map(g=>[g.group_id,g.capacity])),TABLE_ASSIGNMENTS);
