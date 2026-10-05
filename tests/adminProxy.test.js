@@ -73,3 +73,32 @@ test('verified admin forwards only server key, bearer and request fields; preser
   assert.equal(JSON.parse(res.body.toString()).detail,'Disponibilità esaurita');
   assert.ok(!res.body.toString().includes(secret));
 }));
+
+test('communication routes forward only through the authenticated gateway', () => isolated(async () => {
+  for (const [method,path] of [['GET','communications'], ['POST','communications/prepare'], ['POST','send-confirmation-email']]) {
+    let calls = 0;
+    globalThis.fetch = async (url,options) => {
+      calls++;
+      if (url.hostname === 'auth.invalid') return Response.json({ id:'admin', app_metadata:{ role:'admin' } });
+      assert.equal(url.pathname, `/api/admin/bookings/42/${path}`);
+      assert.equal(options.method, method);
+      assert.equal(options.headers.origin, 'https://agenda-makai.vercel.app');
+      assert.equal(options.headers['x-admin-request'], '1');
+      assert.equal(options.headers['x-agenda-backend-key'], secret);
+      return Response.json({ ok:true });
+    };
+    const res = response();
+    await handler(request({url:`/api/admin/bookings/42/${path}`,method,
+      headers:{authorization:'Bearer test-session',origin:'https://agenda-makai.vercel.app','x-admin-request':'1'}}),res);
+    assert.equal(res.code,200); assert.equal(calls,2);
+  }
+}));
+
+test('communication route allowlist rejects invalid ids, paths and methods', () => isolated(async () => {
+  globalThis.fetch = () => { throw new Error('Unexpected network request'); };
+  for (const [method,path] of [['POST','0/send-confirmation-email'],['POST','42/communications'],
+    ['GET','42/send-confirmation-email'],['GET','42/communications/prepare'],['POST','42/send-email'],['DELETE','42/communications']]) {
+    const res=response(); await handler(request({method,url:`/api/admin/bookings/${path}`}),res);
+    assert.equal(res.code,404);
+  }
+}));

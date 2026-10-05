@@ -1,6 +1,6 @@
 const routes = {
-  GET: /^\/api\/admin\/(?:session|bookings(?:\/month)?)$/,
-  POST: /^\/api\/admin\/bookings(?:\/[1-9][0-9]*\/(?:arrived|cancel|marketing-consent(?:\/revoke)?))?$/,
+  GET: /^\/api\/admin\/(?:session|bookings(?:\/month|\/[1-9][0-9]*\/communications)?)$/,
+  POST: /^\/api\/admin\/bookings(?:\/[1-9][0-9]*\/(?:arrived|cancel|marketing-consent(?:\/revoke)?|communications\/prepare|send-confirmation-email))?$/,
 };
 
 // Server-only gateway: authenticated staff + a credential shared with FastAPI.

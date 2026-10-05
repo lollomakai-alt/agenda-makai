@@ -2,22 +2,52 @@ import { whatsappCommunicationUrl } from '../../supabase/functions/agenda-commun
 import { normalizePhone } from './bookingValidation.js';
 export { communicationMessage, whatsappCommunicationUrl } from '../../supabase/functions/agenda-communications/messages.js';
 export const COMMUNICATION_STATUSES = Object.freeze({ queued:'Da inviare',sending:'Invio in corso',accepted:'Accettata dal servizio email',failed:'Invio fallito',unknown:'Esito incerto: verificare',skipped:'Email assente o non valida',superseded:'Superata da un aggiornamento',opened:'Chat preparata: invio manuale' });
-export async function loadCommunications(client, bookingId) {
- const {data,error}=await client.from('booking_communications').select('id,channel,kind,status,snapshot,recipient,created_at,error_code,provider_id,attempts').eq('booking_id',bookingId).order('id',{ascending:false});
- if(error) throw new Error(error.code==='42P01'?'Comunicazioni non configurate: applicare supabase/agenda-communications.sql.':'Impossibile leggere le comunicazioni.');
- return data||[];
+async function communicationRequest(client, bookingId, suffix, body, request = globalThis.fetch) {
+ if (!Number.isSafeInteger(bookingId) || bookingId < 1) throw new Error('Prenotazione non valida.');
+ const { data: { session } = {}, error } = await client.auth.getSession();
+ if (error || !session?.access_token) throw new Error('Accedi per consultare l’agenda.');
+ const response = await request(`/api/admin/bookings/${bookingId}/${suffix}`, {
+  method: body === undefined ? 'GET' : 'POST',
+  headers: { Authorization: `Bearer ${session.access_token}`, 'x-admin-request': '1',
+   ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+ });
+ const result = await response.json().catch(() => null);
+ if (!response.ok && !(suffix === 'send-confirmation-email' && response.status === 502
+   && ['failed', 'unknown'].includes(result?.status))) {
+  throw new Error(typeof result?.detail === 'string' ? result.detail : 'Operazione non confermata. Aggiorna il log prima di riprovare.');
+ }
+ return result;
 }
-export async function prepareCommunication(client,bookingId,channel) {
- const {data,error}=await client.rpc('admin_prepare_booking_communication',{p_booking_id:bookingId,p_channel:channel});
- if(error) throw new Error(error.message||'Comunicazione non registrata.');
- if(String(data?.booking_id)!==String(bookingId)||data.channel!==channel) throw new Error('Comunicazione non confermata.');
- return data;
+export async function loadCommunications(client, bookingId, request) {
+ const result = await communicationRequest(client, bookingId, 'communications', undefined, request);
+ if (!Array.isArray(result?.communications) || result.communications.some(row => String(row?.booking_id) !== String(bookingId))) {
+  throw new Error('Comunicazioni non confermate.');
+ }
+ return result.communications;
 }
-export async function sendCommunication(client,id) {
- const {data,error}=await client.functions.invoke('agenda-communications',{body:{communication_id:id}});
- if(error) throw new Error('Invio non confermato. Aggiorna il log prima di riprovare; controlla configurazione e servizio email.');
- if(String(data?.id)!==String(id)||!['accepted','failed','unknown'].includes(data.status)) throw new Error('Esito non confermato. Aggiorna il log.');
- return data;
+export async function prepareCommunication(client, bookingId, channel, request) {
+ const result = await communicationRequest(client, bookingId, 'communications/prepare', { channel }, request);
+ const row = result?.communication;
+ if (String(row?.booking_id) !== String(bookingId) || row.channel !== channel) throw new Error('Comunicazione non confermata.');
+ return row;
+}
+export async function sendCommunication(client, bookingId, request) {
+ const result = await communicationRequest(client, bookingId, 'send-confirmation-email', {}, request);
+ if (result?.bookingId !== bookingId || !Number.isSafeInteger(result.communicationId)
+   || result.communicationId < 1 || result.type !== 'booking_confirmation'
+   || !['accepted', 'failed', 'unknown'].includes(result.status)) {
+  throw new Error('Esito non confermato. Aggiorna il log prima di riprovare.');
+ }
+ return result;
+}
+export function emailSendBlocked(booking, rows) {
+ if (rows.some(row => row.channel === 'email' && row.status === 'sending')) return true;
+ const current = rows.find(row => row.channel === 'email' && row.status !== 'superseded'
+  && row.recipient === booking.email && ['confirmation', 'updated'].includes(row.kind)
+  && ['name', 'booking_date', 'booking_time', 'party_size', 'tables'].every(key => row.snapshot?.[key] === booking[key]));
+ return Boolean(current && (['accepted', 'unknown', 'sending'].includes(current.status)
+  || (current.status === 'failed' && !(Date.parse(current.created_at) > Date.now() - 23 * 3600000))));
 }
 
 export function bookingWhatsAppConfirmationUrl(booking) {

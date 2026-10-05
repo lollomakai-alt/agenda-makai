@@ -36,19 +36,23 @@ test('missing or invalid number never opens a window or writes a log', async () 
 test('opens actual wa.me URL before logging; no automatic message send', async () => {
  const events = [];
  const chat = { opener: {}, close() { assert.fail('chat must remain open'); } };
- const client = { rpc: async (name, body) => {
+ const previousFetch = globalThis.fetch;
+ const client = { auth:{getSession:async()=>({data:{session:{access_token:'test-session'}}})} };
+ globalThis.fetch = async (name, options) => {
+  const body=JSON.parse(options.body);
   events.push({ name, body });
-  return { data: { booking_id: 42, channel: 'whatsapp' } };
- }};
+  return Response.json({communication:{booking_id:42,channel:'whatsapp'}});
+ };
  await openBookingWhatsApp(client, booking, true, (url, target) => { events.push({ url, target }); return chat; });
  assert.equal(events[0].url, bookingWhatsAppConfirmationUrl(booking));
  assert.equal(events[0].target, '_blank');
- assert.deepEqual(events[1], { name: 'admin_prepare_booking_communication', body: { p_booking_id: 42, p_channel: 'whatsapp' } });
+ globalThis.fetch=previousFetch;
+ assert.deepEqual(events[1], { name: '/api/admin/bookings/42/communications/prepare', body: { channel: 'whatsapp' } });
  assert.equal(events.length, 2);assert.equal(chat.opener, null);
 });
 test('logging failure leaves chat open; blocked popup prevents RPC', async () => {
  let url;
- await assert.rejects(openBookingWhatsApp({ rpc: async () => ({ error: { message: 'Denied' } }) }, booking, true,
+ await assert.rejects(openBookingWhatsApp({auth:{getSession:async()=>({data:{session:null}})}}, booking, true,
   value => { url = value; return { close() { assert.fail('must not close'); } }; }), /Chat WhatsApp aperta/);
  assert.equal(url, bookingWhatsAppConfirmationUrl(booking));
  await assert.rejects(openBookingWhatsApp({ rpc() { assert.fail('unexpected RPC'); } }, booking, true, () => null), /bloccato/);

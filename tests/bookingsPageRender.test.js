@@ -38,7 +38,7 @@ test('giornata renders confirmed bookings without phone/email and with phone, wi
   assert.doesNotMatch(card,/Chiama cliente|WhatsApp|booking-contacts-menu/);
   assert.match(card,/booking-communication-actions/);
   assert.match(card,/booking-action-danger/);assert.match(card,/booking-action-caution/);
-  assert.match(card,/Prepara email/);assert.doesNotMatch(card,/Registra risposta positiva/);
+  assert.doesNotMatch(card,/Prepara email|Invia conferma email/);assert.doesNotMatch(card,/Registra risposta positiva/);
 
   globalThis.window.location.hash='#booking-1';
   for (const status of ['arrived', 'seated', 'completed', 'cancelled', 'no_show']) {

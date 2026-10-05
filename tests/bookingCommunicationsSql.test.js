@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
-test('SQL communications: lifecycle, approvals only, superseding, atomic logs, claims, retries and staff RLS',async()=>{
+test('SQL communications: lifecycle, single approval event, atomic logs, claims and server permissions',async()=>{
  const db=new PGlite();
  try {
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema private;
@@ -17,10 +17,15 @@ test('SQL communications: lifecycle, approvals only, superseding, atomic logs, c
   await db.exec(await readFile(new URL('../supabase/agenda-communications.sql',import.meta.url),'utf8'));
   const date=(await db.query(`select to_char(d,'YYYY-MM-DD') as day from generate_series((now() at time zone 'Europe/Rome')::date+1,(now() at time zone 'Europe/Rome')::date+7,'1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].day;
   await db.query(`insert into bookings(id,name,phone,email,booking_date,booking_time,party_size) values(1,'Mario Rossi','+393331234567','mario@example.com',$1,'20:00',2),(2,'Senza Email','+393331234568','',$1,'20:00',2)`,[date]);
-  const rows=async()=> (await db.query('select * from booking_communications order by id')).rows;
+  const asRole=async(name,run)=>{
+   const previous=(await db.query("select current_setting('role') r")).rows[0].r;
+   await db.exec(`set role ${name}`);
+   try{return await run();}finally{await db.exec(previous==='none'?'reset role':`set role ${previous}`);}
+  };
+  const rows=()=>asRole('service_role',async()=> (await db.query('select * from booking_communications order by id')).rows);
   assert.deepEqual((await rows()).map(r=>r.status),['queued','skipped']);
   await db.exec('set role authenticated');
-  const prepare=async(channel)=> (await db.query('select admin_prepare_booking_communication(1,$1) as r',[channel])).rows[0].r;
+  const prepare=channel=>asRole('service_role',async()=> (await db.query('select admin_prepare_booking_communication(1,$1) as r',[channel])).rows[0].r);
   assert.equal((await prepare('email')).id,(await rows())[0].id);
   const request=(await db.query(`select admin_create_booking_request(1,'ora','"20:30"') as r`)).rows[0].r;
   assert.equal((await rows()).length,2);
@@ -42,9 +47,10 @@ test('SQL communications: lifecycle, approvals only, superseding, atomic logs, c
   const cancel=(await db.query(`select admin_create_booking_request(1,'cancellazione',null) as r`)).rows[0].r;
   await db.query(`select admin_review_booking_request($1,'approved')`,[cancel.id]);
   all=await rows();assert.equal(all.at(-1).kind,'cancelled');assert.equal(all.at(-1).status,'queued');
-  assert.ok((await db.query('select * from booking_communication_logs where communication_id=$1',[updated])).rows.some(r=>r.status==='accepted'&&r.provider_id==='provider-id'));
+  assert.ok((await asRole('service_role',()=>db.query('select * from booking_communication_logs where communication_id=$1',[updated]))).rows.some(r=>r.status==='accepted'&&r.provider_id==='provider-id'));
   await db.exec(`set request.jwt.claims='{"sub":"11111111-1111-1111-1111-111111111111","app_metadata":{"role":"customer"}}'`);
-  assert.equal((await rows()).length,0);await assert.rejects(prepare('email'),/riservato/);
+  await assert.rejects(db.query('select * from booking_communications'),/permission denied/);
+  await assert.rejects(db.query("select admin_prepare_booking_communication(1,'email')"),/permission denied/);
   await db.exec('reset role');
   const count=(await rows()).length;
   await db.exec('begin;insert into bookings(id,name,booking_date,booking_time,party_size,email) values(3,\'Rollback\',\'2026-10-15\',\'20:00\',2,\'x@example.com\');rollback;');
