@@ -31,3 +31,11 @@ La UI Agenda non è stata modificata nello Step 2. Lo Step 3 deve spostare lettu
 ## Step 3 UI
 
 Lettura e preparazione delle comunicazioni, WhatsApp e invio email passano esclusivamente dal gateway `/api/admin/bookings/{id}` con la sessione admin. Nessuna lettura diretta delle tabelle comunicazioni, RPC o invocazione Edge dal browser. Un solo pulsante email usa il booking ID; preparazione, claim e finish restano al backend. Il log si aggiorna dopo ogni operazione; accepted indica accettazione dal servizio, non consegna. Sending, accepted, unknown e failed fuori finestra bloccano il pulsante. Gli errori di trasporto richiedono aggiornamento del log prima di altri tentativi. Nessun invio automatico.
+
+## Conferma automatica dal sito
+
+Applicare `supabase/migrations/20261005141443_automatic_online_confirmation.sql` dopo `agenda-communications.sql`, quindi pubblicare il backend sito-makai. Il sito usa `POST /api/bookings`: dopo il commit di una nuova prenotazione confirmed con email valida, il backend chiama `claim_new_online_booking_email`. Il claim ammette soltanto source=booking, evento iniziale created, queued e attempts=0, con lock booking prima della comunicazione. Non prepara nuovi eventi e condivide claim/trasporto/finish con il pulsante Agenda. Le richieste ripetute tramite request_id non invocano l'invio automatico; nessun backfill o retry automatico. Inserimenti Agenda, modifiche, cancellazioni e prenotazioni senza email restano esclusi. Eventuali errori email sono registrati nelle comunicazioni senza trasformare una prenotazione salvata in un errore di salvataggio; la richiesta attende il singolo tentativo, con timeout frontend 90s e durata massima backend 120s.
+
+La funzione email mantiene verify_jwt=true. Quando Supabase inietta una chiave sb_secret_ in SUPABASE_SERVICE_ROLE_KEY, il JWT legacy del backend viene verificato con una lettura PostgREST limit=0 sulla tabella comunicazioni riservata a service_role. Decodificare il ruolo non autorizza da solo: firma e privilegi devono essere accettati da Supabase. La diagnostica registra soltanto formato/booleani, mai credenziali. Nessun secret aggiuntivo è necessario.
+
+Rollback dell'automatismo: ripubblicare il backend precedente. Conservare migration, coda e log; non azzerare sending/unknown/accepted. L'invio manuale rimane disponibile con il normale claim.

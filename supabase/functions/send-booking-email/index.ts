@@ -22,6 +22,38 @@ async function sameCredential(supplied: string, expected: string): Promise<boole
   return difference === 0;
 }
 
+// Diagnostic claims are unverified and never participate in authorization.
+function credentialShape(value: string, url: string) {
+  let claims: Record<string, unknown> = {};
+  try {
+    const encoded = value.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const parsed = JSON.parse(atob(encoded));
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) claims = parsed;
+  } catch { /* Report only booleans, never credential contents or parser errors. */ }
+  return {
+    format: value.startsWith('sb_secret_') ? 'secret_key' : value.split('.').length === 3 ? 'jwt' : 'other',
+    whitespace: /\s/.test(value),
+    serviceRole: claims.role === 'service_role',
+    projectMatches: typeof claims.ref === 'string' && new URL(url).hostname === `${claims.ref}.supabase.co`,
+  };
+}
+
+async function validLegacyServiceCredential(token: string, url: string): Promise<boolean> {
+  const shape = credentialShape(token, url);
+  if (shape.format !== 'jwt' || shape.whitespace || !shape.serviceRole || !shape.projectMatches) return false;
+  // Decoded claims alone are never trusted. PostgREST verifies the signature and
+  // permission on a table explicitly denied to anon/authenticated. limit=0 reads no rows.
+  try {
+    const response = await fetch(`${url.replace(/\/$/, '')}/rest/v1/booking_communications?select=id&limit=0`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: token },
+      redirect: 'error', signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return false;
+    const rows = await response.json();
+    return Array.isArray(rows) && rows.length === 0;
+  } catch { return false; }
+}
+
 // Server-only: the backend checks the admin session before using service_role.
 export async function handler(request: Request): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
@@ -34,7 +66,11 @@ export async function handler(request: Request): Promise<Response> {
   if (!url || !serviceKey) return respond({ error: 'Email non configurate' }, 503);
 
   try {
-    if (!await sameCredential(token, serviceKey)) return respond({ error: 'Credenziale server non valida' }, 401);
+    if (!await sameCredential(token, serviceKey) && !await validLegacyServiceCredential(token, url)) {
+      console.warn(JSON.stringify({ event: 'booking_email_credential_mismatch',
+        supplied: credentialShape(token, url), expected: credentialShape(serviceKey, url) }));
+      return respond({ error: 'Credenziale server non valida' }, 401);
+    }
     const client = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     if (request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
       return respond({ error: 'Content-Type richiesto: application/json' }, 415);
