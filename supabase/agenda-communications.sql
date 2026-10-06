@@ -7,7 +7,7 @@ create table if not exists public.booking_communications (
  booking_id bigint not null references public.bookings(id) on delete cascade,
  channel text not null check(channel in ('email','whatsapp')),
  kind text not null check(kind in ('confirmation','updated','cancelled')),
- status text not null check(status in ('queued','sending','accepted','failed','unknown','skipped','superseded','opened')),
+ status text not null check(status in ('queued','sending','accepted','failed','unknown','skipped','superseded','opened','delivered','delivery_delayed','bounced','complained')),
  snapshot jsonb not null, recipient text not null,
  event_key text unique, attempts integer not null default 0,
  created_at timestamptz not null default now(), attempted_at timestamptz,
@@ -28,6 +28,9 @@ grant usage on sequence public.booking_communications_id_seq,public.booking_comm
 drop policy if exists admin_communications_read on public.booking_communications;
 drop policy if exists admin_communication_logs_read on public.booking_communication_logs;
 create index if not exists booking_communications_booking_idx on public.booking_communications(booking_id,id desc);
+create index if not exists booking_communications_provider_idx
+on public.booking_communications(provider_id)
+where provider_id is not null;
 
 -- Privilegio ristretto: i trigger inseriscono la coda anche per prenotazioni pubbliche.
 create or replace function private.booking_email_snapshot(b public.bookings) returns jsonb
@@ -166,10 +169,117 @@ begin
  if not found then raise exception 'Invio non in corso'; end if;
  insert into public.booking_communication_logs(communication_id,status,provider_id,error_code) values(p_id,p_status,p_provider_id,p_error_code);
 end $$;
+
+create or replace function public.record_booking_email_provider_event(
+ p_provider_id text,
+ p_status text,
+ p_error_code text default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $$
+declare
+ c public.booking_communications%rowtype;
+ previous_status text;
+begin
+ if p_provider_id is null or btrim(p_provider_id) = '' then
+  raise exception 'Provider ID mancante';
+ end if;
+
+ if p_status is null
+    or p_status not in ('delivered','delivery_delayed','bounced','complained','failed') then
+  raise exception 'Evento provider non valido';
+ end if;
+
+ select *
+ into c
+ from public.booking_communications
+ where provider_id = p_provider_id
+   and channel = 'email'
+ order by id desc
+ limit 1
+ for update;
+
+ if not found then
+  return jsonb_build_object(
+   'matched', false,
+   'provider_id', p_provider_id
+  );
+ end if;
+
+ previous_status := c.status;
+
+ if previous_status = p_status then
+  return jsonb_build_object(
+   'matched', true,
+   'communication_id', c.id,
+   'status', c.status,
+   'duplicate', true
+  );
+ end if;
+
+ if p_status = 'delivery_delayed'
+    and previous_status in ('delivered','bounced','complained','failed') then
+  return jsonb_build_object(
+   'matched', true,
+   'communication_id', c.id,
+   'status', c.status,
+   'ignored', true
+  );
+ end if;
+
+ if p_status = 'delivered'
+    and previous_status in ('bounced','complained','failed') then
+  return jsonb_build_object(
+   'matched', true,
+   'communication_id', c.id,
+   'status', c.status,
+   'ignored', true
+  );
+ end if;
+
+ update public.booking_communications
+ set
+  status = p_status,
+  error_code = case
+   when p_status in ('bounced','complained','failed')
+    then p_error_code
+   else null
+  end
+ where id = c.id;
+
+ insert into public.booking_communication_logs(
+  communication_id,
+  status,
+  provider_id,
+  error_code
+ )
+ values(
+  c.id,
+  p_status,
+  p_provider_id,
+  case
+   when p_status in ('bounced','complained','failed')
+    then p_error_code
+   else null
+  end
+ );
+
+ return jsonb_build_object(
+  'matched', true,
+  'communication_id', c.id,
+  'previous_status', previous_status,
+  'status', p_status,
+  'duplicate', false
+ );
+end $$;
 revoke all on function private.booking_email_snapshot(public.bookings),private.queue_booking_email(public.bookings,text,text),private.queue_booking_lifecycle_email(),private.queue_approved_request_email() from public,anon,authenticated,service_role;
 revoke all on function public.admin_prepare_booking_communication(bigint,text) from public,anon,authenticated;
 grant execute on function public.admin_prepare_booking_communication(bigint,text) to service_role;
 revoke all on function public.claim_booking_email(bigint),public.finish_booking_email(bigint,text,text,text) from public,anon,authenticated;
 grant execute on function public.claim_booking_email(bigint),public.finish_booking_email(bigint,text,text,text) to service_role;
+revoke all on function public.record_booking_email_provider_event(text,text,text) from public,anon,authenticated;
+grant execute on function public.record_booking_email_provider_event(text,text,text) to service_role;
 notify pgrst,'reload schema';
 commit;
