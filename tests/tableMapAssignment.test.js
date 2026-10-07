@@ -7,15 +7,16 @@ test('dedicated assignment validates tables, selects recommended group, confirms
  const previousHooks=globalThis.__assignmentHooks, previousClient=globalThis.__assignmentClient;
  let slots=[],index=0;
  globalThis.__assignmentHooks={
+  useEffect(){},
   useState(initial){const slot=index++;if(!(slot in slots))slots[slot]=initial;return [slots[slot],value=>{slots[slot]=typeof value==='function'?value(slots[slot]):value;}];},
   useRef(initial){const slot=index++;if(!(slot in slots))slots[slot]={current:initial};return slots[slot];},
  };
  const calls=[];
  let current={id:42,name:'Cliente Makai',booking_date:'2026-10-10',booking_time:'20:00',party_size:6,tables:'',notes:'Note conservate',phone:'+393331234567',status:'confirmed'};
  globalThis.__assignmentClient={rpc:async(name,args)=>{calls.push({name,args});return {data:{booking:{...current,...args.changes}}};}};
- const server=await createServer({server:{middlewareMode:true,hmr:false},plugins:[{
+ const server=await createServer({server:{middlewareMode:true,hmr:false,ws:false},plugins:[{
   name:'assignment-hook-harness',enforce:'pre',
-  transform(code,id){if(id.endsWith('/src/components/TableMap.jsx'))return code.replace("import { useRef, useState } from 'react';",'const {useRef,useState}=globalThis.__assignmentHooks;');},
+  transform(code,id){if(id.endsWith('/src/components/TableMap.jsx'))return code.replace("import { useEffect, useRef, useState } from 'react';",'const {useEffect,useRef,useState}=globalThis.__assignmentHooks;');},
   load(id){if(id.endsWith('/src/lib/supabase.js'))return 'export const supabase=globalThis.__assignmentClient;';},
  }]});
  function nodes(element){if(!element||typeof element!=='object')return [];return [element,...[element.props?.children].flat(Infinity).flatMap(nodes)];}
@@ -24,7 +25,7 @@ test('dedicated assignment validates tables, selects recommended group, confirms
   let saved=null,cancelled=0;
   let others=[{...current,id:43,party_size:4,tables:'18+19',booking_time:'20:30'}];
   function render(overrides={}){index=0;return nodes(Map({appointments:[current,...others],date:current.booking_date,assignmentBooking:current,onSaved:result=>{saved=result;},onCancel:()=>cancelled++,...overrides}));}
-  function table(tree,id){return tree.find(node=>node.type==='button'&&node.props['aria-label']?.startsWith(`Tavolo ${id}:`));}
+  function table(tree,id){return tree.find(node=>node.type==='button'&&node.props['data-unit']?.split('+').includes(id));}
   let tree=render();
   assert.ok(tree.some(node=>node.props.className==='assignment-selected-booking'));
   assert.ok(tree.some(node=>node.props.children==='Assegna tavolo'));

@@ -44,7 +44,7 @@ test('assignment options honor capacity, physical conflicts, configuration, acti
   assert.deepEqual(availableMapAssignments({...booking,party_size:4},[],'10'),[]);
   const busy={...booking,id:43,tables:'15+16+17'};
   assert.deepEqual(availableMapAssignments(booking,[busy],'17'),[]);
-  assert.ok(availableMapAssignments(booking,[{...busy,booking_type:'dopocena',booking_time:'23:00'}],'17').length);
+  assert.equal(availableMapAssignments(booking,[{...busy,booking_type:'dopocena',booking_time:'23:00'}],'17').length,0);
   assert.ok(availableMapAssignments(booking,[{...busy,status:'cancelled'}],'17').length);
   for(const status of ['completed','cancelled','no_show'])assert.deepEqual(availableMapAssignments({...booking,status},[],'12'),[]);
   assert.deepEqual(availableMapAssignments({...booking,booking_date:'2020-01-01'},[],'12'),[]);
@@ -74,35 +74,36 @@ test('UI recommendation minimizes sufficient capacity then physical tables witho
   assert.equal(rankedMapAssignments({...booking,party_size:6},[])[0][0],'15+16+17');
   assert.equal(four.tables,'');
 });
-test('recommendations exclude conflicts, insufficient groups and invalid bookings and preserve type separation',()=>{
+test('recommendations exclude conflicts, insufficient groups and invalid bookings and share day occupancy across booking types',()=>{
   const four={...booking,party_size:4};
   const busy={...booking,id:43,tables:'15+16',party_size:4};
   assert.equal(rankedMapAssignments(four,[busy])[0][0],'18+19');
   assert.ok(!rankedMapAssignments(four,[busy]).some(([group])=>group.includes('15')));
-  assert.equal(rankedMapAssignments(four,[{...busy,booking_type:'dopocena',booking_time:'23:00'}])[0][0],'15+16');
+  assert.equal(rankedMapAssignments(four,[{...busy,booking_type:'dopocena',booking_time:'23:00'}])[0][0],'18+19');
   assert.deepEqual(rankedMapAssignments({...booking,status:'cancelled'},[]),[]);
   assert.deepEqual(rankedMapAssignments({...booking,party_size:7},[]),[]);
   assert.deepEqual(rankedMapAssignments({...booking,party_size:6},[busy]),[]);
 });
 
-test('manual assignment permits overcapacity with warning, recommendation remains strict and physical conflicts block',async()=>{
+test('manual assignment requires sufficient capacity and preserves physical conflicts',async()=>{
  const five={...booking,party_size:5};
- assert.ok(availableMapAssignments(five,[],'15',{manualTables:true}).some(([g])=>g==='15+16'));
+ assert.ok(!availableMapAssignments(five,[],'15',{manualTables:true}).some(([g])=>g==='15+16'));
  assert.ok(!rankedMapAssignments(five,[]).some(([g])=>g==='15+16'));
  const calls=[];const client={rpc:async(name,args)=>{calls.push([name,args]);return {data:{booking:{...five,tables:args.changes.tables}}};}};
- await assignMapTable(client,five,'15+16',[],'15');
- assert.equal(calls[0][0],'admin_assign_booking_tables');assert.deepEqual(calls[0][1].changes,{tables:'15+16'});
+ await assert.rejects(assignMapTable(client,five,'15+16',[],'15'),/non disponibile/);
+ assert.equal(calls.length,0);
  await assert.rejects(assignMapTable(client,five,'15+16',[{...booking,id:43,tables:'15+16',status:'arrived'}],'15'),/non disponibile/);
  const {tableCapacityWarning}=await import('../src/utils/tableConflicts.js');
  assert.match(tableCapacityWarning('15+16',5),/Sovracapienza/);assert.equal(tableCapacityWarning('15+16',4),'');
 });
 
 
-test('a manual choice and recommendation preserve the sole six-person group needed by an online booking', () => {
+test('pending bookings influence recommendations but never veto a free manual choice', () => {
  const online={id:301,name:'Pending Online',booking_date:'2026-10-15',booking_time:'20:00',party_size:6,tables:'',status:'confirmed',source:'booking',booking_type:'normale'};
  const small={...online,id:302,name:'Staff Choice',party_size:2,source:'agenda'};
  const entries=[online,small];
- assert.ok(!availableMapAssignments(small,entries,'15',{manualTables:true}).some(([group])=>group==='15+16+17' || group==='15+16'));
+ assert.ok(availableMapAssignments(small,entries,'15',{manualTables:true}).some(([group])=>group==='15+16+17'));
  assert.ok(availableMapAssignments(small,entries,'12',{manualTables:true}).some(([group])=>group==='12'));
- assert.ok(!rankedMapAssignments(small,entries).some(([group])=>group==='15+16'));
+ assert.ok(rankedMapAssignments(small,entries).some(([group])=>group==='15+16'));
+ assert.equal(rankedMapAssignments(small,entries)[0][0],'12');
 });

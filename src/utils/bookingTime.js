@@ -25,17 +25,9 @@ export function bookingScheduledAt(booking) {
   return matches.length ? Math.max(...matches) : wallTime - Math.min(...offsets);
 }
 
-// Durata già prevista dal backend condiviso: api/config.py STAY_MINUTES.
-export const BOOKING_STAY_MINUTES = 120;
-
-export function bookingInterval(booking) {
-  const start = bookingScheduledAt(booking);
-  return start === null ? null : { start, end: start + BOOKING_STAY_MINUTES * 60000 };
-}
-
+// The date scopes the service; elapsed time never releases an assignment.
+// Keep the existing predicate name for callers shared with the SQL/backend.
 export function bookingsOverlap(left, right) {
-  const a = bookingInterval(left), b = bookingInterval(right);
-  // Come occupancy.overlaps del backend, orari incerti non liberano tavoli.
-  if (!a || !b) return !isDay(left.booking_date) || !isDay(right.booking_date) || left.booking_date === right.booking_date;
-  return a.start < b.end && b.start < a.end;
+  return !isDay(left.booking_date) || !isDay(right.booking_date)
+    || left.booking_date === right.booking_date;
 }

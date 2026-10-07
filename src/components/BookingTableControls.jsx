@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { editableBookingValues, saveBookingEdit } from '../utils/bookingEdit';
 
-export default function BookingTableControls({ booking, appointments, disabled = false, onOpenMap, onSaved, onSaving }) {
+export default function BookingTableControls({ booking, appointments, disabled = false, compact = false, onOpenMap, onSaved, onSaving }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +49,109 @@ export default function BookingTableControls({ booking, appointments, disabled =
       setSaving(false);
       onSaving?.(false);
     }
+  }
+
+  if (compact) {
+    return <div
+      className="booking-table-controls is-compact"
+      ref={container}
+    >
+      <button
+        ref={trigger}
+        type="button"
+        className="admin-button admin-button-secondary booking-icon-action booking-table-compact"
+        disabled={disabled || saving}
+        aria-label={
+          table
+            ? `Tavolo ${table}: gestisci`
+            : `Assegna tavolo per ${booking.name}`
+        }
+        title={
+          table
+            ? `Tavolo ${table}`
+            : 'Assegna tavolo'
+        }
+        aria-expanded={
+          table
+            ? open
+            : undefined
+        }
+        aria-controls={
+          table
+            ? menuId
+            : undefined
+        }
+        onClick={() => {
+          if (table) {
+            setOpen(
+              value => !value
+            );
+          } else {
+            onOpenMap();
+          }
+        }}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          width="19"
+          height="19"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <rect
+            x="5"
+            y="7"
+            width="14"
+            height="10"
+            rx="2"
+          />
+          <path d="M8 4v3M16 4v3M8 17v3M16 17v3" />
+        </svg>
+      </button>
+
+      {table && open && (
+        <div
+          id={menuId}
+          className="booking-table-menu"
+          role="group"
+          aria-label={`Gestione tavolo di ${booking.name}`}
+        >
+          <button
+            type="button"
+            className="admin-button admin-button-secondary"
+            disabled={disabled || saving}
+            onClick={() => {
+              setOpen(false);
+              onOpenMap();
+            }}
+          >
+            Cambia tavolo
+          </button>
+
+          <button
+            type="button"
+            className="admin-button admin-button-secondary"
+            disabled={disabled || saving}
+            onClick={removeAssignment}
+          >
+            {saving
+              ? 'Salvataggio…'
+              : 'Rimuovi assegnazione'}
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <span
+          className="field-error"
+          role="alert"
+        >
+          {error}
+        </span>
+      )}
+    </div>;
   }
 
   return <div className="booking-card-tables booking-table-controls" ref={container}>

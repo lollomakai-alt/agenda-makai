@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 
-test('SQL notification feed: thresholds, priority, personal persisted reads, RLS, resolution and schedule changes', async () => {
+test('SQL notification feed: thresholds, priority, personal persisted reads, RLS, resolution and schedule changes', async t => {
+  // Freeze the local PGlite clock just after Rome midnight to exercise date rollover.
+  const now = Date.parse('2026-10-06T00:20:00+02:00');
+  t.mock.timers.enable({ apis: ['Date'], now });
   const db = new PGlite();
   try {
+    assert.equal((await db.query('select now() as time')).rows[0].time.getTime(), now);
     await db.exec(`
       create role anon; create role authenticated;
       create schema auth;
@@ -63,11 +67,15 @@ test('SQL notification feed: thresholds, priority, personal persisted reads, RLS
     await db.exec(`set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","app_metadata":{"role":"admin"}}'; reset role;
       update booking_requests set status='approved' where id=1;
       update bookings set status='arrived' where id=3;
-      update bookings set booking_time=to_char((now() at time zone 'Europe/Rome')-interval '40 minutes','HH24:MI:SS') where id=2;
+      update bookings set
+        booking_date=to_char((now() at time zone 'Europe/Rome')-interval '40 minutes','YYYY-MM-DD'),
+        booking_time=to_char((now() at time zone 'Europe/Rome')-interval '40 minutes','HH24:MI:SS') where id=2;
       set local role authenticated;`);
     rows=await feed();
     assert.ok(!rows.some(x=>x.id==='request:1' || x.id===delayId || x.booking_id===3));
     const changed=rows.find(x=>x.booking_id===2 && x.kind==='delay');
+    assert.ok(changed);
+    assert.equal(changed.booking_date,'2026-10-05'); // 23:40 on the previous Rome day.
     assert.ok(changed.id!==delayId && !changed.read_at);
     assert.equal(changed.priority,'high');
     await reject(() => mark('request:1'),/risolta/);

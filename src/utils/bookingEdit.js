@@ -56,7 +56,7 @@ export function validateBookingEdit(values, original, { manualTables = false } =
   const changes = Object.fromEntries(EDITABLE_BOOKING_FIELDS.filter(key =>
     key === 'party_size' ? normalized[key] !== Number(previous[key]) : normalized[key] !== previous[key]
   ).map(key => [key, normalized[key]]));
-  if (!errors.tables && changesAvailability) errors.tables = tableAssignmentError(tables, partySize, { allowOverCapacity: manualTables && Object.keys(changes).every(key => key === 'tables') });
+  if (!errors.tables && changesAvailability) errors.tables = tableAssignmentError(tables, partySize);
   if (!errors.tables) delete errors.tables;
   if (!Object.keys(errors).length && !Object.keys(changes).length) errors.form = 'Non hai modificato nessun campo.';
   return { errors, changes };
@@ -68,9 +68,9 @@ export async function saveBookingEdit(client, original, values, appointments = [
   if (['booking_date', 'booking_time', 'party_size', 'tables'].some(key => Object.hasOwn(changes, key))) {
     const candidate = { ...original, ...changes };
     const conflicts = conflictingTableIds(candidate, appointments);
-    if (conflicts.length) throw new Error(`Tavoli già assegnati nello stesso intervallo: ${conflicts.join(', ')}. Modifica non salvata.`);
+    if (conflicts.length) throw new Error(`Tavoli già assegnati nello stessa giornata: ${conflicts.join(', ')}. Modifica non salvata.`);
     const configurationError = tableConfigurationError(candidate, appointments);
-    if (configurationError) throw new Error(`${configurationError} Modifica non salvata.`);
+    if (!manualTables && configurationError) throw new Error(`${configurationError} Modifica non salvata.`);
   }
   const expected = Object.fromEntries(EDITABLE_BOOKING_FIELDS.map(key => [key, original[key] ?? null]));
   const { data, error } = await client.rpc(manualTables && Object.keys(changes).every(key => key === 'tables') ? 'admin_assign_booking_tables' : 'admin_update_booking', {

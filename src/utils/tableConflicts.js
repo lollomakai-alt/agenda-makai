@@ -1,6 +1,6 @@
 import { TABLE_ASSIGNMENTS, TABLE_15_19_CONFIGURATIONS } from '../config/tableAssignments.js';
 import { bookingStatus } from './bookingStatus.js';
-import { bookingInterval, bookingsOverlap } from './bookingTime.js';
+import { bookingsOverlap } from './bookingTime.js';
 
 export function assignedTableIds(value) {
   return String(value || '').split(',').map(id => id.trim()).filter(Boolean);
@@ -31,21 +31,13 @@ export function tableConfigurationError(booking, appointments) {
   if (!isAvailabilityBlocking(booking)) return '';
   const others = appointments.filter(other => String(other.id) !== String(booking.id)
     && isAvailabilityBlocking(other) && bookingsOverlap(booking, other));
-  const interval = bookingInterval(booking);
-  // Ogni configurazione deve essere compatibile solo dove è simultaneamente in uso.
-  const points = interval ? [interval.start, ...others.map(bookingInterval)
-    .filter(other => other && other.start > interval.start && other.start < interval.end).map(other => other.start)] : [null];
-  for (const point of points) {
-    const assignments = new Set(assignedTableIds(booking.tables));
-    for (const other of others) {
-      const otherInterval = bookingInterval(other);
-      if (point !== null && otherInterval && !(otherInterval.start <= point && point < otherInterval.end)) continue;
-      for (const assignment of assignedTableIds(other.tables)) assignments.add(assignment);
-    }
-    const selected = [...assignments].filter(assignment => physicalTableIds(assignment).some(id => Number(id) >= 15 && Number(id) <= 19));
-    if (selected.length && !TABLE_15_19_CONFIGURATIONS.some(configuration => selected.every(assignment => configuration.includes(assignment)))) {
-      return 'La configurazione dei tavoli 15-19 non è consentita.';
-    }
+  const assignments = new Set(assignedTableIds(booking.tables));
+  for (const other of others) {
+    for (const assignment of assignedTableIds(other.tables)) assignments.add(assignment);
+  }
+  const selected = [...assignments].filter(assignment => physicalTableIds(assignment).some(id => Number(id) >= 15 && Number(id) <= 19));
+  if (selected.length && !TABLE_15_19_CONFIGURATIONS.some(configuration => selected.every(assignment => configuration.includes(assignment)))) {
+    return 'La configurazione dei tavoli 15-19 non è consentita.';
   }
   return '';
 }
@@ -62,9 +54,14 @@ export function conflictingTableIds(booking, appointments) {
   return [...conflicts].sort((a, b) => Number(a) - Number(b));
 }
 
+export function assignedUnitCapacity(value) {
+  if (tableAssignmentError(value)) return null;
+  return assignedTableIds(value).reduce((sum, id) => sum + TABLE_ASSIGNMENTS[id], 0);
+}
+
 export function tableCapacityWarning(value, partySize) {
   const ids = assignedTableIds(value);
   if (!ids.length || ids.some(id => !Object.hasOwn(TABLE_ASSIGNMENTS, id))) return '';
   const capacity = ids.reduce((sum,id) => sum + TABLE_ASSIGNMENTS[id],0);
-  return Number(partySize) > capacity ? `Sovracapienza: ${partySize} persone su ${capacity} posti consigliati. Lo staff può salvare questa assegnazione manuale.` : '';
+  return Number(partySize) > capacity ? `Sovracapienza: ${partySize} persone su ${capacity} posti consigliati. Scegli un’unità con capienza sufficiente.` : '';
 }

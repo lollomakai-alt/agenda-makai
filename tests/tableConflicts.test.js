@@ -23,10 +23,10 @@ test('overlapping table conflicts; cancelled/no-show, different dates and own id
   assert.deepEqual(conflictingTableIds({ ...original, tables: '' }, rows), []);
 });
 
-test('normal and dopocena reuse tables only at separate times', () => {
+test('normal and dopocena cannot reuse assigned tables at separate times', () => {
   const normal = { ...original, booking_type: 'normale' };
   const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:00' };
-  assert.deepEqual(conflictingTableIds(afterDinner, [normal]), []);
+  assert.deepEqual(conflictingTableIds(afterDinner, [normal]), ['12']);
   assert.deepEqual(conflictingTableIds(afterDinner, [{ ...afterDinner, id: 100 }]), ['12']);
   assert.deepEqual(conflictingTableIds(normal, [{ ...normal, id: 101 }]), ['12']);
   assert.deepEqual(conflictingTableIds({ ...normal, booking_time: '21:00' }, [afterDinner]), ['12']);

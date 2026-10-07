@@ -6,14 +6,12 @@ import LogoutButton from "./components/LogoutButton";
 import LoginPage from "./pages/LoginPage";
 import "./styles/admin.css";
 
-const WaitlistPage = lazy(() => import("./pages/WaitlistPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
 const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage"));
 
 const routes = {
-  "/lista-attesa": { title: "Lista d’attesa", Page: WaitlistPage, restricted: true },
   "/attivita": { title: "Attività", Page: ActivityPage, restricted: true },
   "/": { title: "Accesso", Page: LoginPage, restricted: false },
   "/reimposta-password": { title: "Reimposta password", Page: PasswordResetPage, restricted: false },
@@ -59,7 +57,6 @@ export default function App() {
     <header className="admin-header">
       <a href={restricted ? "/prenotazioni" : "/"} className="admin-brand">Makai <span>Agenda</span></a>
       {restricted && <MobileSection title="Menu" className="mobile-header-menu"><div className="admin-header-actions">
-        <a href="/lista-attesa">Lista d’attesa</a>
         <a href="/attivita">Attività</a>
         <span className="admin-area-label">Area riservata</span>
         <LogoutButton />
@@ -72,7 +69,6 @@ export default function App() {
     </ErrorBoundary>
     {restricted && <nav className="admin-mobile-nav" aria-label="Navigazione Agenda">
       <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
-      <a href="/lista-attesa" aria-current={path === "/lista-attesa" ? "page" : undefined}>Lista d’attesa</a>
       <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
     </nav>}
   </div>;

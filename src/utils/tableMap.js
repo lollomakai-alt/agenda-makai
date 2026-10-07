@@ -52,7 +52,8 @@ export function availableMapAssignments(booking, appointments, tableId, { manual
     const values = { ...editableBookingValues(booking), tables };
     if (Object.keys(validateBookingEdit(values, booking, { manualTables }).errors).length) return false;
     const candidate = { ...booking, tables };
-    return !conflictingTableIds(candidate, appointments).length && !tableConfigurationError(candidate, appointments) && preservesUnassignedBookings(candidate, appointments);
+    if (conflictingTableIds(candidate, appointments).length) return false;
+    return manualTables || (!tableConfigurationError(candidate, appointments) && preservesUnassignedBookings(candidate, appointments));
   });
 }
 
@@ -65,13 +66,21 @@ export async function assignMapTable(client, booking, tables, appointments, tabl
 
 // Solo suggerimento UI: le disponibilità e il salvataggio usano i controlli esistenti.
 export function rankedMapAssignments(booking, appointments) {
-  return Object.entries(TABLE_ASSIGNMENTS)
-    .filter(([group]) => availableMapAssignments(booking, appointments, physicalTableIds(group)[0]).some(([available]) => available === group))
-    .sort((a, b) => a[1] - b[1] || physicalTableIds(a[0]).length - physicalTableIds(b[0]).length);
+  const preferences = new Map();
+  const choices = Object.entries(TABLE_ASSIGNMENTS)
+    .filter(([group]) => availableMapAssignments(booking, appointments, physicalTableIds(group)[0], { manualTables: true }).some(([available]) => available === group));
+  for (const [group] of choices) {
+    const candidate = { ...booking, tables: group };
+    preferences.set(group, Number(Boolean(tableConfigurationError(candidate, appointments)))
+      + Number(!preservesUnassignedBookings(candidate, appointments)));
+  }
+  return choices.sort((a,b) => (a[1] - Number(booking.party_size)) - (b[1] - Number(booking.party_size))
+    || preferences.get(a[0]) - preferences.get(b[0])
+    || physicalTableIds(a[0]).length - physicalTableIds(b[0]).length);
 }
 
-// An explicit staff assignment must leave room for every pending confirmed
-// group. Choices remain suggestions; this search never saves another booking.
+// Prefer choices that leave room for pending groups. This advisory search
+// never vetoes a manual assignment or saves another booking.
 export function preservesUnassignedBookings(candidate, appointments) {
   const rows = [...appointments.filter(item => String(item.id) !== String(candidate.id)), candidate]
     .filter(item => bookingsOverlap(candidate, item) && !inactiveStatuses.has(bookingStatus(item.status)));

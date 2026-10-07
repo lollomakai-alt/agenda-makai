@@ -6,7 +6,7 @@ import { TABLE_ASSIGNMENTS } from '../src/config/tableAssignments.js';
 
 // PGlite is single-session; PostgreSQL advisory lock calls are removed only
 // in this local fixture. Actual request locking remains in the production SQL.
-test('online SQL shares grouped rules, reserves unassigned covers, saves without tables and records private history',async()=>{
+test('online SQL shares grouped rules, reserves unassigned covers, saves without tables and records private history',async(t)=>{
  const db=new PGlite();
  try {
   await db.exec(`create role anon;create role authenticated;create role service_role;
@@ -84,6 +84,49 @@ test('online SQL shares grouped rules, reserves unassigned covers, saves without
   saved=await insert(2,'','booking');
   await db.query(`insert into private.online_booking_receipts(request_id,booking_id,fingerprint) values('11111111-1111-4111-8111-111111111111',$1,'hash')`,[saved.id]);
   await assert.rejects(db.query(`insert into private.online_booking_receipts(request_id,booking_id,fingerprint) values('11111111-1111-4111-8111-111111111111',$1,'hash')`,[saved.id]),/duplicate key/);
+  // Exercise the real prepare_booking trigger, not a copy of its count query.
+  // An unrelated session timezone must not change the Europe/Rome cutoff.
+  await db.exec("set timezone = 'Pacific/Honolulu'");
+  const clock = (await db.query(`select to_char((now() at time zone 'Europe/Rome')::date,'YYYY-MM-DD') today,
+    to_char((now() at time zone 'Europe/Rome')::date-1,'YYYY-MM-DD') yesterday`)).rows[0];
+  const seed = async (date, time = '20:00', state = 'confirmed', phone = '+39 333 1234567') => db.query(`
+    insert into bookings(name,phone,booking_date,booking_time,party_size,status,source)
+    values('Mario Rossi',$1,$2,$3,1,$4,'agenda')`, [phone,date,time,state]);
+  const clearLimitFixture = () => db.exec('delete from private.online_booking_receipts;delete from booking_history;delete from bookings;');
+  await t.test('2 confirmed passate + nuova prenotazione: consentita', async () => {
+    await clearLimitFixture();
+    await seed(clock.yesterday,'18:00'); await seed(clock.yesterday,'20:00');
+    assert.equal((await insert(1,'','booking')).status,'confirmed');
+  });
+  await t.test('1 futura confirmed + prenotazioni passate: consentita', async () => {
+    await clearLimitFixture();
+    await seed(day); await seed(clock.yesterday,'18:00'); await seed(clock.yesterday,'20:00');
+    assert.equal((await insert(1,'','booking')).status,'confirmed');
+  });
+  await t.test('2 future confirmed: terza bloccata e nessun salvataggio', async () => {
+    await clearLimitFixture();
+    await seed(day,'18:00'); await seed(day,'20:00');
+    await assert.rejects(insert(1,'','booking'),/Limite prenotazioni per telefono raggiunto/);
+    assert.equal((await db.query('select count(*) n from bookings')).rows[0].n,2);
+  });
+  await t.test('confirmed di oggi con orario passato: non conta', async () => {
+    await clearLimitFixture();
+    assert.equal((await db.query(`select ($1 || ' 00:00')::timestamp at time zone 'Europe/Rome' < now() past`,[clock.today])).rows[0].past,true);
+    await seed(day); await seed(clock.today,'00:00');
+    assert.equal((await insert(1,'','booking')).status,'confirmed');
+  });
+  for (const state of ['arrived','completed','cancelled','no_show']) {
+    await t.test(`${state} futura: non conta nel limite per telefono`, async () => {
+      await clearLimitFixture();
+      await seed(day); await seed(day,'20:00',state);
+      assert.equal((await insert(1,'','booking')).status,'confirmed');
+    });
+  }
+  await t.test('prenotazioni future di un altro telefono: non contano', async () => {
+    await clearLimitFixture();
+    await seed(day,'18:00','confirmed','+393339876543'); await seed(day,'20:00','confirmed','+393339876543');
+    assert.equal((await insert(1,'','booking')).status,'confirmed');
+  });
   for(const role of ['anon','authenticated','service_role']) {
    await db.exec(`set role ${role}`);
    await assert.rejects(db.query('select * from private.online_booking_receipts'),/permission denied/);

@@ -1,5 +1,5 @@
 -- Correzione mirata del trigger esistente, dopo after-dinner-bookings.sql.
--- Durata invariata: STAY_MINUTES=120 in api/config.py del backend condiviso.
+-- Nessun riuso a tempo: gli assegnati bloccano l’intera giornata prenotata.
 -- Non modifica prenotazioni, tabelle, capacità, stati o policy RLS.
 begin;
 set local lock_timeout = '5s';
@@ -17,17 +17,10 @@ $$;
 
 create or replace function private.booking_intervals_overlap(left_day text, left_time text, right_day text, right_time text)
 returns boolean language plpgsql stable security invoker set search_path = '' as $$
-declare
-  a timestamptz := private.booking_scheduled_at(left_day, left_time);
-  b timestamptz := private.booking_scheduled_at(right_day, right_time);
 begin
-  -- Intervalli [inizio,fine): a esattamente 120 minuti il tavolo è riutilizzabile.
-  -- Orari legacy incerti non rendono libero un tavolo nella stessa data.
-  if a is null or b is null then
-    return left_day is null or right_day is null or left_day = right_day
-      or not pg_input_is_valid(left_day,'date') or not pg_input_is_valid(right_day,'date');
-  end if;
-  return a < b + interval '120 minutes' and b < a + interval '120 minutes';
+  -- Signature retained for existing callers; times never release a table.
+  return left_day is null or right_day is null or left_day = right_day
+    or not pg_input_is_valid(left_day,'date') or not pg_input_is_valid(right_day,'date');
 end;
 $$;
 revoke all on function private.booking_scheduled_at(text,text), private.booking_intervals_overlap(text,text,text,text)
@@ -40,7 +33,6 @@ declare
   selected_physical_ids text[];
   occupied_groups text[];
   start_at timestamptz;
-  point timestamptz;
 begin
   if tg_op = 'UPDATE' then
     if new.booking_date is not distinct from old.booking_date
@@ -77,17 +69,9 @@ begin
       and private.booking_intervals_overlap(new.booking_date,new.booking_time,b.booking_date,b.booking_time)
       and btrim(physical_id) = any(selected_physical_ids)
   ) then
-    raise exception 'Tavolo già assegnato a un’altra prenotazione con intervallo sovrapposto' using errcode = '23505';
+    raise exception 'Tavolo già assegnato a un’altra prenotazione nella stessa giornata' using errcode = '23505';
   end if;
-  -- Controllare le configurazioni in ciascun istante di inizio, evitando
-  -- di unire artificialmente gruppi che non sono mai occupati insieme.
-  for point in
-    select start_at union
-    select private.booking_scheduled_at(b.booking_date,b.booking_time) from public.bookings b
-    where b.id <> new.id and b.status not in ('cancelled','no_show')
-      and private.booking_scheduled_at(b.booking_date,b.booking_time) > start_at
-      and private.booking_scheduled_at(b.booking_date,b.booking_time) < start_at + interval '120 minutes'
-  loop
+  -- Gli assegnati restano in uso per la giornata, senza scadenza temporale.
     select array_agg(distinct grouped_id) into occupied_groups from (
       select btrim(t) as grouped_id from unnest(selected_ids) t
       union all
@@ -95,9 +79,7 @@ begin
       cross join lateral unnest(string_to_array(coalesce(b.tables,''),',')) t
       where b.id <> new.id and b.status not in ('cancelled','no_show')
         and private.booking_intervals_overlap(new.booking_date,new.booking_time,b.booking_date,b.booking_time)
-        and (private.booking_scheduled_at(b.booking_date,b.booking_time) is null
-          or (private.booking_scheduled_at(b.booking_date,b.booking_time) <= point
-            and point < private.booking_scheduled_at(b.booking_date,b.booking_time) + interval '120 minutes'))
+
     ) occupied where grouped_id in ('15+16+17','15+16','17','18+19','18','19');
     if occupied_groups is not null and not (
       occupied_groups <@ array['15+16+17','18+19']::text[]
@@ -106,18 +88,16 @@ begin
     ) then
       raise exception 'Configurazione dei tavoli 15-19 non valida' using errcode = '22023';
     end if;
-  end loop;
   return new;
 end;
 $$;
 revoke all on function private.check_daily_table_conflicts() from public, anon, authenticated;
 
 -- Il guard delle prenotazioni online senza tavolo deve considerare le stesse
--- finestre, riutilizzando la ricerca di capienza fit_online_parties già presente.
+-- giornate, riutilizzando la ricerca di capienza fit_online_parties già presente.
 create or replace function private.pending_online_windows_fit(day text)
 returns boolean language plpgsql stable security invoker set search_path = '' as $$
 declare
-  point timestamptz;
   row_data record;
   selected_group text;
   physical text[];
@@ -128,22 +108,11 @@ begin
   if exists(select 1 from public.bookings b where b.booking_date=day
     and b.status not in ('cancelled','no_show')
     and private.booking_scheduled_at(b.booking_date,b.booking_time) is null) then return false; end if;
-  for point in
-    select distinct private.booking_scheduled_at(b.booking_date,b.booking_time)
-    from public.bookings b where b.status not in ('cancelled','no_show')
-      and private.booking_scheduled_at(b.booking_date,b.booking_time) is not null
-      and exists(select 1 from public.bookings d where d.booking_date=day
-        and d.status not in ('cancelled','no_show')
-        and private.booking_intervals_overlap(d.booking_date,d.booking_time,b.booking_date,b.booking_time))
-  loop
-    if not exists(select 1 from public.bookings b where b.source='booking'
-      and b.status not in ('cancelled','no_show') and coalesce(btrim(b.tables),'')=''
-      and private.booking_scheduled_at(b.booking_date,b.booking_time) <= point
-      and point < private.booking_scheduled_at(b.booking_date,b.booking_time) + interval '120 minutes') then continue; end if;
+  if not exists(select 1 from public.bookings b where b.booking_date=day and b.source='booking'
+    and b.status not in ('cancelled','no_show') and coalesce(btrim(b.tables),'')='') then return true; end if;
     used := array[]::text[]; groups := array[]::text[]; parties := array[]::integer[];
-    for row_data in select b.* from public.bookings b where b.status not in ('cancelled','no_show')
-      and private.booking_scheduled_at(b.booking_date,b.booking_time) <= point
-      and point < private.booking_scheduled_at(b.booking_date,b.booking_time) + interval '120 minutes'
+    for row_data in select b.* from public.bookings b where b.booking_date=day
+      and b.status not in ('cancelled','no_show')
     loop
       if row_data.party_size is null or row_data.party_size < 1 then return false; end if;
       if coalesce(btrim(row_data.tables),'')='' then
@@ -161,13 +130,12 @@ begin
     if not private.online_groups_compatible(groups) then return false; end if;
     select coalesce(array_agg(p order by p desc),array[]::integer[]) into parties from unnest(parties) p;
     if not private.fit_online_parties(parties,used,groups) then return false; end if;
-  end loop;
   return true;
 end;
 $$;
 revoke all on function private.pending_online_windows_fit(text) from public,anon,authenticated;
 
--- Installazioni che hanno già il guard: mantenerlo e allineare solo il tempo.
+-- Installazioni che hanno già il guard: mantenerlo e allineare solo l’occupazione.
 do $patch$
 begin
   if to_regprocedure('private.protect_pending_online_bookings()') is not null then
