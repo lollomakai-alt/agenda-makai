@@ -7,6 +7,7 @@ import {
   requestNotificationPermission,
   sendTestPush,
   subscribeAdminPush,
+  shouldShowPushPanel,
   unsubscribeAdminPush,
 } from '../utils/webPush';
 
@@ -147,6 +148,8 @@ export default function AdminPushNotifications() {
   }
 
   const available = (permission === 'default' || permission === 'granted') && (permission === 'default' || prepared !== null);
+  if (!shouldShowPushPanel({ permission, subscribed, error })) return null;
+
   return <section className="admin-push-notifications" aria-label="Notifiche push ADMIN">
     <h2>Notifiche push</h2>
     <p role="status">{permission === 'granted' && subscribed ? 'Subscription attiva su questo dispositivo.' : permissionMessages[permission]}</p>

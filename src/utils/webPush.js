@@ -26,6 +26,10 @@ export function notificationPermissionState(environment = globalThis) {
   return notificationApi.permission;
 }
 
+export function shouldShowPushPanel({ permission, subscribed, error }) {
+  return permission !== 'granted' || subscribed !== true || Boolean(error);
+}
+
 export function requestNotificationPermission(environment = globalThis) {
   const windowObject = environment.window || environment;
   if (notificationPermissionState(environment) !== 'default') {

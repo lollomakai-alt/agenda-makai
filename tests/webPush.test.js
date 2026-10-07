@@ -11,6 +11,7 @@ import {
   savePushSubscription,
   sendTestPush,
   subscribeAdminPush,
+  shouldShowPushPanel,
   unsubscribeAdminPush,
 } from '../src/utils/webPush.js';
 
@@ -43,6 +44,14 @@ test('reports granted, denied, and default browser permission states', () => {
     const mock = browser({ permission });
     assert.equal(notificationPermissionState(mock.environment), permission);
   }
+});
+
+test('hides the operational push panel only when permission and device subscription are active without errors', () => {
+  assert.equal(shouldShowPushPanel({ permission: 'granted', subscribed: true, error: '' }), false);
+  assert.equal(shouldShowPushPanel({ permission: 'default', subscribed: false, error: '' }), true);
+  assert.equal(shouldShowPushPanel({ permission: 'denied', subscribed: false, error: '' }), true);
+  assert.equal(shouldShowPushPanel({ permission: 'granted', subscribed: false, error: '' }), true);
+  assert.equal(shouldShowPushPanel({ permission: 'granted', subscribed: true, error: 'Push non valido' }), true);
 });
 
 test('does not offer notification permission outside a secure context or supported API', () => {
