@@ -1,0 +1,9 @@
+{
+  "name": "Agenda Makai",
+  "short_name": "Agenda Makai",
+  "start_url": "/prenotazioni",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}

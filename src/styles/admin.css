@@ -1872,6 +1872,11 @@ a.booking-confirmation:active,
 .booking-requests ul { padding-left: 1.3rem; }
 .booking-requests li { margin: 1rem 0; }
 
+.admin-push-notifications { margin: 1rem auto; padding: 1rem; max-width: 1200px; border: 1px solid var(--admin-border); border-radius: 12px; }
+.admin-push-notifications h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
+.admin-push-notifications p { margin: 0 0 .75rem; }
+.admin-push-notifications .admin-button { min-height: 44px; }
+
 .admin-notifications { margin: 1rem auto; padding: 0 1rem; max-width: 1200px; }
 .notification-badge { display: inline-block; min-width: 1.6em; padding: .1em .4em; border-radius: 1em; background: var(--admin-accent-soft-strong); color: var(--admin-accent-hover); font-size: 12px; font-weight: 600; text-align: center; }
 .notification-panel { margin-top: .75rem; padding: 1rem; border: 1px solid var(--admin-border); border-radius: 12px; }

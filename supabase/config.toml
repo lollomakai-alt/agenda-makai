@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.resend-webhook]
 verify_jwt = false
+
+[functions.web-push-admin]
+verify_jwt = false

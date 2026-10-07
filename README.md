@@ -74,6 +74,31 @@ npm run preview
 
 Preview: http://localhost:4174. Nessun test inserisce prenotazioni nel database.
 
+## Web Push ADMIN (Step 2)
+
+Il service worker supporta push visibili e il pannello ADMIN può creare/rimuovere la subscription e inviare un test manuale. In questo passaggio non vengono inviati push automatici dagli eventi di prenotazione.
+
+Prima di abilitare il flusso in un progetto Supabase:
+
+1. Applica manualmente `supabase/admin-push-subscriptions.sql` dal SQL Editor. Lo script crea la tabella con endpoint e chiavi di subscription, RLS per il solo utente con `app_metadata.role = admin` e accesso server-side per `service_role`. Non applicare lo script alla cieca se hai già creato una tabella omonima.
+2. Genera una coppia VAPID in un ambiente fidato con `npx --yes web-push generate-vapid-keys`. Configura nella sezione Supabase **Edge Functions → Secrets**:
+   - `VAPID_PUBLIC_KEY`: chiave pubblica, consegnata al client solo dalla Edge Function autenticata.
+   - `VAPID_PRIVATE_KEY`: chiave privata, solo secret server-side; non inserirla in `VITE_*`, nel frontend o nel repository.
+   - `VAPID_SUBJECT`: identificatore contatto VAPID, per esempio `mailto:admin@DOMINIO`.
+
+   Non rigenerare la coppia dopo aver registrato le subscription, altrimenti i dispositivi esistenti dovranno iscriversi di nuovo. `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` sono variabili runtime della Edge Function Supabase; la chiave `service_role` non va configurata nel client.
+3. Pubblica manualmente la funzione `web-push-admin` (`supabase functions deploy web-push-admin`) e la build dell’Agenda. La funzione disabilita la verifica JWT del gateway perché convalida esplicitamente il bearer con `auth.getUser()` e richiede `app_metadata.role = admin`; tutte le operazioni DB di manutenzione usano la chiave service role server-side.
+
+Primo test controllato su iPhone/iPad (iOS/iPadOS 16.4 o successivo):
+
+1. Apri il sito HTTPS in Safari, usa **Condividi → Aggiungi alla schermata Home**, quindi avvia Agenda Makai dalla nuova icona (non dalla scheda Safari).
+2. Accedi con l’account ADMIN e premi **Attiva notifiche**. Dopo aver accettato il prompt iOS, premi ancora **Completa attivazione**: il secondo gesto avvia `PushManager.subscribe()` con la chiave pubblica VAPID già caricata.
+3. Attendi **Subscription attiva su questo dispositivo**, poi premi **Invia push di prova**.
+4. Esci dall’app o blocca lo schermo e verifica la notifica **Agenda Makai · Test push**. Se il push service risponde 404/410 o l’expiration time è passato, il record viene eliminato e l’interfaccia chiede una nuova attivazione.
+5. Per disiscrivere il dispositivo usa **Disattiva notifiche** nell’ADMIN; elimina prima il record dell’utente corrente e poi la subscription del browser.
+
+La chiave privata VAPID non viene restituita alla UI né usata dal service worker. Il test invia un solo push al solo endpoint posseduto dall’ADMIN autenticato. Questa infrastruttura non collega ancora eventi applicativi o prenotazioni alle notifiche.
+
 ## Deploy Vercel
 
 `vercel.json` configura la build Vite e le rotte del calendario. `api/admin/[...path].js` inoltra le operazioni amministrative al backend condiviso verificando che la destinazione sia HTTPS. Conserva il bearer token Supabase e non inoltra cookie o chiavi riservate.

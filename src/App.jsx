@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useEffect } from "react";
 import AdminNotifications from "./components/AdminNotifications";
+import AdminPushNotifications from "./components/AdminPushNotifications";
 import AdminAccess from "./components/AdminAccess";
 import MobileSection from "./components/MobileSection";
 import LogoutButton from "./components/LogoutButton";
@@ -50,7 +51,7 @@ export default function App() {
   let page = <NotFound />;
   if (route) {
     const { Page } = route;
-    page = restricted ? <AdminAccess><AdminNotifications /><Page /></AdminAccess> : <Page />;
+    page = restricted ? <AdminAccess><AdminPushNotifications /><AdminNotifications /><Page /></AdminAccess> : <Page />;
   }
 
   return <div className={`admin-shell${restricted ? " admin-shell-private" : ""}`}>
