@@ -290,7 +290,6 @@ test(
         'arrived',
         'seated',
         'completed',
-        'cancelled',
         'no_show',
       ]) {
         globalThis.__agendaStatusFixture = status;
@@ -325,6 +324,19 @@ test(
         );
       }
 
+      globalThis.__agendaStatusFixture = 'cancelled';
+      const cancelledHtml = renderToString(
+        React.createElement(Page)
+      );
+      assert.doesNotMatch(cancelledHtml, /<article id="booking-1"/);
+      assert.match(cancelledHtml, /<article id="booking-2"/);
+
+      globalThis.__agendaStatusFixture = 'confirmed';
+      const restoredHtml = renderToString(
+        React.createElement(Page)
+      );
+      assert.match(restoredHtml, /<article id="booking-1"/);
+
       delete globalThis.__agendaStatusFixture;
 
       /*
@@ -334,9 +346,21 @@ test(
       globalThis.window.location.search =
         '?date=2026-10-04&assign=1';
 
+      globalThis.__agendaStatusFixture = 'cancelled';
+      const cancelledMapHtml = renderToString(
+        React.createElement(Page)
+      );
+      assert.match(cancelledMapHtml, /<h2[^>]*>Mappa tavoli<\/h2>/);
+      assert.doesNotMatch(
+        cancelledMapHtml,
+        /assignment-selected-booking/
+      );
+
+      globalThis.__agendaStatusFixture = 'confirmed';
       const mapHtml = renderToString(
         React.createElement(Page)
       );
+      delete globalThis.__agendaStatusFixture;
 
       assert.match(
         mapHtml,

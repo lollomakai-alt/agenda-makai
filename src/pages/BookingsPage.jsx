@@ -150,6 +150,11 @@ export default function BookingsPage() {
           booking => booking.booking_date === date
         );
 
+  const operationalBookings =
+    bookings?.filter(
+      booking => bookingStatus(booking.status) !== 'cancelled'
+    );
+
   const [showCreate, setShowCreate] = useState(false);
 
   const [customerSearch, setCustomerSearch] = useState("");
@@ -286,13 +291,13 @@ export default function BookingsPage() {
   useEffect(() => {
     if (
       detailBookingId === null
-      || !bookings
+      || !operationalBookings
     ) {
       return;
     }
 
     if (
-      !bookings.some(
+      !operationalBookings.some(
         booking =>
           String(booking.id)
           === String(detailBookingId)
@@ -300,7 +305,7 @@ export default function BookingsPage() {
     ) {
       setDetailBookingId(null);
     }
-  }, [bookings, detailBookingId]);
+  }, [operationalBookings, detailBookingId]);
 
 
   useEffect(() => {
@@ -1035,7 +1040,7 @@ export default function BookingsPage() {
 
 
   const assignmentBooking =
-    bookings?.find(
+    operationalBookings?.find(
       booking =>
         String(booking.id)
         === String(
@@ -1045,7 +1050,7 @@ export default function BookingsPage() {
 
 
   const detailBooking =
-    bookings?.find(
+    operationalBookings?.find(
       booking =>
         String(booking.id)
         === String(
@@ -1055,7 +1060,7 @@ export default function BookingsPage() {
 
 
   const visibleBookings =
-    (bookings || []).filter(
+    (operationalBookings || []).filter(
       booking =>
         showAssigned
         || (
@@ -2800,7 +2805,7 @@ export default function BookingsPage() {
                     `${date}-${assignmentBooking?.id || 'overview'}`
                   }
                   appointments={
-                    bookings
+                    operationalBookings
                   }
                   date={date}
                   assignmentBooking={
