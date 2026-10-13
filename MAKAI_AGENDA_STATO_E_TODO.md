@@ -205,3 +205,13 @@ _13 ottobre 2026; confrontati README e documenti Drive con decisioni successive.
 - **Verifiche del 14 ottobre:** `npm test` superato (241/241), `npm run build` superata (Vite 8.3.0, 112 moduli), `git diff --check` superato. Scansione dei file modificati senza credenziali individuate; il valore `access_token` in un test è una fixture. Nessun controllo browser, staging o database in questo intervento.
 - **DA FARE:** chiarire il collegamento Git/Vercel prima di inviare il branch remoto: in assenza di una disabilitazione verificata, il push potrebbe creare automaticamente un deploy Preview. Coordinare qualsiasi futura pubblicazione con la migrazione SQL ancora non applicata.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun push o deploy in questo intervento.
+
+## Registro — controllo manutenzione Sito da Agenda, 14 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** aggiunta la pagina riservata `/manutenzione`, raggiungibile dal menu Agenda. Legge dal backend Sito lo stato globale e lo storico, permette all'admin di attivare o disattivare solo tramite conferma del pulsante e rilegge il valore dal server dopo il salvataggio. Se lo stato è incerto il comando resta disabilitato. Il gateway accetta esclusivamente i nuovi percorsi GET/POST previsti e continua a verificare il ruolo `admin`.
+- **Verifiche locali:** `npm test` 243/243, build Vite (113 moduli) superata. Test del gateway e della pagina aggiunti; nessuna prova con sessione reale o database. L'API e lo stato sono implementati nel repository Sito; lo SQL proposto `../sito-makai/supabase/site-maintenance.sql` non è stato applicato.
+- **DA FARE:** applicazione autorizzata dello SQL e rilascio coordinato Sito/Agenda; prova end-to-end dell'interruttore, dello storico e del blocco online prima dell'uso operativo.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push, deploy o intervento sul database live in questo intervento.
+
+## Verifica collegamento gateway manutenzione, 14 ottobre 2026
+- **Verifica locale:** allowlist Agenda espone solo GET/POST `site-maintenance`; il gateway continua a verificare il ruolo `admin` da `app_metadata` e inoltra la richiesta al backend con il secret server-side. Test gateway e UI 9/9 superati; `git diff --check` superato.
+- **Limite:** prova del gateway con Auth/backend simulati, non con sessione Supabase reale. Nessuna modifica al database live o deploy.

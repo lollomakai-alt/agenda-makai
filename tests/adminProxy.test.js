@@ -94,6 +94,27 @@ test('communication routes forward only through the authenticated gateway', () =
   }
 }));
 
+test('maintenance switch uses the admin-only gateway for reads and writes', () => isolated(async () => {
+  for (const method of ['GET', 'POST']) {
+    let calls = 0;
+    globalThis.fetch = async (url, options) => {
+      calls++;
+      if (url.hostname === 'auth.invalid') return Response.json({ id: 'admin', app_metadata: { role: 'admin' } });
+      assert.equal(url.pathname, '/api/admin/site-maintenance');
+      assert.equal(options.method, method);
+      assert.equal(options.headers['x-agenda-backend-key'], secret);
+      if (method === 'POST') assert.equal(options.body, '{"active":true}');
+      return Response.json({ active: true });
+    };
+    const res = response();
+    await handler(request({ url: '/api/admin/site-maintenance', method,
+      headers: { authorization: 'Bearer test-session', 'x-admin-request': '1', 'content-type': 'application/json' },
+      body: method === 'POST' ? { active: true } : undefined }), res);
+    assert.equal(res.code, 200);
+    assert.equal(calls, 2);
+  }
+}));
+
 test('communication route allowlist rejects invalid ids, paths and methods', () => isolated(async () => {
   globalThis.fetch = () => { throw new Error('Unexpected network request'); };
   for (const [method,path] of [['POST','0/send-confirmation-email'],['POST','42/communications'],
