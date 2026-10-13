@@ -1,0 +1,684 @@
+/* Drawer operativo mobile-first · Step 2 */
+
+.booking-detail-content {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 10px 8px;
+}
+
+.booking-detail-content
+> :not(.booking-card-phone):not(.booking-card-type) {
+  grid-column: 1 / -1;
+}
+
+.booking-detail-overview {
+  order: 1;
+
+  display: grid;
+  gap: 5px;
+
+  padding-bottom: 12px;
+
+  border-bottom:
+    1px solid
+    var(--admin-border);
+}
+
+.booking-detail-overview-main,
+.booking-detail-overview-secondary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.booking-detail-overview-main {
+  font-size: 14px;
+}
+
+.booking-detail-overview-secondary {
+  color: var(--admin-muted);
+
+  font-size: 12px;
+}
+
+.booking-detail-time {
+  color: var(--admin-text);
+
+  font-size: 18px;
+  font-weight: 700;
+
+  font-variant-numeric:
+    tabular-nums;
+}
+
+.booking-detail-table-label {
+  color: var(--admin-text);
+
+  font-weight: 600;
+}
+
+.booking-detail-content
+> .booking-table-controls {
+  order: 3;
+
+  padding: 10px 12px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius:
+    var(--radius-sm);
+
+  background:
+    var(--admin-panel-2);
+}
+
+.booking-detail-content
+> .booking-communications {
+  order: 4;
+
+  margin: 0;
+}
+
+.booking-detail-content
+> .booking-communications.is-compact {
+  padding: 0;
+
+  border: 0;
+
+  background:
+    transparent;
+}
+
+.booking-detail-content
+> .manual-booking-feedback,
+.booking-detail-content
+> .booking-customer-warning,
+.booking-detail-content
+> .booking-delay-notification {
+  order: 6;
+
+  margin: 0;
+}
+
+.booking-detail-content
+> .booking-operational-actions {
+  order: 8;
+
+  padding-top: 10px;
+
+  border-top:
+    1px solid
+    var(--admin-border);
+}
+
+.booking-detail-content
+> .booking-operational-actions
+.booking-action-danger {
+  min-height: 44px;
+}
+
+@media screen and (max-width: 600px) {
+  .booking-detail-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+
+    padding-top:
+      max(
+        48px,
+        env(
+          safe-area-inset-top,
+          0px
+        )
+      );
+  }
+
+  .booking-detail-drawer {
+    width: 100%;
+    height: auto;
+    max-height: 90dvh;
+
+    overflow-y: auto;
+
+    padding:
+      0
+      14px
+      calc(
+        18px
+        + env(
+          safe-area-inset-bottom,
+          0px
+        )
+      );
+
+    border-left: 0;
+    border-top:
+      1px solid
+      var(--admin-border);
+
+    border-radius:
+      18px
+      18px
+      0
+      0;
+
+    box-shadow: var(--shadow-lg);
+
+    overscroll-behavior:
+      contain;
+
+    -webkit-overflow-scrolling:
+      touch;
+  }
+
+  .booking-detail-drawer::before {
+    content: "";
+
+    display: block;
+
+    width: 38px;
+    height: 4px;
+
+    margin:
+      7px
+      auto
+      2px;
+
+    border-radius:
+      var(--radius-pill);
+
+    background:
+      var(--admin-border-strong);
+  }
+
+  .booking-detail-drawer-header {
+    margin:
+      0
+      -14px
+      10px;
+
+    padding:
+      9px
+      14px
+      10px;
+
+    gap: 10px;
+  }
+
+  .booking-detail-drawer-header h2 {
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .booking-detail-drawer-header
+  .admin-button {
+    min-height: 40px;
+
+    padding: 7px 10px;
+
+    font-size: 12px;
+  }
+
+  .booking-detail-content {
+    gap: 10px 8px;
+  }
+
+  .booking-detail-content
+  > .booking-card-quick-actions {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .booking-detail-content
+  > .booking-card-phone,
+  .booking-detail-content
+  > .booking-card-type {
+    font-size: 12px;
+  }
+
+  .booking-detail-management {
+    padding: 0;
+  }
+}
+
+.booking-icon-action {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.booking-icon-action.is-disabled {
+  opacity: .4;
+  pointer-events: none;
+}
+
+/* Evita vecchi pannelli sovradimensionati */
+.booking-detail-content
+> .booking-table-controls {
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+}
+
+@media screen and (max-width: 600px) {
+  .booking-detail-content {
+    gap: 7px;
+  }
+
+  .booking-card-operational
+  .booking-card-quick-actions {
+    gap: 5px;
+  }
+}
+
+/* STEP 5C.2 · modalità nette e azioni leggibili nel drawer. */
+.booking-detail-title-group {
+  min-width: 0;
+}
+
+.booking-detail-mode {
+  display: block;
+  margin-top: 2px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.booking-primary-actions > .booking-table-controls.is-compact {
+  min-width: 0;
+}
+
+.booking-primary-actions .booking-icon-action,
+.booking-primary-actions .booking-primary-action-slot > .booking-edit-trigger {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 44px;
+  padding: 9px 10px !important;
+  gap: 7px;
+  font-size: 13px !important;
+  line-height: 1.2;
+}
+
+.booking-primary-actions .booking-status-icon > .booking-action-icon {
+  line-height: 1;
+}
+
+.booking-detail-content.is-editing .booking-detail-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  padding-top: 0;
+}
+
+.booking-detail-content.is-editing .booking-detail-edit-form > h4,
+.booking-detail-content.is-editing .booking-detail-edit-form > fieldset,
+.booking-detail-content.is-editing .booking-detail-edit-form > [role="status"],
+.booking-detail-content.is-editing .booking-detail-edit-form > [role="alert"] {
+  grid-column: 1 / -1;
+}
+
+.booking-detail-content.is-editing .booking-detail-edit-form > .admin-button {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+}
+
+.booking-detail-notes {
+  order: 3;
+  grid-column: 1 / -1;
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.booking-detail-notes strong {
+  color: var(--admin-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.booking-secondary-actions {
+  order: 8;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-border);
+}
+
+@media screen and (max-width: 600px) {
+  .booking-detail-content > .booking-primary-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .booking-secondary-actions {
+  }
+
+  .booking-secondary-actions > .admin-button {
+    width: 100%;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}
+
+/* Drawer prenotazione: densità operativa senza ridurre i target touch. */
+.booking-detail-content > .booking-detail-overview {
+  padding-bottom: 8px;
+}
+
+.booking-card-content .booking-detail-edit-form {
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.booking-detail-edit-form .booking-edit-notes {
+  grid-column: 1 / -1;
+}
+
+.booking-detail-content .booking-phone-link {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 0;
+}
+
+.booking-detail-drawer-header .booking-drawer-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media screen and (min-width: 430px) {
+  .booking-detail-edit-form .booking-edit-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .booking-detail-edit-form .booking-edit-fields > :not(.booking-edit-date):not(.booking-edit-time) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .booking-detail-drawer-header .booking-drawer-close {
+    min-height: 44px;
+  }
+
+  .booking-card-content .booking-detail-edit-form,
+  .booking-card-content .booking-detail-edit-form .booking-edit-fields {
+    gap: 8px;
+  }
+}
+
+
+/* Drawer operativo · barra primaria unica */
+
+.booking-detail-content
+> .booking-primary-actions {
+  order: 2;
+  grid-column: 1 / -1;
+
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+
+  gap: 8px;
+
+  min-width: 0;
+  padding: 0;
+}
+
+.booking-primary-actions
+.booking-communications.is-compact {
+  display: inline-flex;
+
+  margin: 0;
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+}
+
+.booking-primary-actions
+.booking-table-controls.is-compact {
+  position: relative;
+
+  display: inline-flex;
+
+  min-height: 44px;
+
+  margin: 0;
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+}
+
+.booking-primary-actions
+.booking-icon-action {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  flex: none;
+
+  padding: 8px 10px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+}
+
+.booking-primary-actions
+.booking-status-icon {
+  font-size: 0 !important;
+}
+
+.booking-primary-actions
+.booking-status-icon
+> span {
+  font-size: 21px;
+
+  font-weight: 800;
+  line-height: 1;
+}
+
+.booking-primary-actions
+.booking-no-show-quick {
+  font-size: 0 !important;
+}
+
+.booking-primary-actions
+.booking-no-show-quick
+> span {
+  font-size: 23px;
+
+  line-height: 1;
+}
+
+.booking-primary-actions
+.booking-table-menu {
+  top: calc(100% + 5px);
+  right: 0;
+}
+
+.booking-action-saving {
+  color: var(--admin-muted);
+
+  font-size: 11px;
+}
+
+@media screen and (max-width: 600px) {
+  .booking-detail-content {
+    gap: 7px;
+  }
+
+  .booking-primary-actions {
+    gap: 5px;
+  }
+}
+
+/* STEP 5C.2 · rifinitura definitiva del drawer. */
+.booking-detail-drawer { container-name: booking-drawer; container-type: inline-size; }
+.booking-detail-content.is-viewing { gap: 10px; }
+.booking-detail-content.is-viewing > .booking-detail-overview { gap: 6px; padding: 2px 0 10px; }
+.booking-detail-overview-main { gap: 7px 10px; }
+.booking-detail-overview-secondary { gap: 5px 7px; }
+.booking-detail-content > .booking-primary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+.booking-primary-actions .booking-communications.is-compact { display: contents; }
+.booking-primary-actions .booking-contacts-disclosure {
+  position: relative;
+  display: block;
+  min-width: 0;
+  margin: 0;
+}
+.booking-primary-actions .booking-contacts-disclosure > summary,
+.booking-primary-actions .booking-table-controls.is-compact > .booking-icon-action,
+.booking-primary-actions .booking-primary-action-slot > .booking-edit-trigger,
+.booking-primary-actions .booking-primary-action-slot > .booking-status-icon {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 44px;
+  padding: 8px 10px !important;
+  border-radius: 10px;
+  font-size: 13px !important;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: normal;
+}
+.booking-primary-actions .booking-contacts-disclosure > summary { list-style: none; cursor: pointer; }
+.booking-primary-actions .booking-contacts-disclosure > summary::-webkit-details-marker { display: none; }
+.booking-primary-actions .booking-contacts-disclosure[open] > summary {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+.booking-primary-actions .booking-contacts-menu {
+  top: calc(100% + 5px);
+  left: 0;
+  right: auto;
+  width: min(220px, calc(100cqw - 28px));
+}
+.booking-primary-actions .booking-contacts-menu .admin-button {
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 44px;
+}
+.booking-primary-actions .booking-table-controls.is-compact,
+.booking-primary-actions .booking-table-controls.is-compact > .booking-icon-action { width: 100%; }
+.booking-primary-actions .booking-primary-action-slot > .booking-status-icon {
+  background: var(--admin-accent);
+  color: var(--admin-ink);
+  border-color: var(--admin-accent);
+}
+.booking-primary-actions .booking-status-icon > span { font-size: 13px; }
+.booking-primary-actions .booking-status-icon > .booking-action-icon { font-size: 18px; }
+.booking-primary-actions svg,
+.booking-secondary-actions svg { flex: 0 0 auto; }
+.booking-detail-notes { border: 1px solid var(--admin-border); background: var(--admin-panel); }
+.booking-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+.booking-secondary-actions > .admin-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  gap: 7px;
+  border-radius: 10px;
+  white-space: normal;
+}
+.booking-secondary-actions > .booking-action-caution {
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+}
+.booking-secondary-actions > .booking-action-danger {
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}
+.booking-secondary-actions .booking-no-show-quick > span:first-child { font-size: 19px; line-height: 1; }
+@container booking-drawer (max-width: 319px) {
+  .booking-detail-content > .booking-primary-actions,
+  .booking-secondary-actions { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Quattro celle dirette: nessun componente può cambiare la griglia 2×2. */
+.booking-detail-content.is-viewing > .booking-primary-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.booking-primary-action-slot {
+  min-width: 0;
+  width: 100%;
+}
+.booking-primary-action-slot > *,
+.booking-primary-action-slot .booking-communications.is-compact,
+.booking-primary-action-slot .booking-table-controls.is-compact,
+.booking-primary-action-slot .booking-contacts-disclosure {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+.booking-primary-action-slot .booking-communications.is-compact {
+  display: block;
+}
+.booking-primary-action-slot .booking-icon-action,
+.booking-primary-action-slot .booking-edit-trigger,
+.booking-primary-action-slot .booking-drawer-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  text-align: center;
+}
+.booking-detail-content.is-editing > .booking-primary-actions {
+  display: block;
+}
+.booking-detail-content.is-editing .booking-primary-action-slot.is-edit {
+  width: 100%;
+}
+@container booking-drawer (max-width: 319px) {
+  .booking-detail-content.is-viewing > .booking-primary-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

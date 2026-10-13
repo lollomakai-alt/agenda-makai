@@ -23,6 +23,7 @@ export default function BookingNoShowAction({ booking, now, disabled = false, co
   return <button type="button" className="admin-button admin-button-secondary booking-action-caution booking-no-show-quick"
     disabled={disabled} title={eligibility.message} aria-label={`Non venuto: ${booking.name}`}
     onClick={() => { if (!disabled) return onNoShow(booking); }}>
-    Non venuto
+    <span aria-hidden="true">×</span>
+    <span>Non venuto</span>
   </button>;
 }

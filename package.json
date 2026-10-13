@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:email": "node scripts/test-email-edge.mjs"
   },
   "dependencies": {
+    "@radix-ui/colors": "^3.0.0",
     "@supabase/supabase-js": "2.117.2",
     "react": "18.3.1",
     "react-dom": "18.3.1"

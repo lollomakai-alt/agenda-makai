@@ -20,6 +20,13 @@ const permissionMessages = {
 };
 
 export default function AdminPushNotifications() {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem('agenda-push-notice-dismissed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [permission, setPermission] = useState(() => notificationPermissionState());
   const [subscribed, setSubscribed] = useState(null);
   const [prepared, setPrepared] = useState(null);
@@ -148,19 +155,29 @@ export default function AdminPushNotifications() {
   }
 
   const available = (permission === 'default' || permission === 'granted') && (permission === 'default' || prepared !== null);
-  if (!shouldShowPushPanel({ permission, subscribed, error })) return null;
+  if (dismissed || !shouldShowPushPanel({ permission, subscribed, error })) return null;
+
+  function dismissNotice() {
+    setDismissed(true);
+    try {
+      sessionStorage.setItem('agenda-push-notice-dismissed', 'true');
+    } catch {
+      // La chiusura funziona anche senza storage disponibile.
+    }
+  }
 
   return <section className="admin-push-notifications" aria-label="Notifiche push ADMIN">
     <h2>Notifiche push</h2>
     <p role="status">{permission === 'granted' && subscribed ? 'Subscription attiva su questo dispositivo.' : permissionMessages[permission]}</p>
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert">{error}</p>}
-    {!subscribed && <button type="button" className="admin-button admin-button-secondary" disabled={!available || busy} onClick={enableNotifications}>
+    {!subscribed && available && <button type="button" className="admin-button admin-button-secondary" disabled={busy} onClick={enableNotifications}>
       {busy ? 'Attivazione in corso…' : permission === 'granted' ? 'Completa attivazione' : 'Attiva notifiche'}
     </button>}
     {subscribed && <>
       <button type="button" className="admin-button admin-button-secondary" disabled={busy} onClick={testPush}>Invia push di prova</button>
       <button type="button" className="admin-button admin-button-secondary" disabled={busy} onClick={disableNotifications}>Disattiva notifiche</button>
     </>}
+    <button type="button" className="admin-push-dismiss" onClick={dismissNotice} aria-label="Chiudi avviso notifiche">×</button>
   </section>;
 }

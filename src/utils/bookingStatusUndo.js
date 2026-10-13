@@ -14,7 +14,7 @@ export function createBookingStatusUndo() {
         const previousStatus = bookingStatus(booking.status);
         const result = await saveBookingStatus(client, booking.id, status);
         last = bookingStatusAction(previousStatus)?.status === status
-          ? { bookingId: booking.id, name: booking.name, previousStatus, status }
+          ? { bookingId: booking.id, name: booking.name, previousStatus, status, ...(status === "completed" ? { previousTables:booking.tables || "" } : {}) }
           : null;
         return result;
       } finally { busy = false; }
@@ -27,7 +27,13 @@ export function createBookingStatusUndo() {
       }
       busy = true;
       try {
-        const result = await saveBookingStatus(client, last.bookingId, last.previousStatus);
+        let result;
+        if(last.status==='completed') {
+          const response=await client.rpc('admin_restore_released_table',{booking_id:last.bookingId,previous_tables:last.previousTables});
+          if(response.error) throw new Error(response.error.message || 'Tavolo già riassegnato: impossibile annullare.');
+          result=response.data;
+          if(result?.status!=='arrived' || String(result.booking_id)!==String(last.bookingId)) throw new Error('Ripristino non confermato. Aggiorna la pagina.');
+        } else result = await saveBookingStatus(client, last.bookingId, last.previousStatus);
         last = null;
         return result;
       } finally { busy = false; }

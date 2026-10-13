@@ -19,8 +19,8 @@ revoke all on private.online_booking_receipts from public, anon, authenticated, 
 create or replace function private.online_table_groups()
 returns table(group_id text, capacity integer)
 language sql immutable security invoker set search_path = '' as $$
-  values ('10+11',3),('12',2),('13+14',2),('15+16+17',6),('15+16',4),('17',2),
-         ('18+19',4),('18',2),('19',2),('20+21',4),('22',2),('23',2);
+  values ('10+11',3),('12',2),('13+14',3),('15+16+17',6),('15+16',4),('17',2),
+         ('18+19',4),('18',2),('19',2),('20+21',4),('22+23',4),('22',2),('23',2);
 $$;
 create or replace function private.online_groups_compatible(groups text[])
 returns boolean language sql immutable security invoker set search_path = '' as $$
@@ -28,6 +28,18 @@ returns boolean language sql immutable security invoker set search_path = '' as 
       or coalesce(array_agg(g) filter(where g in ('15+16+17','15+16','17','18+19','18','19')),array[]::text[]) <@ array['15+16','17','18+19']
       or coalesce(array_agg(g) filter(where g in ('15+16+17','15+16','17','18+19','18','19')),array[]::text[]) <@ array['15+16','17','18','19']
   from unnest(groups) g;
+$$;
+create or replace function private.online_table_candidates(people integer)
+returns table(group_id text, capacity integer, preference integer)
+language sql immutable security invoker set search_path = '' as $$
+  select g.group_id,
+         g.capacity,
+         case when people = 3 and g.capacity = 3 then 0 else 1 end
+  from private.online_table_groups() g
+  where (people in (1,2) and g.capacity = 2)
+     or (people = 3 and g.capacity in (3,4))
+     or (people = 4 and g.capacity = 4)
+     or (people in (5,6) and g.capacity = 6);
 $$;
 -- Ricerca in memoria, senza riassegnare o salvare tavoli: tutti i gruppi ancora
 -- senza tavolo devono poter entrare, anche se arrivano a orari diversi.
@@ -37,14 +49,73 @@ declare option record; physical text[];
 begin
   if cardinality(parties) = 0 then return true; end if;
   if cardinality(parties) > 10 then return false; end if;
-  for option in select * from private.online_table_groups() where capacity >= parties[1] and group_id > minimum_group
-      order by capacity, cardinality(string_to_array(group_id,'+')), group_id loop
+  for option in select * from private.online_table_candidates(parties[1]) c where c.group_id > minimum_group
+      order by c.preference, cardinality(string_to_array(c.group_id,'+')), c.group_id loop
     physical := string_to_array(option.group_id,'+');
     if not physical && used and private.online_groups_compatible(groups || option.group_id) then
       if private.fit_online_parties(parties[2:cardinality(parties)],used || physical,groups || option.group_id,case when parties[2]=parties[1] then option.group_id else '' end) then return true; end if;
     end if;
   end loop;
   return false;
+end;
+$$;
+create or replace function private.choose_online_dinner_table(day text, people integer, exclude_id bigint default null)
+returns text language plpgsql stable security invoker set search_path = '' as $$
+declare
+  row_data record;
+  option record;
+  selected_group text;
+  physical text[];
+  used text[] := array[]::text[];
+  groups text[] := array[]::text[];
+  pending_parties integer[] := array[]::integer[];
+begin
+  if day is null or people is null or people not between 1 and 6 then return null; end if;
+
+  for row_data in
+    select b.*
+    from public.bookings b
+    where b.booking_date = day
+      and b.status in ('confirmed','arrived','completed')
+      and (exclude_id is null or b.id <> exclude_id)
+    order by b.id
+  loop
+    if coalesce(btrim(row_data.tables),'') = '' then
+      if row_data.status = 'confirmed'
+        and row_data.source = 'booking'
+        and coalesce(row_data.booking_type,'normale') = 'normale' then
+        if row_data.party_size is null or row_data.party_size not between 1 and 6 then return null; end if;
+        pending_parties := pending_parties || row_data.party_size;
+      end if;
+    else
+      foreach selected_group in array string_to_array(row_data.tables,',') loop
+        selected_group := btrim(selected_group);
+        if not exists(select 1 from private.online_table_groups() g where g.group_id = selected_group) then return null; end if;
+        physical := string_to_array(selected_group,'+');
+        if physical && used then return null; end if;
+        used := used || physical;
+        groups := groups || selected_group;
+      end loop;
+    end if;
+  end loop;
+
+  if not private.online_groups_compatible(groups) then return null; end if;
+  select coalesce(array_agg(p order by p desc),array[]::integer[])
+    into pending_parties from unnest(pending_parties) p;
+
+  for option in
+    select * from private.online_table_candidates(people) c
+    order by c.preference, c.capacity, cardinality(string_to_array(c.group_id,'+')), c.group_id
+  loop
+    physical := string_to_array(option.group_id,'+');
+    if not physical && used
+      and private.online_groups_compatible(groups || option.group_id)
+      and private.fit_online_parties(pending_parties,used || physical,groups || option.group_id) then
+      return option.group_id;
+    end if;
+  end loop;
+
+  return null;
 end;
 $$;
 create or replace function private.online_day_status(day text, people integer, exclude_id bigint default null)
@@ -56,7 +127,8 @@ begin
   if people is null or people not between 1 and 6 then return 'unverified'; end if;
   if exists(select 1 from public.online_booking_closures c where c.booking_date = day::date) then return 'closed'; end if;
   select coalesce(sum(b.party_size),0) into covers from public.bookings b
-    where b.booking_date=day and b.status='confirmed' and (exclude_id is null or b.id<>exclude_id);
+    where b.booking_date=day and coalesce(b.booking_type,'normale')='normale'
+      and b.status not in ('cancelled','no_show') and (exclude_id is null or b.id<>exclude_id);
   if covers + people > 25 then return 'full'; end if;
   for row_data in select b.* from public.bookings b where b.booking_date=day
       and b.status not in ('cancelled','no_show') and coalesce(b.booking_type,'normale')='normale'
@@ -79,8 +151,9 @@ begin
   return case when private.fit_online_parties(parties,used,groups) then 'available' else 'full' end;
 end;
 $$;
-revoke all on function private.online_table_groups(), private.online_groups_compatible(text[]),
-  private.fit_online_parties(integer[],text[],text[],text), private.online_day_status(text,integer,bigint)
+revoke all on function private.online_table_groups(), private.online_groups_compatible(text[]), private.online_table_candidates(integer),
+  private.fit_online_parties(integer[],text[],text[],text), private.choose_online_dinner_table(text,integer,bigint),
+  private.online_day_status(text,integer,bigint)
   from public, anon, authenticated, service_role;
 
 create or replace function private.prepare_booking() returns trigger
@@ -89,6 +162,7 @@ declare
   administrator boolean := coalesce(auth.jwt()->'app_metadata'->>'role' = 'admin',false);
   customer boolean := current_setting('role',true) = 'authenticated' and not administrator;
   dt timestamptz;
+  assigned text;
 
 begin
   if new.source='staff' then new.source := 'agenda'; end if;
@@ -123,8 +197,9 @@ begin
      new.booking_date is distinct from old.booking_date or new.party_size is distinct from old.party_size) then
     perform pg_advisory_xact_lock(734512);
     if (select coalesce(sum(b.party_size),0) from public.bookings b
-        where b.id<>new.id and b.status='confirmed' and b.booking_date=new.booking_date) + new.party_size > 25 then
-      raise exception 'Limite giornaliero di 25 coperti raggiunto' using errcode='P0001';
+        where b.id<>new.id and b.status not in ('cancelled','no_show') and b.booking_date=new.booking_date
+          and coalesce(b.booking_type,'normale')='normale') + new.party_size > 25 then
+      raise exception 'Limite CENA di 25 coperti raggiunto' using errcode='P0001';
     end if;
   end if;
   if new.source='booking' and new.status='confirmed' and
@@ -146,8 +221,13 @@ begin
     if private.online_day_status(new.booking_date,new.party_size,new.id) <> 'available' then
       raise exception 'Disponibilità cambiata: aggiorna il calendario o contatta il locale' using errcode='P0001';
     end if;
-    -- Un tavolo viene scelto e salvato soltanto dallo staff nella mappa.
-    if tg_op='INSERT' then new.tables := ''; end if;
+    if tg_op='INSERT' and coalesce(new.booking_type,'normale')='normale' then
+      assigned := private.choose_online_dinner_table(new.booking_date,new.party_size,new.id);
+      if assigned is null then
+        raise exception 'Disponibilità cambiata: aggiorna il calendario o contatta il locale' using errcode='P0001';
+      end if;
+      new.tables := assigned;
+    end if;
   end if;
   return new;
 end $$;

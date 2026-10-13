@@ -7,6 +7,11 @@ const day = '2026-10-10';
 test(
   'operational Agenda: exclusive views, compact list, safe busy guards and daily online toggle',
   async t => {
+    t.mock.timers.enable({
+      apis: ['Date'],
+      now: Date.parse('2026-10-10T12:00:00+02:00'),
+    });
+
     const previousWindow = globalThis.window;
     const previousHarness = globalThis.__agendaUX;
 
@@ -45,6 +50,7 @@ test(
         id: 3,
         name: 'Cliente Completato',
         status: 'completed',
+        phone: '',
         booking_time: '21:00',
       },
       {
@@ -52,6 +58,13 @@ test(
         id: 4,
         name: 'Altra Data',
         booking_date: '2026-10-11',
+      },
+      {
+        ...booking,
+        id: 5,
+        name: 'Cliente Dopocena Senza Tavolo',
+        booking_type: 'dopocena',
+        booking_time: '22:30',
       },
     ];
 
@@ -323,6 +336,24 @@ test(
             day
           );
 
+          const previousDay = tree.find(
+            node => node.type === 'a'
+              && node.props['aria-label']?.startsWith('Giorno precedente:')
+          );
+          const nextDay = tree.find(
+            node => node.type === 'a'
+              && node.props['aria-label']?.startsWith('Giorno successivo:')
+          );
+          const selectedDay = tree.find(
+            node => node.type === 'a'
+              && node.props.className === 'agenda-sticky-date'
+          );
+
+          assert.equal(previousDay.props.href, '/prenotazioni/giorno?date=2026-10-09');
+          assert.equal(nextDay.props.href, '/prenotazioni/giorno?date=2026-10-11');
+          assert.equal(selectedDay.props['aria-current'], 'date');
+          assert.match(String(selectedDay.props.title), /2026/);
+
           assert.equal(
             mode(
               tree,
@@ -354,6 +385,7 @@ test(
               'booking-1',
               'booking-2',
               'booking-3',
+              'booking-5',
             ]
           );
 
@@ -369,7 +401,7 @@ test(
 
           assert.equal(
             summaries.length,
-            3
+            4
           );
 
           for (
@@ -455,6 +487,18 @@ test(
           const drawerNodes =
             nodes(drawer);
 
+          assert.deepEqual(
+            drawerNodes
+              .filter(node => String(node.props.className || '').startsWith('booking-primary-action-slot'))
+              .map(node => node.props.className),
+            [
+              'booking-primary-action-slot is-status',
+              'booking-primary-action-slot is-table',
+              'booking-primary-action-slot is-contacts',
+              'booking-primary-action-slot is-edit',
+            ]
+          );
+
           assert.ok(
             drawerNodes.some(
               node =>
@@ -463,14 +507,16 @@ test(
             )
           );
 
-          assert.ok(
-            drawerNodes.some(
-              node =>
-                node.props
-                  .className ===
-                'booking-card-phone'
-            )
+          assert.ok(drawerNodes.some(
+            node => node.props.className === 'booking-detail-mode'
+              && node.props.children === 'Visualizzazione'
+          ));
+
+          const communications = drawerNodes.find(
+            node => node.type?.name === 'BookingCommunications'
           );
+
+          assert.ok(communications);
 
           // Chiusura drawer.
           const closeButton =
@@ -484,6 +530,10 @@ test(
             );
 
           assert.ok(closeButton);
+          assert.match(
+            closeButton.props.className,
+            /booking-drawer-close/
+          );
 
           closeButton.props.onClick();
 
@@ -496,6 +546,34 @@ test(
                 'booking-detail-drawer'
             )
           );
+
+          const compactSummaries = tree.filter(
+            node => node.props.className === 'booking-card-summary'
+          );
+
+          compactSummaries[2].props.onClick();
+          tree = render();
+
+          const reducedDrawer = tree.find(
+            node => node.props.id === 'booking-detail-drawer'
+          );
+          const reducedDrawerNodes = nodes(reducedDrawer);
+
+          assert.deepEqual(
+            reducedDrawerNodes
+              .filter(node => String(node.props.className || '').startsWith('booking-primary-action-slot'))
+              .map(node => node.props.className),
+            [
+              'booking-primary-action-slot is-table',
+              'booking-primary-action-slot is-edit',
+            ],
+            'Unavailable status and contact actions must not leave empty grid slots'
+          );
+
+          reducedDrawerNodes.find(
+            node => node.type === 'button' && node.props.children === 'Chiudi'
+          ).props.onClick();
+          tree = render();
 
           const summary =
             tree.find(
@@ -560,7 +638,16 @@ test(
       await t.test(
         'switching views never shows both; pending map save blocks switching',
         () => {
+          const originalSearch = window.location.search;
+
+          try {
           let tree = render();
+
+          assert.equal(
+            tree.find(node => node.type === 'a'
+              && node.props['aria-label']?.startsWith('Torna a oggi:')),
+            undefined
+          );
 
           switchTo(
             tree,
@@ -595,7 +682,7 @@ test(
           assert.equal(
             map.props.appointments
               .length,
-            3
+            4
           );
 
           assert.equal(
@@ -612,6 +699,18 @@ test(
           map.props.onSaving(true);
 
           tree = render();
+
+          const blockedPreviousDay = tree.find(
+            node => node.type === 'a'
+              && node.props['aria-label']?.startsWith('Giorno precedente:')
+          );
+          let prevented = 0;
+
+          assert.equal(blockedPreviousDay.props.href, '/prenotazioni/giorno?date=2026-10-09&view=map');
+          assert.equal(blockedPreviousDay.props['aria-disabled'], true);
+          assert.equal(blockedPreviousDay.props.tabIndex, -1);
+          blockedPreviousDay.props.onClick({ preventDefault() { prevented++; } });
+          assert.equal(prevented, 1);
 
           assert.equal(
             switchTo(
@@ -681,61 +780,57 @@ test(
             calls.length,
             0
           );
+
+          map.props.onSaving(true);
+          render();
+          window.location.search = '?date=2026-12-31&view=map';
+          tree = render();
+
+          const busyToday = tree.find(
+            node => node.type === 'a'
+              && node.props['aria-label']?.startsWith('Torna a oggi:')
+          );
+          let preventedToday = 0;
+
+          assert.equal(busyToday.props['aria-disabled'], true);
+          assert.equal(busyToday.props.tabIndex, -1);
+          busyToday.props.onClick({ preventDefault() { preventedToday++; } });
+          assert.equal(preventedToday, 1);
+
+          map.props.onSaving(false);
+          tree = render();
+          switchTo(tree, 'MAPPA').props.onClick();
+          window.location.search = '?date=2026-12-31&view=map';
+          tree = render();
+
+          const today = tree.find(
+            node => node.type === 'a'
+              && node.props['aria-label']?.startsWith('Torna a oggi:')
+          );
+
+          assert.ok(today);
+          assert.equal(today.props.href, '/prenotazioni/giorno?date=2026-10-10&view=map');
+
+          switchTo(render(), 'ELENCO').props.onClick();
+          } finally {
+            window.location.search = originalSearch;
+          }
         }
       );
 
       await t.test(
-        'unassigned filter affects only display and can be cleared',
+        'compact unassigned count reflects bookings without changing them',
         () => {
-          let tree = render();
-
-          tree.find(
-            node =>
-              node.type ===
-                'input' &&
-              node.props.type ===
-                'checkbox'
-          ).props.onChange({
-            target: {
-              checked: true,
-            },
-          });
-
-          tree = render();
+          const tree = render();
 
           assert.deepEqual(
-            tree
-              .filter(
-                node =>
-                  node.type ===
-                  'article'
-              )
-              .map(
-                node =>
-                  node.props.id
-              ),
-            ['booking-1']
+            tree.find(node => node.props.className?.startsWith('agenda-unassigned-count'))?.props.children,
+            [2, ' da assegnare']
           );
 
-          tree.find(
-            node =>
-              node.type ===
-                'input' &&
-              node.props.type ===
-                'checkbox'
-          ).props.onChange({
-            target: {
-              checked: false,
-            },
-          });
-
-          assert.equal(
-            render().filter(
-              node =>
-                node.type ===
-                'article'
-            ).length,
-            3
+          assert.deepEqual(
+            tree.filter(node => node.type === 'article').map(node => node.props.id),
+            ['booking-1', 'booking-2', 'booking-3', 'booking-5']
           );
 
           assert.deepEqual(
@@ -920,7 +1015,7 @@ test(
                   'span' &&
                 node.props
                   .children ===
-                  'CHIUSE'
+                  'Online chiuse'
             )
           );
 
@@ -953,7 +1048,7 @@ test(
                   'span' &&
                 node.props
                   .children ===
-                  'APERTE'
+                  'Online aperte'
             )
           );
 

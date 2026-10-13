@@ -1,5 +1,6 @@
 import { bookingStatus } from './bookingStatus.js';
 import { bookingScheduledAt } from './bookingTime.js';
+import { operationalDayInRome } from './calendar.js';
 
 const excludedStatuses = new Set(['arrived', 'completed', 'cancelled', 'no_show']);
 const WARNING_AFTER_MINUTES = 15;
@@ -27,7 +28,7 @@ export function bookingDelayState(booking, now = Date.now()) {
 export function bookingDelayNotification(booking, now = Date.now()) {
   if (booking.id == null) return null;
   const delay = bookingDelayState(booking, now);
-  if (!delay.showWarning) return null;
+  if (!delay.showWarning || booking.booking_date !== operationalDayInRome(now)) return null;
   return {
     id: `customer-delay-${booking.id}`,
     bookingId: booking.id,

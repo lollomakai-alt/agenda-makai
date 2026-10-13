@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
+import { TABLE_15_19_CONFIGURATIONS, TABLE_ASSIGNMENTS } from '../src/config/tableAssignments.js';
+import { physicalTableIds } from '../src/utils/tableConflicts.js';
 
 test('floor plan touch actions reuse assignment flow, show all occupancy and guard saves', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-04T12:00:00Z') });
@@ -13,7 +15,8 @@ test('floor plan touch actions reuse assignment flow, show all occupancy and gua
   const rows = [base, { ...base, id: 2, name: 'Cliente Arrivato', tables: '15+16+17', party_size: 6, status: 'arrived' },
     { ...base, id: 3, name: 'Cliente Da Assegnare', tables: '' },
     { ...base, id: 4, name: 'Cliente Dopocena', tables: '23', booking_type: 'dopocena', booking_time: '22:30' },
-    { ...base, id: 5, name: 'Cliente Completato', tables: '13+14', status: 'completed' }];
+    { ...base, id: 5, name: 'Cliente Completato', tables: '13+14', status: 'completed' },
+    { ...base, id: 6, name: 'Cliente Dopocena Senza Tavolo', tables: '', booking_type: 'dopocena', booking_time: '23:00' }];
   globalThis.__floorPlan = {
     useState(initial) { const slot = index++; if (!(slot in slots)) slots[slot] = typeof initial === 'function' ? initial() : initial;
       return [slots[slot], value => { slots[slot] = typeof value === 'function' ? value(slots[slot]) : value; }]; },
@@ -30,49 +33,185 @@ test('floor plan touch actions reuse assignment flow, show all occupancy and gua
       "import { useEffect, useRef, useState } from 'react';", 'const {useEffect,useRef,useState}=globalThis.__floorPlan;'); },
     load(id) { if (id.endsWith('/src/lib/supabase.js')) return 'export const supabase=globalThis.__floorPlan.client;'; },
   }] });
-  const nodes = element => !element || typeof element !== 'object' ? []
-    : [element, ...[element.props?.children].flat(Infinity).flatMap(nodes)];
+const nodes = element => !element || typeof element !== 'object' ? []
+  : [element, ...[element.props?.children].flat(Infinity).flatMap(nodes)];
+const textContent = value => (Array.isArray(value) ? value : [value]).flat(Infinity)
+  .map(item => item && typeof item === 'object' ? textContent(item.props?.children) : String(item ?? '')).join('');
   try {
     const { default: Map } = await server.ssrLoadModule('/src/components/TableMap.jsx');
     const render = (props = {}) => { index = 0; return nodes(Map({ appointments: rows, date: day,
       onOpenAssignment: booking => opened.push(booking), onSaved: result => saved.push(result), onSaving: value => busy.push(value), ...props })); };
     const unit = (tree, group) => tree.find(node => node.props['data-unit'] === group);
 
-    await t.test('valid grouped units, text states, coordinates and full-day occupancy remain visible under type filter', () => {
+    await t.test('CENA, DOPOCENA and LIVE switch presentation without time slots or writes', () => {
       slots = []; let tree = render();
-      assert.equal(tree.filter(node => node.props['data-unit']).length, 10);
-      assert.match(unit(tree, '10+11').props['aria-label'], /IN ARRIVO.*20:00 Cliente Uno/);
-      assert.match(unit(tree, '15+16').props['aria-label'], /OCCUPATO/);
-      assert.match(unit(tree, '13+14').props['aria-label'], /OCCUPATO/);
-      assert.match(unit(tree, '12').props['aria-label'], /LIBERO/);
-      assert.equal(tree.filter(node => node.type === 'li' && node.props.style?.['--unit-x']).length, 10);
-      tree.find(node => node.type === 'select').props.onChange({ target: { value: 'normale' } }); tree = render();
-      assert.match(unit(tree, '23').props['aria-label'], /IN ARRIVO.*Cliente Dopocena/);
+      const modeButtons = () => tree.filter(node => node.type === 'button' && ['CENA', 'DOPOCENA', 'LIVE'].includes(node.props.children));
+      assert.deepEqual(modeButtons().map(button => button.props.children), ['CENA', 'DOPOCENA', 'LIVE']);
+      assert.equal(tree.some(node => node.type === 'button' && /^\d\d:\d\d$/.test(String(node.props.children))), false);
+      assert.equal(modeButtons()[0].props['aria-pressed'], true);
+      assert.match(unit(tree, '10+11').props['aria-label'], /Cliente Uno/);
+      assert.match(unit(tree, '10+11').props.className, /service-normale/);
+      assert.ok(tree.some(node => node.props.className === 'table-map-counts'), 'table state counters remain visible');
+      assert.equal(tree.some(node => node.type === 'summary' && textContent(node.props.children).includes('Da assegnare')), false, 'unassigned bookings remain in ELENCO');
+      assert.equal(tree.some(node => ['Ingresso', 'Bar', 'Bagni', 'Finestre'].includes(node.props.children)), false);
+      assert.equal(tree.some(node => node.props.className === 'table-map-note'), false);
+      assert.ok(tree.some(node => node.props.role === 'tab' && node.props.id === 'room-tab-principale'));
+      assert.ok(tree.some(node => node.props.role === 'tab' && node.props.id === 'room-tab-nami'));
+      let namiTab = tree.find(node => node.props.role === 'tab' && node.props.id === 'room-tab-nami');
+      namiTab.props.onClick(); tree = render();
+      assert.match(unit(tree, '23').props['aria-label'], /LIBERO/);
+
+      modeButtons()[1].props.onClick(); tree = render();
+      assert.equal(modeButtons()[1].props['aria-pressed'], true);
+      assert.match(unit(tree, '23').props['aria-label'], /Cliente Dopocena/);
+      assert.match(unit(tree, '23').props.className, /service-dopocena/);
+      const mainTab = tree.find(node => node.props.role === 'tab' && node.props.id === 'room-tab-principale');
+      mainTab.props.onClick(); tree = render();
+      // The CENA assignment is filtered out in DOPOCENA, so its physical tables are single free units here.
+      assert.match(unit(tree, '10').props['aria-label'], /LIBERO/);
+
+      modeButtons()[2].props.onClick(); tree = render();
+      assert.equal(modeButtons()[2].props['aria-pressed'], true);
+      assert.match(unit(tree, '15+16+17').props['aria-label'], /Cliente Arrivato/);
+      assert.equal(tree.some(node => node.props.className === 'table-map-note'), false);
+      namiTab = tree.find(node => node.props.role === 'tab' && node.props.id === 'room-tab-nami');
+      namiTab.props.onClick(); tree = render();
+      assert.match(unit(tree, '23').props['aria-label'], /Cliente Dopocena/);
+      assert.match(unit(tree, '23').props.className, /service-dopocena/);
       assert.equal(calls.length, 0);
     });
 
-    await t.test('pending booking and linked-table change open exact existing booking without a write', () => {
+    await t.test('valid grouped units and identifying content remain visible in the selected shift', () => {
       slots = []; let tree = render();
-      tree.find(node => node.props['aria-label'] === 'Assegna tavolo a Cliente Da Assegnare').props.onClick();
-      assert.equal(opened.at(-1), rows[2]);
+      assert.equal(tree.filter(node => node.props['data-unit']).length, 6);
+      assert.match(unit(tree, '15+16+17').props['aria-label'], /OCCUPATO.*20:00 Cliente Arrivato, 6 persone/);
+      assert.match(unit(tree, '13+14').props['aria-label'], /OCCUPATO/);
+      assert.match(unit(tree, '12').props['aria-label'], /LIBERO/);
+      assert.match(unit(tree, '15+16+17').props['aria-label'], /^Tavolo 15\+16\+17:/);
+      assert.equal(unit(tree, '15+16+17').props['data-physical-count'], 3);
+      assert.ok(unit(tree, '15+16+17').props['aria-label'].includes('15+16+17'));
+      assert.ok(tree.some(node => node.type === 'strong' && node.props.children === 15));
+      assert.ok(tree.some(node => node.type === 'small' && node.props.className === 'floor-plan-booking-name' && node.props.children === 'Cliente Arrivato'));
+      assert.ok(tree.some(node => node.type === 'small' && node.props.className === 'floor-plan-status-label' && textContent(node.props.children) === 'OCCUPATO'));
+      assert.ok(tree.some(node => node.type === 'small' && node.props.className === 'floor-plan-party-size' && textContent(node.props.children) === '6 pers.'));
+      assert.equal(tree.filter(node => node.type === 'li' && node.props.style?.['--unit-x']).length, 6);
+      assert.ok(tree.filter(node => node.props['data-unit']).every(tile => !('transform' in (tile.props.style || {}))));
+      assert.equal(calls.length, 0);
+    });
+
+    await t.test('iPhone list is numeric and opens the shared booking detail directly below its row', () => {
+      const previousWindow = globalThis.window;
+      globalThis.window = { matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) };
+      try {
+        slots = [];
+        const created = [];
+        const props = { renderBookingDetail: linked => ({ type: 'div', props: { 'data-shared-detail': linked.id, children: linked.name } }),
+          onCreateBooking: () => created.push(true) };
+        let tree = render(props);
+        const groups = () => tree.filter(node => node.props['data-unit']).map(node => node.props['data-unit']);
+        assert.deepEqual(groups(), ['10+11', '12', '13+14', '15+16+17', '18+19']);
+        assert.deepEqual(tree.filter(node => node.props.className === 'floor-plan-physical-heading').map(node => node.props.children),
+          ['Fila 10–14', 'Fila 15–19']);
+        assert.ok(tree.some(node => node.props['data-physical-row'] === 'Fila 10–14' && /is-assigned-group/.test(node.props.className)));
+        assert.match(tree.find(node => node.props.className === 'table-map table-floor-plan is-compact-map').props.className, /is-compact-map/);
+        assert.equal(tree.some(node => node.props.id === 'table-map-detail'), false);
+        unit(tree, '10+11').props.onClick(); tree = render(props);
+        const selectedIndex = tree.findIndex(node => node.props['data-unit'] === '10+11');
+        const detailIndex = tree.findIndex(node => node.props.id === 'table-map-detail');
+        const nextIndex = tree.findIndex(node => node.props['data-unit'] === '12');
+        assert.ok(selectedIndex < detailIndex && detailIndex < nextIndex);
+        assert.equal(tree.find(node => node.props['data-shared-detail'] === 1).props.children, base.name);
+        assert.equal(unit(tree, '10+11').props['aria-expanded'], true);
+        tree.find(node => node.props['aria-label'] === 'Chiudi dettaglio tavolo 10+11').props.onClick();
+        tree = render(props);
+        assert.equal(tree.some(node => node.props.id === 'table-map-detail'), false);
+        unit(tree, '12').props.onClick(); tree = render(props);
+        assert.ok(tree.some(node => node.props.id === 'table-map-detail'), 'un tavolo libero apre il dettaglio');
+        assert.equal(created.length, 0);
+        tree.find(node => node.type === 'button' && node.props.children === 'Nuova prenotazione').props.onClick();
+        assert.equal(created.length, 1);
+        tree.find(node => node.props.id === 'room-tab-nami').props.onClick(); tree = render(props);
+        assert.deepEqual(groups(), ['20+21', '22', '23']);
+        tree.find(node => node.props.children === 'DOPOCENA').props.onClick(); tree = render(props);
+        assert.match(unit(tree, '23').props.className, /service-dopocena/);
+      } finally {
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
+      }
+    });
+
+    await t.test('iPhone assignment switches valid physical combinations without saving on touch', () => {
+      const previousWindow = globalThis.window;
+      globalThis.window = { matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) };
+      try {
+        slots = [];
+        const selected = rows[2];
+        const props = { appointments: [selected], assignmentBooking: selected };
+        let tree = render(props);
+        const choice = group => tree.find(node => node.props['data-choice'] === group);
+        assert.deepEqual(tree.filter(node => node.props.className === 'floor-plan-physical-heading')
+          .map(node => node.props.children), ['Fila 10–14', 'Fila 15–19', 'Fila 20–21', 'Fila 22–23']);
+        choice('15+16+17').props.onClick(); tree = render(props);
+        assert.ok(unit(tree, '15+16+17'));
+        assert.equal(choice('15+16+17').props['aria-pressed'], true);
+        choice('22+23').props.onClick(); tree = render(props);
+        assert.ok(unit(tree, '22+23'));
+        assert.equal(choice('15+16+17').props['aria-pressed'], false);
+        assert.equal(choice('22+23').props['aria-pressed'], true);
+        unit(tree, '12').props.onClick(); tree = render(props);
+        assert.equal(choice('12').props['aria-pressed'], true);
+        assert.equal(choice('22+23').props['aria-pressed'], false);
+        assert.equal(calls.length, 0);
+      } finally {
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
+      }
+    });
+
+    for (const [index, configuration] of TABLE_15_19_CONFIGURATIONS.entries()) {
+      await t.test(`row 15–19 configuration ${index + 1} renders each physical table once`, () => {
+        slots = [];
+        const assigned = configuration.map((group, groupIndex) => ({
+          ...base,
+          id: 100 + groupIndex,
+          name: `Configurazione ${index + 1} ${group}`,
+          party_size: TABLE_ASSIGNMENTS[group],
+          tables: group,
+          status: 'confirmed',
+          booking_type: 'normale',
+        }));
+        const tree = render({ appointments: assigned });
+        const rowGroups = tree.filter(node => node.props['data-unit'])
+          .map(node => node.props['data-unit'])
+          .filter(group => physicalTableIds(group).some(id => Number(id) >= 15 && Number(id) <= 19));
+        assert.deepEqual([...rowGroups].sort(), [...configuration].sort());
+        const rowIds = rowGroups.flatMap(physicalTableIds);
+        assert.deepEqual([...rowIds].sort((a, b) => Number(a) - Number(b)), ['15', '16', '17', '18', '19']);
+        assert.equal(new Set(rowIds).size, rowIds.length, 'nessun tavolo fisico compare in più gruppi');
+      });
+    }
+
+    await t.test('linked-table change opens the exact existing booking without a write', () => {
+      slots = []; let tree = render();
+      assert.equal(tree.some(node => node.props['data-unit'] === ''), false);
       unit(tree, '10+11').props.onClick(); tree = render();
       assert.equal(tree.find(node => node.props.id === 'table-map-detail').props.tabIndex, -1);
       assert.ok(tree.some(node => node.type === 'a' && node.props.href?.endsWith('#booking-1')));
       tree.find(node => node.type === 'button' && Array.isArray(node.props.children) && node.props.children[0] === 'Cambia tavolo').props.onClick();
       assert.equal(opened.at(-1), base);
-      assert.equal(tree.filter(node => node.type === 'select')[1].props.value, '1', 'one linked active booking is preselected');
+      assert.equal(tree.some(node => node.type === 'select'), false, 'assignments are selected from the map');
       const disabledTree = render({ disabled: true });
-      disabledTree.find(node => node.props['aria-label'] === 'Assegna tavolo a Cliente Da Assegnare').props.onClick();
-      assert.equal(opened.length, 2);
+      unit(disabledTree, '10+11').props.onClick();
+      assert.equal(opened.length, 1);
       assert.equal(calls.length, 0);
     });
 
     await t.test('shared units retain all linked bookings and never offer terminal-booking assignment', () => {
-      slots = []; const shared = [...rows, { ...base, id: 6, name: 'Secondo Arrivo', booking_time: '22:30' }];
+      slots = []; const shared = [...rows, { ...base, id: 7, name: 'Secondo Arrivo', booking_time: '22:30' }];
       let tree = render({ appointments: shared }); unit(tree, '10+11').props.onClick(); tree = render({ appointments: shared });
       assert.ok(tree.some(node => node.type === 'a' && node.props.href?.endsWith('#booking-1')));
-      assert.ok(tree.some(node => node.type === 'a' && node.props.href?.endsWith('#booking-6')));
-      assert.equal(tree.filter(node => node.type === 'select')[1].props.value, '');
+      assert.ok(tree.some(node => node.type === 'a' && node.props.href?.endsWith('#booking-7')));
+      assert.equal(tree.some(node => node.type === 'select'), false, 'the map has no assignment dropdown');
       unit(tree, '13+14').props.onClick(); tree = render();
       assert.ok(!tree.some(node => node.type === 'button' && Array.isArray(node.props.children) && node.props.children[0] === 'Cambia tavolo'));
       assert.equal(calls.length, 0);
@@ -84,12 +223,12 @@ test('floor plan touch actions reuse assignment flow, show all occupancy and gua
       let tree = render(props); unit(tree, '10+11').props.onClick(); tree = render(props);
       const action = tree.find(node => node.type?.name === 'BookingNoShowAction');
       const button = action.type(action.props);
-      assert.equal(button.props.children, 'Non venuto');
+      assert.equal(button.props.children[1].props.children, 'Non venuto');
       await button.props.onClick(); assert.equal(marked[0], base);
       const disabledAction = render({ ...props, disabled: true }).find(node => node.type?.name === 'BookingNoShowAction');
       assert.equal(disabledAction.type(disabledAction.props).props.disabled, true);
       await disabledAction.type(disabledAction.props).props.onClick(); assert.equal(marked.length, 1);
-      unit(tree, '15+16').props.onClick(); tree = render(props);
+      unit(tree, '15+16+17').props.onClick(); tree = render(props);
       const arrivedAction = tree.find(node => node.type?.name === 'BookingNoShowAction');
       assert.equal(arrivedAction.type(arrivedAction.props), null);
       assert.equal(calls.length, 0);
@@ -105,7 +244,7 @@ test('floor plan touch actions reuse assignment flow, show all occupancy and gua
       staleTile.props.onClick(); tree = render({ assignmentBooking: selected });
       assert.equal(unit(tree, '12').props['aria-pressed'], true, 'an immediate second tap cannot change a pending assignment');
       assert.equal(unit(tree, '12').props.disabled, true);
-      assert.equal(tree.find(node => node.props.children === 'Salvataggio…').props.disabled, true);
+      assert.equal(tree.find(node => node.props.children === 'SALVO…').props.disabled, true);
       await form.props.onSubmit({ preventDefault() {} });
       assert.equal(calls.length, 1);
       assert.equal(calls[0].name, 'admin_assign_booking_tables');

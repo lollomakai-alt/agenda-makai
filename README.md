@@ -1,5 +1,9 @@
 # Makai Agenda
 
+La nuova implementazione locale CENA/DOPOCENA e l’ordine SQL sono descritti in [docs/complete-booking-system.md](docs/complete-booking-system.md). Nessuna migrazione o pubblicazione è stata eseguita. Le verifiche riportate sotto e nel report riguardano la versione precedente alla decisione sugli aggiornamenti manuali e vanno ripetute. Le descrizioni precedenti qui sotto restano riferimenti storici.
+
+Regola operativa corrente: le prenotazioni già presenti restano invariate. I controlli CENA/DOPOCENA si applicano ai nuovi inserimenti automatici online; gli inserimenti e le modifiche manuali ADMIN non verificano slot/quota/capienza e non ricalcolano o spostano altre prenotazioni. Prima del rilascio seguire anche l’esito e i prerequisiti di [docs/complete-booking-system-readiness.md](docs/complete-booking-system-readiness.md).
+
 Applicazione Vite + React autonoma, con dipendenze, stili e build propri. Non importa file dal sito Makai.
 
 La gestione dei cinque stati è descritta in [docs/booking-status.md](docs/booking-status.md).

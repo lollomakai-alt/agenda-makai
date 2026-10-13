@@ -234,7 +234,7 @@ test(
 
           assert.match(
             html(original, boundary),
-            />Non venuto<\/button>/
+            />Non venuto<\/span><\/button>/
           );
 
           assert.match(
@@ -282,7 +282,7 @@ test(
           const actions = nodes(drawer).find(
             node =>
               node.props.className ===
-              'booking-primary-actions'
+              'booking-secondary-actions'
           );
 
           assert.ok(actions);

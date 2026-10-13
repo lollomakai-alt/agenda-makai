@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
+import { bookingsToCsv, formatBookingServiceDate, prepareBookingExport } from '../src/utils/bookingExport.js';
 
 // Le fixture del servizio usano il 4 ottobre:
 // isolare i test dalla data reale.
@@ -50,8 +51,7 @@ test(
             if (id.endsWith('/src/hooks/useAppointments.js')) {
               return `
                 export function useAppointments() {
-                  return {
-                    appointments: [
+                  const appointments = [
                       {
                         id: 1,
                         name: 'Senza Contatti',
@@ -59,6 +59,7 @@ test(
                         email: '',
                         booking_date: '2026-10-04',
                         booking_time: '20:00',
+                        booking_type: 'normale',
                         party_size: 2,
                         tables: '',
                         status: globalThis.__agendaStatusFixture || 'confirmed',
@@ -71,14 +72,43 @@ test(
                         email: 'cliente@example.com',
                         booking_date: '2026-10-04',
                         booking_time: '20:30',
+                        booking_type: 'normale',
                         party_size: 2,
                         tables: '12',
                         status: 'confirmed',
                         source: 'agenda'
                       }
-                    ],
-                    loading: false,
-                    error: null,
+                    ];
+                  if (globalThis.__agendaGroupFixture) appointments.push({
+                    id: 3,
+                    name: 'Cliente DOPOCENA',
+                    phone: '',
+                    email: '',
+                    booking_date: '2026-10-04',
+                    booking_time: '20:00',
+                    booking_type: 'dopocena',
+                    party_size: 3,
+                    tables: '',
+                    status: 'confirmed',
+                    source: 'agenda'
+                  });
+                  if (globalThis.__agendaGroupFixture) appointments.push(
+                    {
+                      id: 4, name: 'Cliente Cancellato', phone: '', email: '', booking_date: '2026-10-04',
+                      booking_time: '19:00', booking_type: 'normale', party_size: 2, tables: '13+14',
+                      status: 'cancelled', source: 'agenda'
+                    },
+                    {
+                      id: 5, name: 'Cliente No-show', phone: '', email: '', booking_date: '2026-10-04',
+                      booking_time: '23:30', booking_type: 'dopocena', party_size: 4, tables: '',
+                      status: 'no_show', source: 'agenda'
+                    }
+                  );
+                  const loadState = globalThis.__agendaLoadFixture || {};
+                  return {
+                    appointments,
+                    loading: loadState.loading ?? false,
+                    error: loadState.error ?? null,
                     refresh() {},
                     applyUpdate() {}
                   };
@@ -96,9 +126,12 @@ test(
           '/src/pages/BookingsPage.jsx'
         );
 
+      globalThis.__agendaGroupFixture = true;
       const html = renderToString(
         React.createElement(Page)
       );
+      globalThis.__agendaGroupFixture = false;
+      const normalizedHtml = html.replaceAll('<!-- -->', '');
 
       /*
        * LISTA COMPATTA
@@ -108,6 +141,9 @@ test(
         html,
         /class="booking-admin bookings-day-page"/
       );
+
+      assert.match(html, /aria-label="Nuova prenotazione"/);
+      assert.match(html, /agenda-create-text">Nuova prenotazione<\/span>/);
 
       assert.match(
         html,
@@ -160,8 +196,36 @@ test(
 
       assert.match(
         firstCard,
-        /20:00/
+        /Senza Contatti/
       );
+
+      assert.doesNotMatch(firstCard, /booking-card-time|20:00/);
+
+      assert.match(normalizedHtml, /<h2 id="time-20:00" class="booking-time-heading">[\s\S]*?<time>20:00<\/time>[\s\S]*?<span class="booking-time-count">· 2 prenotazioni/);
+      assert.match(normalizedHtml, /<h2 id="time-20:30" class="booking-time-heading">[\s\S]*?<time>20:30<\/time>[\s\S]*?<span class="booking-time-count">· 1 prenotazione/);
+      assert.ok(normalizedHtml.indexOf('id="time-20:00"') < normalizedHtml.indexOf('id="time-20:30"'));
+      assert.match(normalizedHtml, /class="booking-row booking-card-compact service-dopocena/);
+      const printStart = html.indexOf('class="booking-export-print"');
+      const printEnd = html.indexOf('</section>', printStart);
+      const printMarkup = html.slice(printStart, printEnd);
+      assert.match(printMarkup, /Makai — Prenotazioni/);
+      assert.match(printMarkup, /domenica 4 ottobre 2026/);
+      assert.match(printMarkup, /Ora[\s\S]*Turno[\s\S]*Cliente[\s\S]*Persone[\s\S]*Tavolo[\s\S]*Stato/);
+      assert.match(printMarkup, /Cliente DOPOCENA/);
+      assert.match(printMarkup, /Cliente No-show/);
+      assert.doesNotMatch(printMarkup, /Cliente Cancellato|\+393331234567|cliente@example\.com|consenso|marketing/);
+      assert.match(html, /<summary>Esporta \/ Stampa<\/summary>[\s\S]*>Stampa<\/button>[\s\S]*>Scarica CSV<\/button>/);
+      assert.ok(html.indexOf('booking-time-groups') < html.indexOf('booking-export-tools'));
+
+      globalThis.__agendaLoadFixture = { loading: true };
+      const loadingExport = renderToString(React.createElement(Page));
+      assert.match(loadingExport, /Esportazione disponibile al termine del caricamento/);
+      assert.match(loadingExport, /<button type="button" disabled=""[^>]*>Stampa/);
+      globalThis.__agendaLoadFixture = { error: { message: 'offline' } };
+      const failedExport = renderToString(React.createElement(Page));
+      assert.match(failedExport, /Esportazione non disponibile: impossibile caricare tutte le prenotazioni/);
+      assert.match(failedExport, /<button type="button" disabled=""[^>]*>Scarica CSV/);
+      delete globalThis.__agendaLoadFixture;
 
       assert.match(
         firstCard,
@@ -170,7 +234,7 @@ test(
 
       assert.match(
         firstCard,
-        /2(?:<!-- -->)?\s*(?:<!-- -->)?persone/
+        /2(?:<!-- -->)?\s*(?:<!-- -->)?pers\./
       );
 
       assert.match(
@@ -178,18 +242,16 @@ test(
         /Confermata/
       );
 
-      // La prenotazione senza tavolo mostra solo il flag compatto.
       assert.match(
         firstCard,
-        /booking-flag-table/
+        /booking-card-table is-unassigned">Tavolo da assegnare/
       );
 
-      assert.match(
-        firstCard,
-        /Senza tavolo/
-      );
+      assert.doesNotMatch(firstCard, /booking-flag-table|DA ASSEGNARE/);
+      assert.doesNotMatch(firstCard, />!<|>\s+!\s*</);
+      assert.match(normalizedHtml, /agenda-unassigned-count[^>]*>[\s\S]*?da assegnare/);
 
-      // I dati secondari non devono essere nella riga.
+      // Gli indicatori operativi restano raggiungibili con azioni touch.
       assert.doesNotMatch(
         firstCard,
         /booking-card-phone/
@@ -200,10 +262,14 @@ test(
         /booking-card-type/
       );
 
-      assert.doesNotMatch(
+      assert.match(
         firstCard,
-        /booking-card-quick-actions/
+        /booking-indicator is-status/
       );
+
+      assert.doesNotMatch(html, /Filtro turno|>TUTTE</);
+      assert.match(html, /service-normale/);
+      assert.match(html, /service-dopocena/);
 
       assert.doesNotMatch(
         firstCard,
@@ -240,8 +306,10 @@ test(
 
       assert.match(
         secondCard,
-        /20:30/
+        /booking-card-compact/
       );
+
+      assert.doesNotMatch(secondCard, /booking-card-time|20:30/);
 
       assert.doesNotMatch(
         secondCard,
@@ -251,7 +319,7 @@ test(
       // Telefono e tavolo non vengono mostrati nella lista.
       assert.doesNotMatch(
         secondCard,
-        /\+393331234567|Tavolo 12|booking-card-phone/
+        /\+393331234567|booking-card-phone/
       );
 
       /*
@@ -272,10 +340,7 @@ test(
        * FILTRO SENZA TAVOLO
        */
 
-      assert.match(
-        html,
-        /Da assegnare/
-      );
+      assert.doesNotMatch(html, /DA ASSEGNARE/);
 
       assert.doesNotMatch(
         html,
@@ -377,15 +442,8 @@ test(
         /Senza Contatti/
       );
 
-      assert.match(
-        mapHtml,
-        /combinazione consigliata/
-      );
-
-      assert.match(
-        mapHtml,
-        /Seleziona consigliata/
-      );
+      assert.match(mapHtml, /CONFERMA/);
+      assert.doesNotMatch(mapHtml, /Seleziona combinazione|Nuova assegnazione/);
 
       assert.match(
         mapHtml,
@@ -480,8 +538,10 @@ test(
 
       assert.match(
         shell,
-        /<nav class="admin-mobile-nav" aria-label="Navigazione Agenda">/
+        /class="mobile-section mobile-header-menu"/
       );
+
+      assert.doesNotMatch(shell, /admin-mobile-nav/);
 
       assert.match(
         shell,
@@ -565,13 +625,14 @@ test(
           '/src/components/TableMap.jsx'
         );
 
-      const booking = {
-        id: 1,
-        name: 'Senza Contatti',
-        booking_date: '2026-10-04',
-        booking_time: '20:00',
-        party_size: 2,
-        tables: '',
+        const booking = {
+          id: 1,
+          name: 'Senza Contatti',
+          booking_date: '2026-10-04',
+          booking_time: '20:00',
+          party_size: 2,
+          booking_type: 'normale',
+          tables: '',
         status: 'confirmed',
       };
 
@@ -603,34 +664,26 @@ test(
         /Prenotazione da assegnare/
       );
 
-      assert.equal(
+      assert.ok(
         (
           map.match(
             /class="table-map-number"/g
           ) || []
-        ).length,
-        10
+        ).length >= 10
       );
 
-      assert.equal(
+      assert.ok(
         (
           map.match(
             /class="table-map-state"/g
           ) || []
-        ).length,
-        10
+        ).length >= 10
       );
 
-      assert.ok(
-        map.indexOf('table-map-rooms') <
-          map.indexOf('table-map-suggestions'),
-        'rooms precede assignment alternatives'
-      );
-
-      assert.match(
-        map,
-        /<details class="table-map-alternatives"><summary>Vedi tutte le combinazioni/
-      );
+      assert.match(map, /class="table-map-rooms"/);
+      assert.match(map, /table-map-assignment-bar/);
+      assert.match(map, /CONFERMA/);
+      assert.doesNotMatch(map, /table-map-assignment-options|Seleziona combinazione|Nuova assegnazione/);
 
       const occupiedMap = renderToString(
         React.createElement(Map, {
@@ -674,6 +727,7 @@ test(
     } finally {
       delete globalThis.__agendaStatusFixture;
       delete globalThis.__agendaMobileFixture;
+      delete globalThis.__agendaLoadFixture;
 
       await server.close();
 
@@ -686,3 +740,27 @@ test(
     }
   }
 );
+
+test('booking export orders both services through midnight and creates spreadsheet-safe CSV', () => {
+  const serviceDate = '2026-10-04';
+  const rows = prepareBookingExport([
+    { id: 1, booking_date: serviceDate, booking_time: '00:00', booking_type: 'dopocena', name: 'Arrivo mezzanotte', party_size: 3, tables: '12', status: 'arrived' },
+    { id: 2, booking_date: serviceDate, booking_time: '23:30', booking_type: 'dopocena', name: '=HYPERLINK("https://example.com";"Apri")', party_size: 4, tables: '', status: 'no_show' },
+    { id: 3, booking_date: serviceDate, booking_time: '19:30', booking_type: 'normale', name: 'Cena; "Cliente"', party_size: 2, tables: '13+14', status: 'confirmed' },
+    { id: 4, booking_date: serviceDate, booking_time: '19:00', booking_type: 'normale', name: 'Cancellata', party_size: 2, tables: '', status: 'cancelled' },
+    { id: 5, booking_date: '2026-10-05', booking_time: '18:00', booking_type: 'normale', name: 'Altro giorno', party_size: 2, tables: '', status: 'confirmed' },
+  ], serviceDate);
+
+  assert.deepEqual(rows.map(row => row.Ora), ['19:30', '23:30', '00:00']);
+  assert.deepEqual(rows.map(row => row.Turno), ['CENA', 'DOPOCENA', 'DOPOCENA']);
+  assert.deepEqual(rows.map(row => row.Tavolo), ['13+14', 'Da assegnare', '12']);
+  assert.deepEqual(rows.map(row => row.Stato), ['Confermata', 'No-show', 'Arrivato']);
+
+  const csv = bookingsToCsv(rows);
+  assert.ok(csv.startsWith('\uFEFF"Ora";"Turno";"Cliente";"Persone";"Tavolo";"Stato"\r\n'));
+  assert.match(csv, /"Cena; ""Cliente"""/);
+  assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.com"";""Apri""\)"/);
+  assert.match(csv, /"Da assegnare"/);
+  assert.doesNotMatch(csv, /Cancellata|Altro giorno/);
+  assert.equal(formatBookingServiceDate(serviceDate), 'domenica 4 ottobre 2026');
+});

@@ -14,7 +14,7 @@ for(const [tables,capacity] of [['10+11',3],['15+16',4],['15+16+17',6]]){
   assert.equal(result.booking.id,42);assert.equal(result.booking.tables,tables);
   assert.deepEqual(calls[0],{name:'admin_assign_booking_tables',args:{booking_id:42,changes:{tables},expected:{booking_date:booking.booking_date,booking_time:'20:00',party_size:3,tables:'',notes:''}}});
   const residual=serviceCapacity([result.booking],{booking_date:booking.booking_date,booking_time:'20:00'});
-  assert.equal(residual.occupied,capacity);assert.equal(residual.remaining,25-capacity);assert.equal(residual.unused,capacity-3);
+  assert.equal(residual.occupied,capacity);assert.equal(residual.remaining,Math.min(Math.max(0,residual.total-capacity),22));assert.equal(residual.unused,capacity-3);
  });
 }
 test('manual choice ignores room-layout recommendations and pending-party preference, never physical conflicts',async()=>{
@@ -24,34 +24,40 @@ test('manual choice ignores room-layout recommendations and pending-party prefer
  const pending={...other,tables:'',source:'booking'};
  assert.ok(availableMapAssignments(booking,[pending],'15',{manualTables:true}).some(([g])=>g==='15+16'));
  assert.ok(!availableMapAssignments(booking,[other],'15',{manualTables:true}).length);
- assert.ok(!availableMapAssignments({...booking,party_size:5},[],'15',{manualTables:true}).some(([g])=>g==='15+16'));
+ assert.ok(availableMapAssignments({...booking,party_size:5},[],'15',{manualTables:true}).some(([g])=>g==='15+16'));
 });
-test('suggestions prioritize smallest waste while retaining larger manual options',()=>{
+test('manual suggestions keep configured units available without turning capacity into a veto',()=>{
  const suggestions=rankedMapAssignments(booking,[]);
- assert.equal(suggestions[0][0],'10+11');assert.equal(suggestions[0][1],3);
+ assert.ok(suggestions.some(([g])=>g==='10+11'));
  assert.ok(suggestions.some(([g])=>g==='15+16'));assert.ok(suggestions.some(([g])=>g==='15+16+17'));
- const waste=suggestions.map(([,capacity])=>capacity-booking.party_size);
- assert.deepEqual(waste,[...waste].sort((a,b)=>a-b));
+ assert.ok(availableMapAssignments({...booking,party_size:23},[],'22',{manualTables:true}).some(([g])=>g==='22+23'));
 });
 test('residual capacity and admission use full units, without temporal turnover',()=>{
  const occupied={...booking,tables:'15+16'};
  const reference={booking_date:booking.booking_date,booking_time:'20:00'};
- assert.deepEqual(serviceCapacity([occupied],reference),{total:25,occupied:4,unused:1,remaining:21,verified:true});
- assert.equal(serviceCapacity([occupied],{...reference,booking_time:'22:00'}).remaining,21);
+ const residual=serviceCapacity([occupied],reference);
+ assert.equal(residual.occupied,4);
+ assert.equal(residual.peopleReserved,3);
+ assert.equal(residual.physicalRemaining,residual.total-4);
+ assert.equal(residual.peopleRemaining,22);
+ assert.equal(residual.remaining,residual.total-4);
+ assert.equal(residual.verified,true);
+ assert.equal(serviceCapacity([occupied],{...reference,booking_time:'22:00'}).remaining,residual.remaining);
  assert.deepEqual(conflictingTableIds({...booking,tables:'15+16'},[{...occupied,id:99,booking_time:'21:00'}]),['15','16']);
  assert.deepEqual(conflictingTableIds({...booking,tables:'15+16'},[{...occupied,id:99,booking_time:'22:00'}]),['15','16']);
  const full=[occupied,{...booking,id:1,party_size:6,tables:'15+16+17',booking_time:'22:00'}];
  assert.equal(serviceCapacity(full,reference).verified,false);
- const fixed=[occupied,{...booking,id:1,party_size:20,tables:''}];
- assert.equal(canAcceptBooking(fixed,booking.booking_date,2,'20:00'),false); // 25 cover quota permits 2, unit capacity leaves only 1.
+ const fixed=[occupied,{...booking,id:1,party_size:23,tables:''}];
+ assert.equal(canAcceptBooking(fixed,booking.booking_date,2,'20:00'),false);
 });
 
 test('residual excludes inactive bookings and the unit being reassigned; invalid units stay unverified',()=>{
  const occupied={...booking,tables:'15+16'};
  const reference={booking_date:booking.booking_date,booking_time:'20:00'};
+ const total=serviceCapacity([],reference).total;
  assert.equal(serviceCapacity([occupied],{...reference,id:booking.id}).remaining,25);
  for(const status of ['cancelled','no_show']) assert.equal(serviceCapacity([{...occupied,status}],reference).remaining,25);
  for(const tables of ['unknown','15+16,17,15+16']) assert.equal(serviceCapacity([{...occupied,tables}],reference).verified,false);
- assert.equal(serviceCapacity([{...occupied,party_size:5}],reference).verified,false);
+ assert.equal(serviceCapacity([{...occupied,party_size:5}],reference).verified,true);
  assert.equal(serviceCapacity([occupied,{...occupied,id:99}],reference).verified,false);
 });

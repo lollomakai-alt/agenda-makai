@@ -15,7 +15,7 @@ test('SQL manual assignment: sufficient capacity, full-unit residual, advisory c
    create table online_booking_closures(booking_date date primary key);
    grant select,insert,update on bookings to authenticated;grant usage on sequence bookings_id_seq to authenticated;
    set request.jwt.claims='{"app_metadata":{"role":"admin"}}';`);
-  for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','manual-table-assignment.sql','online-booking.sql','pending-online-capacity.sql','temporal-table-conflicts.sql','manual-assignment-capacity.sql','explicit-table-release.sql'])await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
+  for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','manual-table-assignment.sql','online-booking.sql','pending-online-capacity.sql','temporal-table-conflicts.sql','manual-assignment-capacity.sql','explicit-table-release.sql','admin-manual-booking-edits.sql'])await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../supabase/explicit-table-release.sql',import.meta.url),'utf8')); // Idempotent upgrade.
   const day=(await db.query(`select to_char(d,'YYYY-MM-DD') as booking_day from generate_series((now() at time zone 'Europe/Rome')::date+1,(now() at time zone 'Europe/Rome')::date+7,'1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].booking_day;
   const insert=async(people,tables='',time='20:00',source='agenda')=>(await db.query(`insert into bookings(booking_date,booking_time,party_size,tables,source) values($1,$2,$3,$4,$5) returning *`,[day,time,people,tables,source])).rows[0];
@@ -29,8 +29,8 @@ test('SQL manual assignment: sufficient capacity, full-unit residual, advisory c
   booking=await assign(booking,'15+16');assert.equal(booking.tables,'15+16');
   await db.exec('reset role');
   let capacity=(await db.query("select private.service_capacity($1,'20:00',null) capacity",[day])).rows[0].capacity;
-  assert.deepEqual(capacity,{total:25,occupied:4,unused:1,remaining:21,verified:true});
-  assert.equal((await db.query("select private.service_capacity($1,'22:00',null) capacity",[day])).rows[0].capacity.remaining,21);
+  assert.deepEqual(capacity,{total:26,occupied:4,unused:1,remaining:22,verified:true});
+  assert.equal((await db.query("select private.service_capacity($1,'22:00',null) capacity",[day])).rows[0].capacity.remaining,22);
   assert.equal((await db.query('select count(*)::int n from booking_history where booking_id=$1',[booking.id])).rows[0].n,2);
   const beforeUpgrade=(await db.query('select to_jsonb(b) row from bookings b order by id')).rows;
   const historyBeforeUpgrade=(await db.query('select to_jsonb(h) row from booking_history h order by id')).rows;
@@ -39,24 +39,24 @@ test('SQL manual assignment: sufficient capacity, full-unit residual, advisory c
   assert.deepEqual((await db.query('select to_jsonb(h) row from booking_history h order by id')).rows,historyBeforeUpgrade);
   for(const status of ['arrived','completed']) {
    await db.query('update bookings set status=$1 where id=$2',[status,booking.id]);
-   assert.equal((await db.query("select private.service_capacity($1,'23:59',null) capacity",[day])).rows[0].capacity.remaining,21);
+   assert.equal((await db.query("select private.service_capacity($1,'23:59',null) capacity",[day])).rows[0].capacity.remaining,22);
    await assert.rejects(insert(3,'15+16','23:59'),/stessa giornata/);
   }
   await db.query("update bookings set status='confirmed' where id=$1",[booking.id]);
 
   const five=await insert(5);
-  await db.exec('set role authenticated');await assert.rejects(assign(five,'20+21'),/Capienza insufficiente/);await db.exec('reset role');
-  assert.equal((await db.query('select tables from bookings where id=$1',[five.id])).rows[0].tables,'');
+  await db.exec('set role authenticated');const overCapacity=await assign(five,'20+21');await db.exec('reset role');
+  assert.equal(overCapacity.tables,'20+21');
   await db.exec('delete from bookings;delete from booking_history;');
   await insert(6,'15+16+17'); // Existing room configuration no longer vetoes physically disjoint manual unit 18.
   const small=await insert(2);
   await db.exec('set role authenticated');const saved=await assign(small,'18');await db.exec('reset role');assert.equal(saved.tables,'18');
-  assert.equal((await db.query('select private.online_day_status($1,2,null) status',[day])).rows[0].status,'available');
+  assert.equal((await db.query('select private.online_day_status($1,2,null) status',[day])).rows[0].status,'full'); // 15+16+17 con 18 non è una configurazione fisica valida per nuovi incastri online.
   await assert.rejects(insert(3,'15+16','21:00'),/stessa giornata/);
   await assert.rejects(insert(3,'15+16','22:00'),/stessa giornata/); // Time never releases a physical unit.
   await db.exec('delete from bookings;delete from booking_history;');
   for(const [people,tables] of [[3,'15+16'],[3,'18+19'],[3,'20+21'],[3,'10+11'],[2,'12'],[2,'13+14'],[2,'17'],[2,'22'],[2,'23']]) await insert(people,tables);
-  assert.deepEqual((await db.query("select private.service_capacity($1,'20:00',null) capacity",[day])).rows[0].capacity,{total:25,occupied:25,unused:3,remaining:0,verified:true});
+  assert.deepEqual((await db.query("select private.service_capacity($1,'20:00',null) capacity",[day])).rows[0].capacity,{total:26,occupied:26,unused:4,remaining:0,verified:true});
   assert.equal((await db.query('select private.online_day_status($1,1,null) status',[day])).rows[0].status,'full'); // 22 people, but all 25 seats committed.
   await db.exec('delete from bookings;delete from booking_history;');
   await insert(6,'','20:00','booking');
@@ -65,7 +65,7 @@ test('SQL manual assignment: sufficient capacity, full-unit residual, advisory c
   assert.equal(chosen.id,manual.id);assert.equal(chosen.tables,'15+16');
   capacity=(await db.query("select private.service_capacity($1,'20:00',null) capacity",[day])).rows[0].capacity;
   assert.equal(capacity.occupied,10); // 4 fixed seats + 6 pending covers, not 3+6.
-  assert.equal(capacity.remaining,15);
+  assert.equal(capacity.remaining,16);
   assert.equal((await db.query('select name from bookings where id=$1',[manual.id])).rows[0].name,'Cliente');
   await db.exec("set request.jwt.claims='{\"app_metadata\":{\"role\":\"staff\"}}';set role authenticated");
   await assert.rejects(assign(chosen,'10+11'),/Accesso riservato/);

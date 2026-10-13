@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 
 test('SQL notification feed: thresholds, priority, personal persisted reads, RLS, resolution and schedule changes', async t => {
   // Freeze the local PGlite clock just after Rome midnight to exercise date rollover.
-  const now = Date.parse('2026-10-06T00:20:00+02:00');
+  const now = Date.parse('2026-10-06T01:20:00+02:00');
   t.mock.timers.enable({ apis: ['Date'], now });
   const db = new PGlite();
   try {
@@ -68,16 +68,16 @@ test('SQL notification feed: thresholds, priority, personal persisted reads, RLS
       update booking_requests set status='approved' where id=1;
       update bookings set status='arrived' where id=3;
       update bookings set
-        booking_date=to_char((now() at time zone 'Europe/Rome')-interval '40 minutes','YYYY-MM-DD'),
-        booking_time=to_char((now() at time zone 'Europe/Rome')-interval '40 minutes','HH24:MI:SS') where id=2;
+        booking_date=to_char((now() at time zone 'Europe/Rome')-interval '90 minutes','YYYY-MM-DD'),
+        booking_time=to_char((now() at time zone 'Europe/Rome')-interval '90 minutes','HH24:MI:SS') where id=2;
       set local role authenticated;`);
     rows=await feed();
     assert.ok(!rows.some(x=>x.id==='request:1' || x.id===delayId || x.booking_id===3));
-    const changed=rows.find(x=>x.booking_id===2 && x.kind==='delay');
-    assert.ok(changed);
-    assert.equal(changed.booking_date,'2026-10-05'); // 23:40 on the previous Rome day.
-    assert.ok(changed.id!==delayId && !changed.read_at);
-    assert.equal(changed.priority,'high');
+    // I ritardi del giorno precedente non devono comparire.
+    assert.ok(!rows.some(x=>x.booking_id===2 && x.kind==='delay'));
+    assert.ok(rows.filter(x=>x.kind==='delay').every(
+      x=>x.booking_date==='2026-10-06'
+    ));
     await reject(() => mark('request:1'),/risolta/);
     await db.exec(`set local request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","user_metadata":{"role":"admin"}}'`);
     await reject(feed,/staff/);

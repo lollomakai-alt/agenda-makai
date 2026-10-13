@@ -49,7 +49,7 @@ begin
   end if;
   select array_agg(btrim(t)) into selected_ids from unnest(string_to_array(new.tables, ',')) t;
   if exists (select 1 from unnest(selected_ids) t where t not in
-    ('10+11','12','13+14','15+16+17','15+16','17','18+19','18','19','20+21','22','23')) then
+    ('10+11','12','13+14','15+16+17','15+16','17','18+19','18','19','20+21','22+23','22','23')) then
     raise exception 'Configurazione tavolo non valida' using errcode = '22023';
   end if;
   if cardinality(selected_ids) <> (select count(distinct t) from unnest(selected_ids) t) then

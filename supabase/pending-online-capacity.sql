@@ -11,7 +11,8 @@ begin
   if people is null or people not between 0 and 6 then return 'unverified'; end if;
   if people > 0 and exists(select 1 from public.online_booking_closures c where c.booking_date = day::date) then return 'closed'; end if;
   select coalesce(sum(b.party_size),0) into covers from public.bookings b
-    where b.booking_date=day and b.status='confirmed' and (exclude_id is null or b.id<>exclude_id);
+    where b.booking_date=day and coalesce(b.booking_type,'normale')='normale'
+      and b.status not in ('cancelled','no_show') and (exclude_id is null or b.id<>exclude_id);
   if covers + people > 25 then return 'full'; end if;
   for row_data in select b.* from public.bookings b where b.booking_date=day
       and b.status not in ('cancelled','no_show') and coalesce(b.booking_type,'normale')='normale'

@@ -4,9 +4,9 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 import { TABLE_ASSIGNMENTS } from '../src/config/tableAssignments.js';
 
-// PGlite is single-session; PostgreSQL advisory lock calls are removed only
-// in this local fixture. Actual request locking remains in the production SQL.
-test('online SQL shares grouped rules, reserves unassigned covers, saves without tables and records private history',async(t)=>{
+// PGlite is single-session, so it executes the real advisory-lock call but can
+// only verify that concurrently queued inserts recompute distinct assignments.
+test('online SQL shares grouped rules, assigns dinner tables atomically and records private history',async(t)=>{
  const db=new PGlite();
  try {
   await db.exec(`create role anon;create role authenticated;create role service_role;
@@ -22,7 +22,8 @@ test('online SQL shares grouped rules, reserves unassigned covers, saves without
    create table online_booking_closures(booking_date date primary key);
    set request.jwt.claims='{}';`);
   const sql=await readFile(new URL('../supabase/online-booking.sql',import.meta.url),'utf8');
-  const localSql=sql.replaceAll('perform pg_advisory_xact_lock(734512);','null;');
+  assert.match(sql,/perform pg_advisory_xact_lock\(734512\);[\s\S]*assigned := private\.choose_online_dinner_table/);
+  const localSql=sql;
   await db.exec(localSql);await db.exec(localSql);
   await db.exec('create trigger prepare_booking before insert or update on bookings for each row execute function private.prepare_booking()');
   const guard=await readFile(new URL('../supabase/pending-online-capacity.sql',import.meta.url),'utf8');
@@ -31,23 +32,108 @@ test('online SQL shares grouped rules, reserves unassigned covers, saves without
 
   const groups=(await db.query('select * from private.online_table_groups()')).rows;
   assert.deepEqual(Object.fromEntries(groups.map(g=>[g.group_id,g.capacity])),TABLE_ASSIGNMENTS);
+  const candidates=async people=>(await db.query(
+    'select group_id,capacity,preference from private.online_table_candidates($1) order by preference,group_id',
+    [people]
+  )).rows;
+  assert.deepEqual((await candidates(1)).map(({capacity})=>capacity),[2,2,2,2,2,2]);
+  assert.deepEqual((await candidates(2)).map(({capacity})=>capacity),[2,2,2,2,2,2]);
+  assert.deepEqual((await candidates(3)).map(({capacity})=>capacity),[3,3,4,4,4,4]);
+  assert.deepEqual((await candidates(4)).map(({capacity})=>capacity),[4,4,4,4]);
+  assert.ok((await candidates(4)).some(({group_id})=>group_id==='22+23'));
+  assert.deepEqual((await candidates(5)).map(({capacity})=>capacity),[6]);
+  assert.deepEqual((await candidates(6)).map(({capacity})=>capacity),[6]);
+  assert.deepEqual(await candidates(0),[]);
+  assert.deepEqual(await candidates(7),[]);
+  assert.equal((await candidates(3))[0].group_id,'10+11');
+  const fits=async(parties,used=[],configured=[])=>(await db.query(
+    'select private.fit_online_parties($1::integer[],$2::text[],$3::text[]) fits',
+    [parties,used,configured]
+  )).rows[0].fits;
+  assert.equal(await fits([1],['10','11','13','14','15','16','17','18','19','20','21','22','23']),true);
+  assert.equal(await fits([2],['12','13','14','15','16','17','18','19','20','21','22','23']),false);
+  assert.equal(await fits([3],['12','13','14','15','16','17','18','19','20','21','22','23']),true);
+  assert.equal(await fits([3],['10','11','12','13','14','17','18','19','20','21','22','23']),true);
+  assert.equal(await fits([4],['10','11','12','13','14','17','18','19','20','21','22','23']),true);
+  assert.equal(await fits([4],['10','11','12','13','14','15','16','17','18','19','20','21','22','23']),false);
+  assert.equal(await fits([5],['10','11','12','13','14','18','19','20','21','22','23']),true);
+  assert.equal(await fits([6],['10','11','12','13','14','18','19','20','21','22','23']),true);
+  assert.equal(await fits([2,2,2],['10','11','12','13','14','15','16','20','21','22','23'],['15+16']),true);
+  assert.equal(await fits([2],['10','11','12','13','14','15','16','17','19','20','21','22','23'],['15+16+17']),false);
   const day=(await db.query(`select to_char(d,'YYYY-MM-DD') as booking_day from generate_series((now() at time zone 'Europe/Rome')::date+2,(now() at time zone 'Europe/Rome')::date+8,interval '1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].booking_day;
   const status=async people=>(await db.query('select private.online_day_status($1,$2,NULL) s',[day,people])).rows[0].s;
   const insert=async (people,tables='',source='agenda',type='normale')=>(await db.query(`insert into bookings(name,phone,booking_date,booking_time,party_size,tables,source,booking_type,privacy_accepted_at,privacy_version)
     values('Mario Rossi','+393331234567',$1,'20:00',$2,$3,$4,$5,now(),'2026-10-04-online-v1') returning *`,[day,people,tables,source,type])).rows[0];
+  const choose=async people=>(await db.query(
+    'select private.choose_online_dinner_table($1,$2,null) chosen',
+    [day,people]
+  )).rows[0].chosen;
+  assert.equal(await choose(1),'12');
+  assert.equal(await choose(2),'12');
+  assert.equal(await choose(3),'10+11');
+  assert.equal(await choose(4),'15+16');
+  assert.equal(await choose(5),'15+16+17');
+  assert.equal(await choose(6),'15+16+17');
+  assert.equal(await choose(7),null);
+  assert.equal(await choose(2),await choose(2));
+
+  await db.exec('delete from booking_history;delete from bookings;');
+  for (const [people,table] of [[3,'10+11'],[2,'12'],[3,'13+14'],[6,'15+16+17'],[4,'18+19'],[4,'20+21']]) await insert(people,table);
+  assert.equal(await choose(4),'22+23'); // Combined unit is an automatic candidate when physically free and compatible.
+
+  for(const [people,table] of [[1,'12'],[2,'12'],[3,'10+11'],[4,'15+16'],[5,'15+16+17'],[6,'15+16+17']]) {
+    await db.exec('delete from booking_history;delete from bookings;');
+    const automatic=await insert(people,'23','booking');
+    assert.equal(automatic.tables,table);
+    assert.equal(automatic.booking_type,'normale');
+  }
+
+  await db.exec('delete from booking_history;delete from bookings;');
+  const [firstConcurrent,secondConcurrent]=await Promise.all([
+    insert(2,'','booking'),
+    insert(2,'','booking')
+  ]);
+  assert.equal(firstConcurrent.tables,'12');
+  assert.equal(secondConcurrent.tables,'17');
+
+  for(const state of ['confirmed','arrived','completed']) {
+    await db.exec('delete from booking_history;delete from bookings;');
+    const occupied=await insert(2,'12');
+    await db.query('update bookings set status=$1 where id=$2',[state,occupied.id]);
+    assert.equal(await choose(2),'17');
+  }
+  await db.query("update bookings set tables='' where status='completed'");
+  assert.equal(await choose(2),'12');
+
+  await db.exec('delete from booking_history;delete from bookings;');
+  for(const table of ['12','13+14','17','18','19','22','23']) await insert(2,table);
+  assert.equal(await choose(2),null);
+
+  await db.exec('delete from booking_history;delete from bookings;');
+  for(const table of ['12','13+14','15+16','22','23']) await insert(table==='15+16'?4:2,table);
+  assert.equal(await choose(2),'17');
+
+  await db.exec('delete from booking_history;delete from bookings;');
+  for(const table of ['12','13+14','15+16+17','22','23']) await insert(table==='15+16+17'?6:2,table);
+  assert.equal(await choose(2),null);
+
+  await db.exec('delete from booking_history;delete from bookings;');
+  const pending=await insert(6);
+  await db.query("update bookings set source='booking' where id=$1",[pending.id]);
+  assert.equal(await choose(4),'18+19');
+  await db.exec('delete from booking_history;delete from bookings;');
   assert.equal(await status(6),'available');
   let saved=await insert(6,'15+16+17','booking');
-  assert.equal(saved.tables,'');assert.equal(saved.status,'confirmed');assert.equal(saved.reminder_status,'skipped');
+  assert.equal(saved.tables,'15+16+17');assert.equal(saved.status,'confirmed');assert.equal(saved.reminder_status,'skipped');
   const history=(await db.query('select * from booking_history')).rows;
   assert.equal(history.length,1);assert.equal(history[0].action,'booking_created');
   assert.deepEqual(Object.keys(history[0].new_data).sort(),['booking_date','booking_time','booking_type','party_size','status','tables']);
+  assert.equal(history[0].new_data.tables,'15+16+17');
   assert.equal(await status(6),'full'); // sole six-person group already needed by unassigned booking
   await assert.rejects(insert(6,'','booking'),/Disponibilità cambiata/);
   assert.equal((await db.query('select count(*) n from bookings')).rows[0].n,1);
 
   const manual=await insert(2);
-  await assert.rejects(db.query("update bookings set tables='15+16' where id=$1",[manual.id]),/non resterebbe posto/);
-  await assert.rejects(db.query("update bookings set tables='15+16+17' where id=$1",[manual.id]),/non resterebbe posto/);
   assert.equal((await db.query('select tables from bookings where id=$1',[manual.id])).rows[0].tables,'');
   await db.query("update bookings set tables='12' where id=$1",[manual.id]);
   // Closing online intake does not block assignment of existing bookings.
@@ -68,8 +154,7 @@ test('online SQL shares grouped rules, reserves unassigned covers, saves without
   await db.exec('delete from bookings;');
   await insert(4,'15+16');await insert(2,'18');await insert(4,'18+19');assert.equal(await status(2),'unverified');
   await db.exec('delete from bookings;');
-  await insert(24,'','agenda','dopocena');assert.equal(await status(1),'available');assert.equal(await status(2),'full');
-  await insert(1);await assert.rejects(insert(1),/25 coperti/);
+  await insert(24,'','agenda','dopocena');assert.equal(await status(1),'available');assert.equal(await status(2),'available');
   await db.exec('delete from bookings;');
   await db.query('insert into online_booking_closures values($1)',[day]);
   assert.equal(await status(2),'closed');await assert.rejects(insert(2,'','booking'),/Disponibilità cambiata/);
@@ -131,6 +216,7 @@ test('online SQL shares grouped rules, reserves unassigned covers, saves without
    await db.exec(`set role ${role}`);
    await assert.rejects(db.query('select * from private.online_booking_receipts'),/permission denied/);
    await assert.rejects(db.query('select private.online_day_status($1,2,NULL)',[day]),/permission denied/);
+   await assert.rejects(db.query('select private.choose_online_dinner_table($1,2,NULL)',[day]),/permission denied/);
    await db.exec('reset role');
   }
  } finally {await db.close();}

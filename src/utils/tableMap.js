@@ -1,7 +1,7 @@
 import tables from '../config/tables.json' with { type: 'json' };
 import { TABLE_ASSIGNMENTS } from '../config/tableAssignments.js';
 import { bookingStatus } from './bookingStatus.js';
-import { bookingsOverlap } from './bookingTime.js';
+import { bookingsOverlap, bookingScheduledAt } from './bookingTime.js';
 import { bookingType } from './bookingType.js';
 import { physicalTableIds, conflictingTableIds, tableConfigurationError, tableAssignmentError } from './tableConflicts.js';
 import { editableBookingValues, saveBookingEdit, validateBookingEdit } from './bookingEdit.js';
@@ -9,22 +9,36 @@ import { editableBookingValues, saveBookingEdit, validateBookingEdit } from './b
 export const TABLE_MAP_STATUSES = Object.freeze({ free: 'Libero', reserved: 'Prenotato', occupied: 'Occupato' });
 const inactiveStatuses = new Set(['cancelled', 'no_show']);
 
+function hasManualPhysicalConflict(candidate, appointments) {
+  const selectedIds = new Set(physicalTableIds(candidate.tables));
+  return (appointments || []).some(other =>
+    String(other.id) !== String(candidate.id)
+    && bookingsOverlap(candidate, other)
+    && !inactiveStatuses.has(bookingStatus(other.status))
+    && physicalTableIds(other.tables).some(id => selectedIds.has(id))
+  );
+}
+
 export function tableMapForDate(appointments, date, type = 'all', referenceBooking = null) {
   const linked = new Map();
+  const occupied = new Map();
   for (const booking of appointments || []) {
     if (inactiveStatuses.has(bookingStatus(booking.status))) continue;
     if (referenceBooking ? !bookingsOverlap(referenceBooking, booking) : booking.booking_date !== date) continue;
-    if (!referenceBooking && type !== 'all' && bookingType(booking.booking_type) !== type) continue;
     for (const tableId of new Set(physicalTableIds(booking.tables))) {
       if (!Object.hasOwn(tables, tableId)) continue;
+      if (!occupied.has(tableId)) occupied.set(tableId, []);
+      occupied.get(tableId).push(booking);
+      if (!referenceBooking && type !== 'all' && bookingType(booking.booking_type) !== type) continue;
       if (!linked.has(tableId)) linked.set(tableId, []);
       linked.get(tableId).push(booking);
     }
   }
   return Object.entries(tables).map(([id, capacity]) => {
     const bookings = linked.get(id) || [];
-    const occupied = bookings.some(booking => bookingStatus(booking.status) !== 'confirmed');
-    return { id, capacity, status: occupied ? 'occupied' : bookings.length ? 'reserved' : 'free',
+    const statusBookings = occupied.get(id) || [];
+    const hasOccupiedBooking = statusBookings.some(booking => bookingStatus(booking.status) !== 'confirmed');
+    return { id, capacity, status: hasOccupiedBooking ? 'occupied' : statusBookings.length ? 'reserved' : 'free',
       bookingTypes: [...new Set(bookings.map(booking => bookingType(booking.booking_type)))], bookings };
   });
 }
@@ -39,7 +53,8 @@ export function tableRooms(tableMap) {
 export function unverifiedTableBookings(appointments, date, type = 'all') {
   return (appointments || []).filter(booking => booking.booking_date === date && !inactiveStatuses.has(bookingStatus(booking.status))
     && (type === 'all' || bookingType(booking.booking_type) === type)
-    && (!physicalTableIds(booking.tables).length || Boolean(tableAssignmentError(booking.tables, Number(booking.party_size), { allowOverCapacity: true }))));
+    && ((bookingType(booking.booking_type) !== 'dopocena' && !physicalTableIds(booking.tables).length)
+      || Boolean(tableAssignmentError(booking.tables, Number(booking.party_size), { allowOverCapacity: true }))));
 }
 
 export function tableGroupsForPhysicalTable(id) {
@@ -52,31 +67,25 @@ export function availableMapAssignments(booking, appointments, tableId, { manual
     const values = { ...editableBookingValues(booking), tables };
     if (Object.keys(validateBookingEdit(values, booking, { manualTables }).errors).length) return false;
     const candidate = { ...booking, tables };
-    if (conflictingTableIds(candidate, appointments).length) return false;
+    if (manualTables) {
+      if (hasManualPhysicalConflict(candidate, appointments)) return false;
+    } else if (conflictingTableIds(candidate, appointments).length) return false;
     return manualTables || (!tableConfigurationError(candidate, appointments) && preservesUnassignedBookings(candidate, appointments));
   });
 }
 
 export async function assignMapTable(client, booking, tables, appointments, tableId) {
   if (!availableMapAssignments(booking, appointments, tableId, { manualTables: true }).some(([group]) => group === tables)) {
-    throw new Error('Assegnazione non disponibile: controlla capienza, configurazione e conflitti.');
+    throw new Error('Assegnazione non disponibile.');
   }
   return saveBookingEdit(client, booking, { ...editableBookingValues(booking), tables }, appointments, { manualTables: true });
 }
 
 // Solo suggerimento UI: le disponibilità e il salvataggio usano i controlli esistenti.
 export function rankedMapAssignments(booking, appointments) {
-  const preferences = new Map();
   const choices = Object.entries(TABLE_ASSIGNMENTS)
     .filter(([group]) => availableMapAssignments(booking, appointments, physicalTableIds(group)[0], { manualTables: true }).some(([available]) => available === group));
-  for (const [group] of choices) {
-    const candidate = { ...booking, tables: group };
-    preferences.set(group, Number(Boolean(tableConfigurationError(candidate, appointments)))
-      + Number(!preservesUnassignedBookings(candidate, appointments)));
-  }
-  return choices.sort((a,b) => (a[1] - Number(booking.party_size)) - (b[1] - Number(booking.party_size))
-    || preferences.get(a[0]) - preferences.get(b[0])
-    || physicalTableIds(a[0]).length - physicalTableIds(b[0]).length);
+  return choices;
 }
 
 // Prefer choices that leave room for pending groups. This advisory search
@@ -84,7 +93,7 @@ export function rankedMapAssignments(booking, appointments) {
 export function preservesUnassignedBookings(candidate, appointments) {
   const rows = [...appointments.filter(item => String(item.id) !== String(candidate.id)), candidate]
     .filter(item => bookingsOverlap(candidate, item) && !inactiveStatuses.has(bookingStatus(item.status)));
-  const pending = rows.filter(item => !String(item.tables || '').trim())
+  const pending = rows.filter(item => !item.table_released_at && (item.booking_type || 'normale') === 'normale' && !String(item.tables || '').trim())
     .sort((a,b) => Number(b.party_size) - Number(a.party_size));
   if (!pending.length) return true;
   if (pending.length > 10 || pending.some(item => !Number.isSafeInteger(Number(item.party_size)) || Number(item.party_size) < 1)) return false;
@@ -102,4 +111,9 @@ export function preservesUnassignedBookings(candidate, appointments) {
     return false;
   }
   return fit(0, fixed);
+}
+
+export function tableBookingService(bookings) {
+ const ordered=[...bookings].sort((a,b)=>Number(['arrived','completed'].includes(bookingStatus(b.status)))-Number(['arrived','completed'].includes(bookingStatus(a.status))) || (bookingScheduledAt(a) ?? Infinity)-(bookingScheduledAt(b) ?? Infinity) || Number(a.id)-Number(b.id));
+ return ordered[0]?.booking_type || 'free';
 }

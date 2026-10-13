@@ -23,13 +23,55 @@ test('overlapping table conflicts; cancelled/no-show, different dates and own id
   assert.deepEqual(conflictingTableIds({ ...original, tables: '' }, rows), []);
 });
 
-test('normal and dopocena cannot reuse assigned tables at separate times', () => {
+test('normal and dopocena share tables only when service types and times are valid', () => {
   const normal = { ...original, booking_type: 'normale' };
-  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:00' };
-  assert.deepEqual(conflictingTableIds(afterDinner, [normal]), ['12']);
+  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:30' };
+  assert.deepEqual(conflictingTableIds(afterDinner, [normal]), []);
+  assert.deepEqual(conflictingTableIds(
+    afterDinner,
+    [{ ...normal, booking_time: '19:30' }]
+  ), []);
+  assert.deepEqual(conflictingTableIds(
+    afterDinner,
+    [{ ...normal, booking_time: '21:00' }]
+  ), ['12']);
   assert.deepEqual(conflictingTableIds(afterDinner, [{ ...afterDinner, id: 100 }]), ['12']);
-  assert.deepEqual(conflictingTableIds(normal, [{ ...normal, id: 101 }]), ['12']);
-  assert.deepEqual(conflictingTableIds({ ...normal, booking_time: '21:00' }, [afterDinner]), ['12']);
+  assert.deepEqual(conflictingTableIds(
+    { ...normal, booking_time: '22:00' },
+    [{ ...normal, id: 101, booking_time: '19:00' }]
+  ), ['12']);
+  assert.deepEqual(conflictingTableIds(
+    afterDinner,
+    [{ ...afterDinner, id: 101, booking_time: '23:00' }]
+  ), ['12']);
+  assert.deepEqual(conflictingTableIds(
+    { ...normal, booking_time: '22:00' },
+    [{ ...afterDinner, booking_time: '23:00' }]
+  ), ['12']);
+  assert.deepEqual(conflictingTableIds(
+    { ...normal, booking_time: '19:00' },
+    [{ ...afterDinner, booking_time: '22:00', booking_type: 'unknown' }]
+  ), ['12']);
+  assert.deepEqual(conflictingTableIds(
+    { ...normal, booking_time: '19:17' },
+    [afterDinner]
+  ), ['12']);
+  assert.deepEqual(conflictingTableIds(
+    { ...normal, booking_time: '19:00', booking_type: 'unknown' },
+    [afterDinner]
+  ), ['12']);
+});
+
+test('separate-service table reuse keeps physical configuration checks active', () => {
+  const dinner = { ...original, booking_type: 'normale', booking_time: '19:00', tables: '15+16' };
+  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:30', tables: '15+16' };
+  assert.deepEqual(conflictingTableIds(afterDinner, [dinner]), []);
+  assert.equal(tableConfigurationError(afterDinner, [dinner]), '');
+
+  const incompatible = { ...afterDinner, tables: '15+16+17' };
+  assert.deepEqual(conflictingTableIds(incompatible, [dinner]), []);
+  assert.equal(tableConfigurationError(incompatible, [dinner]), '');
+  assert.match(tableConfigurationError(incompatible, [{...afterDinner,id:100,tables:'18'}]), /non è consentita/);
 });
 
 test('configuration validates grouped tables, physical duplicates and capacity', () => {

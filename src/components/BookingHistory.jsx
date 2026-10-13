@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { historyChanges, loadBookingHistory } from '../utils/bookingHistory';
 
-const actionLabels = { waitlist_converted: 'Conversione lista d’attesa', status_changed: 'Cambio stato', booking_updated: 'Modifica prenotazione', customer_request_created: 'Richiesta cliente ricevuta', customer_request_approved: 'Richiesta cliente approvata', customer_request_rejected: 'Richiesta cliente rifiutata' };
+const actionLabels = { customer_reconfirmed:'Riconferma cliente',customer_alternative_proposed:'Proposta alternativa',table_assigned:'Tavolo assegnato', waitlist_converted: 'Conversione lista d’attesa', status_changed: 'Cambio stato', booking_updated: 'Modifica prenotazione', customer_request_created: 'Richiesta cliente ricevuta', customer_request_approved: 'Richiesta cliente approvata', customer_request_rejected: 'Richiesta cliente rifiutata' };
 const dateFormat = new Intl.DateTimeFormat('it-IT', {
   dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/Rome',
 });

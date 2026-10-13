@@ -58,7 +58,8 @@ export default function App() {
     <header className="admin-header">
       <a href={restricted ? "/prenotazioni" : "/"} className="admin-brand">Makai <span>Agenda</span></a>
       {restricted && <MobileSection title="Menu" className="mobile-header-menu"><div className="admin-header-actions">
-        <a href="/attivita">Attività</a>
+        <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
+        <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
         <span className="admin-area-label">Area riservata</span>
         <LogoutButton />
       </div></MobileSection>}
@@ -68,9 +69,5 @@ export default function App() {
         {page}
       </Suspense>
     </ErrorBoundary>
-    {restricted && <nav className="admin-mobile-nav" aria-label="Navigazione Agenda">
-      <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
-      <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
-    </nav>}
   </div>;
 }

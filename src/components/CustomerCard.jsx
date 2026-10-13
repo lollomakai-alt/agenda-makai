@@ -1,3 +1,5 @@
+import BookingHistory from './BookingHistory';
+import BookingCommunications from './BookingCommunications';
 import { useState } from 'react';
 import { customerBookingSummary } from '../utils/customerBookings';
 import { bookingStatus, bookingStatusLabel } from '../utils/bookingStatus';
@@ -6,6 +8,11 @@ import { bookingScheduledAt } from '../utils/bookingTime';
 const dateFormat = new Intl.DateTimeFormat('it-IT', {
   timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short',
 });
+
+function CustomerVisitDetails({booking}) {
+ const [open,setOpen]=useState(false);
+ return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>Modifiche, richieste e comunicazioni</summary>{open&&<><BookingHistory bookingId={booking.id}/><BookingCommunications booking={booking}/></>}</details>;
+}
 
 export default function CustomerCard({ booking, appointments, now }) {
   const [open, setOpen] = useState(false);
@@ -23,6 +30,8 @@ export default function CustomerCard({ booking, appointments, now }) {
       </div>
       <dl className="customer-card-stats">
         <div><dt>Prenotazioni</dt><dd>{profile.totalBookings}</dd></div>
+        <div><dt>Visite effettive</dt><dd>{profile.visits}</dd></div>
+        <div><dt>Cancellazioni</dt><dd>{profile.cancellations}</dd></div>
         <div><dt>NO_SHOW</dt><dd>{profile.noShows}</dd></div>
         <div><dt>Ultima prenotazione</dt><dd>{profile.latestBooking ? dateFormat.format(bookingScheduledAt(profile.latestBooking)) : 'Non disponibile'}</dd></div>
         <div><dt>Ultima visita</dt><dd>{profile.latestVisit ? dateFormat.format(bookingScheduledAt(profile.latestVisit)) : 'Non registrata'}</dd></div>
@@ -38,7 +47,8 @@ export default function CustomerCard({ booking, appointments, now }) {
               {' · '}{item.party_size} persone
             </div>
             <span className={`booking-status status-${bookingStatus(item.status)}`}>{bookingStatusLabel(item.status)}</span>
-            {item.notes && <p><strong>Note:</strong> {item.notes}</p>}
+            {item.notes && <p><strong>Note, allergie e preferenze:</strong> {item.notes}</p>}
+            <CustomerVisitDetails booking={item}/>
           </li>;
         })}
       </ul> : <p>Nessuna prenotazione collegata.</p>}

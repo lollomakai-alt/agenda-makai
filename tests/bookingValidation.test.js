@@ -16,7 +16,7 @@ test('valid booking preserves optional email and normalizes contacts', () => {
   assert.equal(normalizePhone('+44 7911 123456'), '+447911123456');
 });
 test('bad fields are individually identified', () => {
-  for (const [field, value] of [['name', 'Marco123'], ['name', 'Marco'], ['phone', '34255678'], ['email', 'marco gmail@gmail.com'], ['email', 'a@b'], ['party_size', '2.5'], ['party_size', ''], ['time', '21:15'], ['time', '25:00'], ['date', '2026-02-30'], ['notes', 'x'.repeat(301)]]) {
+  for (const [field, value] of [['name', 'Marco123'], ['name', 'M'], ['phone', '34255678'], ['email', 'marco gmail@gmail.com'], ['email', 'a@b'], ['party_size', '2.5'], ['party_size', ''], ['time', '21:15'], ['time', '25:00'], ['date', '2026-02-30'], ['notes', 'x'.repeat(301)]]) {
     assert.ok(validateBooking({ ...valid, [field]: value }).errors[field], `${field}: ${value}`);
   }
 });

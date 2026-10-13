@@ -1,0 +1,484 @@
+/* =========================================================
+   AGENDA MAKAI — CALENDARIO LIQUID GLASS DARK
+   ========================================================= */
+
+.calendar-page {
+  --cal-bg: #0b0f16;
+  --cal-glass: rgba(28, 35, 46, 0.78);
+  --cal-border: rgba(255, 255, 255, 0.08);
+  --cal-text: #f3f6fa;
+  --cal-muted: #9aa5b4;
+  --cal-accent: #42dad0;
+  --cal-open: #43c98d;
+  --cal-closed: #f16e77;
+}
+
+/* CONTENITORE */
+
+.calendar-panel {
+  overflow: hidden;
+  border: 1px solid var(--cal-border);
+  border-radius: 22px;
+  background: var(--cal-bg);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+}
+
+/* NAVIGAZIONE */
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px;
+}
+
+.calendar-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-month-nav h2 {
+  margin: 0;
+  color: var(--cal-text);
+  font-size: clamp(20px, 3vw, 27px);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  text-transform: capitalize;
+}
+
+.calendar-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--cal-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--cal-text);
+  text-decoration: none;
+  transition: background 180ms ease;
+}
+
+.calendar-arrow:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.calendar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.calendar-summary {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 20px 16px;
+  color: var(--cal-muted);
+  font-size: 13px;
+}
+
+.calendar-summary strong {
+  margin-right: 4px;
+  color: var(--cal-accent);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* GRIGLIA */
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.calendar-weekdays {
+  padding: 0 14px 8px;
+  border: 0;
+  background: transparent;
+}
+
+.calendar-weekdays span {
+  padding: 10px 0;
+  color: var(--cal-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-grid {
+  padding: 0 14px 16px;
+}
+
+/* CELLE */
+
+.calendar-day,
+.calendar-blank {
+  min-width: 0;
+  min-height: 102px;
+  border: 1px solid var(--cal-border);
+  border-radius: 14px;
+}
+
+.calendar-grid > :nth-child(7n) {
+  border-right: 1px solid var(--cal-border);
+}
+
+.calendar-blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.calendar-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.045),
+      transparent 65%
+    ),
+    var(--cal-glass);
+  color: var(--cal-text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.calendar-day-number {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--cal-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.calendar-day-number small {
+  color: var(--cal-accent);
+  font-size: 10px;
+}
+
+/* COPERTI */
+
+.calendar-covers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  color: var(--cal-muted);
+  font-size: 11px;
+}
+
+.calendar-covers strong {
+  color: #aab5c3;
+  font-size: 27px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-day.has-bookings .calendar-covers strong {
+  color: var(--cal-text);
+}
+
+.calendar-day.has-bookings {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(66, 218, 208, 0.07),
+      transparent 65%
+    ),
+    var(--cal-glass);
+}
+
+/* OGGI — CORNICE LUMINOSA */
+
+.calendar-day.is-today,
+.calendar-grid .calendar-day.is-today.is-closed,
+.calendar-grid .calendar-day.is-today.is-weekly-closed {
+  z-index: 2;
+  border-color: var(--cal-accent);
+  box-shadow:
+    0 0 0 1px rgba(66, 218, 208, 0.20),
+    0 0 14px rgba(66, 218, 208, 0.25),
+    inset 0 0 10px rgba(66, 218, 208, 0.06);
+}
+
+.calendar-day.is-today::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--cal-accent);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* PRENOTAZIONI ONLINE */
+
+.calendar-day.is-open::after,
+.calendar-day.is-closed::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.calendar-day.is-open::after {
+  background: var(--cal-open);
+}
+
+.calendar-day.is-closed::after {
+  background: var(--cal-closed);
+}
+
+.calendar-day.is-closed,
+.calendar-day.is-closed.has-bookings {
+  background: rgba(34, 30, 38, 0.8);
+  color: var(--cal-text);
+  cursor: pointer;
+}
+
+.calendar-day.is-closed .calendar-day-number,
+.calendar-day.is-closed .calendar-covers strong {
+  color: var(--cal-text);
+}
+
+/* CHIUSURA SETTIMANALE */
+
+.calendar-grid .calendar-day.is-weekly-closed {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: var(--cal-border);
+  color: var(--cal-muted);
+}
+
+.calendar-grid .calendar-day.is-weekly-closed
+.calendar-day-number,
+.calendar-grid .calendar-day.is-weekly-closed
+.calendar-covers strong {
+  color: var(--cal-muted);
+}
+
+.calendar-day.is-weekly-closed::after {
+  content: none;
+}
+
+/* STATI SECONDARI */
+
+.calendar-day.is-past:not(.is-today) {
+  opacity: 0.78;
+}
+
+.calendar-day.is-unverified::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--cal-muted);
+  border-radius: 50%;
+}
+
+/* INTERAZIONI */
+
+.calendar-day:focus-visible,
+.calendar-arrow:focus-visible {
+  outline: 2px solid var(--cal-accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .calendar-day:hover {
+    background: rgba(45, 55, 69, 0.9);
+    transform: translateY(-2px);
+  }
+}
+
+.calendar-day:active {
+  transform: scale(0.98);
+}
+
+/* MESSAGGI */
+
+.booking-admin .calendar-hint {
+  margin: 0;
+  padding: 12px 20px;
+  color: var(--cal-muted);
+  font-size: 12px;
+}
+
+.calendar-error {
+  margin: 0 20px 16px;
+}
+
+
+/* RIEPILOGO GIORNATA */
+
+.day-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 24px 0;
+  padding: 18px 20px;
+  border: 1px solid var(--cal-border);
+  border-left: 3px solid var(--cal-accent);
+  border-radius: 15px;
+  background: var(--cal-glass);
+}
+
+.day-summary strong {
+  color: var(--cal-accent);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-time-groups {
+  display: grid;
+  gap: 24px;
+}
+
+.booking-time-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  color: var(--cal-text);
+  font-size: 20px;
+}
+
+.booking-time-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--cal-border);
+}
+
+.booking-time-list {
+  display: grid;
+  gap: 8px;
+}
+
+/* IPAD */
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .calendar-day,
+  .calendar-blank {
+    min-height: 90px;
+  }
+
+  .calendar-day {
+    padding: 10px;
+  }
+}
+
+/* IPHONE */
+
+@media (max-width: 640px) {
+  .calendar-toolbar {
+    padding: 12px;
+  }
+
+  .calendar-month-nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .calendar-month-nav h2 {
+    font-size: 19px;
+  }
+
+  .calendar-weekdays,
+  .calendar-grid {
+    gap: 5px;
+    padding-inline: 8px;
+  }
+
+  .calendar-weekdays span {
+    font-size: 10px;
+    padding: 8px 0;
+  }
+
+  .calendar-day,
+  .calendar-blank {
+    min-height: 72px;
+    border-radius: 10px;
+  }
+
+  .calendar-day {
+    padding: 7px 5px;
+    gap: 5px;
+  }
+
+  .calendar-day-number {
+    font-size: 12px;
+  }
+
+  .calendar-day-number small,
+  .calendar-covers span {
+    display: none;
+  }
+
+  .calendar-covers strong {
+    font-size: 20px;
+  }
+
+  .calendar-day.is-open::after,
+  .calendar-day.is-closed::after,
+  .calendar-day.is-unverified::after {
+    top: 7px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+  }
+
+  .calendar-summary {
+    padding: 0 12px 12px;
+  }
+
+  .day-summary {
+    margin: 16px 0;
+    padding: 14px;
+  }
+
+  .day-summary strong {
+    font-size: 23px;
+  }
+}
+
+/* ACCESSIBILITÀ */
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-day,
+  .calendar-arrow {
+    transition: none;
+  }
+
+  .calendar-day:active,
+  .calendar-day:hover {
+    transform: none;
+  }
+}

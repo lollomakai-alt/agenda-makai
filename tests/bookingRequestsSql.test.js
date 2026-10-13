@@ -13,7 +13,7 @@ test('SQL requests: RLS, five types, immutable lifecycle, existing edits and tra
       create function auth.jwt() returns jsonb language sql as $$ select current_setting('request.jwt.claims',true)::jsonb $$;
       create function auth.uid() returns uuid language sql as $$ select '11111111-1111-1111-1111-111111111111'::uuid $$;
       grant usage on schema auth,private to authenticated;
-      create table public.bookings(id bigint primary key, booking_date text, booking_time text, party_size integer, tables text, notes text, status text, booking_type text);
+      create table public.bookings(id bigint primary key, booking_date text, booking_time text, party_size integer, tables text, notes text, status text, booking_type text, source text default 'agenda');
       create table public.booking_history(id bigint generated always as identity primary key,booking_id bigint,action text,old_data jsonb,new_data jsonb,created_at timestamptz default now());
       grant select,update on bookings to authenticated;
       set request.jwt.claims = '{"app_metadata":{"role":"admin"}}';

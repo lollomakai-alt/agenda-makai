@@ -61,14 +61,12 @@ export function customerAutocompleteSuggestions(query, appointments, limit = 6) 
       .trim()
       .replace(/\s+/g, ' ');
 
-    if (!name.toLocaleLowerCase('it-IT').includes(search)) continue;
+    if (!name.toLocaleLowerCase('it-IT').includes(search) && !String(booking.phone || '').replace(/\D/g,'').includes(search.replace(/\D/g,'') || '!')) continue;
 
     const contact = contactValues(booking);
 
-    // Il telefono rimane obbligatorio nella prenotazione manuale.
-    if (!contact.phone) continue;
 
-    const identity = customerIdentityKey(booking);
+    const identity = customerIdentityKey(booking) || `booking:${booking.id}`;
 
     if (!identity || seen.has(identity)) continue;
 
@@ -142,6 +140,8 @@ export function customerBookingSummary(booking, appointments) {
   return {
     ...linked,
     totalBookings: linked.bookings.length,
+    visits: linked.bookings.filter(item => ['arrived','completed'].includes(bookingStatus(item.status))).length,
+    cancellations: linked.bookings.filter(item => bookingStatus(item.status) === 'cancelled').length,
     noShows,
     latestBooking,
     latestVisit,

@@ -7,16 +7,17 @@ import { createAfterDinnerBooking, validateAfterDinnerBooking } from '../src/uti
 
 const values = {
   name: 'Mario Rossi', phone: '333 123 4567', email: '',
-  date: '2026-10-04', time: '22:00', party_size: '2', notes: '', table: '12',
+  date: '2026-10-04', time: '22:30', party_size: '2', notes: '', table: '',
 };
 
-test('dopocena starts at 22:00, uses half-hour slots and a configured table with enough seats', () => {
-  for (const time of ['22:00', '22:30', '23:00', '23:30']) {
+test('dopocena starts at 22:30 and accepts creation without an initial table', () => {
+  for (const time of ['22:30', '23:00', '23:30', '00:00']) {
     assert.deepEqual(validateAfterDinnerBooking({ ...values, time }).errors, {});
   }
-  for (const time of ['21:30', '22:15', '00:00']) {
+  for (const time of ['21:30', '22:00', '22:15', '00:30']) {
     assert.ok(validateAfterDinnerBooking({ ...values, time }).errors.time);
   }
+  assert.deepEqual(validateAfterDinnerBooking(values).errors, {});
   assert.ok(validateAfterDinnerBooking({ ...values, table: '99' }).errors.table);
   assert.ok(validateAfterDinnerBooking({ ...values, table: '12', party_size: '3' }).errors.table);
 });
@@ -31,8 +32,8 @@ test('ADMIN dopocena creation sends only normalized fields and a fixed dopocena 
   assert.equal(result.data.id, 77);
   assert.deepEqual(calls, [{ name: 'admin_create_after_dinner_booking', args: {
     p_customer_name: 'Mario Rossi', p_customer_phone: '+393331234567', p_customer_email: '',
-    p_booking_date: '2026-10-04', p_booking_time: '22:00', p_party_size: 2,
-    p_notes: '', p_table_id: '12',
+    p_booking_date: '2026-10-04', p_booking_time: '22:30', p_party_size: 2,
+    p_notes: '', p_table_id: '',
   } }]);
   assert.equal(Object.values(calls[0].args).includes('normale'), false);
 });

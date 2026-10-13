@@ -1,7 +1,7 @@
-export function todayInRome() {
+export function todayInRome(now = Date.now()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
+  }).formatToParts(new Date(now));
   const part = (type) => parts.find((item) => item.type === type).value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
@@ -14,6 +14,14 @@ export function isDay(value) {
   if (!/^[1-9][0-9]{3}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(value || "")) return false;
   const date = new Date(`${value}T12:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function shiftDay(day, amount) {
+  if (!isDay(day) || !Number.isInteger(amount)) return null;
+  const shifted = new Date(`${day}T12:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + amount);
+  const result = shifted.toISOString().slice(0, 10);
+  return isDay(result) ? result : null;
 }
 
 export function shiftMonth(month, amount) {
@@ -44,4 +52,12 @@ export function monthLabel(month) {
 export function dayLabel(day) {
   return new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
     .format(new Date(`${day}T12:00:00Z`));
+}
+
+export function operationalDayInRome(now = Date.now()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(now)).map(p => [p.type,p.value]));
+  const calendarDay = `${parts.year}-${parts.month}-${parts.day}`;
+  const previous = new Date(`${calendarDay}T12:00:00Z`); previous.setUTCDate(previous.getUTCDate()-1);
+  const closeHour = previous.getUTCDay() === 6 ? 2 : 1;
+  return Number(parts.hour) < closeHour ? previous.toISOString().slice(0,10) : calendarDay;
 }

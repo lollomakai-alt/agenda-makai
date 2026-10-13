@@ -45,6 +45,13 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
   }
+  async function propose(request) {
+    const proposal = window.prompt('Proposta alternativa (data, ora o persone):', request.alternative_note || '');
+    if (!proposal?.trim() || busy || disabled) return;
+    setBusy(true); setError('');
+    try { const {error} = await supabase.rpc('admin_propose_booking_alternative', {request_id:request.id,proposal:proposal.trim()}); if(error) throw error; setRevision(x=>x+1); onChanged(); }
+    catch(failure) { setError(failure.message); } finally {setBusy(false);}
+  }
   const pending = requests.filter(request => request.status === 'pending');
   return <section className="booking-requests" aria-label="Richieste clienti">
     <h2>Richieste clienti</h2>
@@ -79,6 +86,8 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
       <p><a href={`/prenotazioni/giorno?date=${appointments.find(b => String(b.id) === String(request.booking_id))?.booking_date || ''}`}>Prenotazione #{request.booking_id}</a>
         {' · '}{REQUEST_TYPES[request.request_type]}{request.requested_value !== null ? `: ${request.requested_value}` : ''}
         {' · '}{new Date(request.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</p>
+      {request.alternative_note && <p>Alternativa proposta: {request.alternative_note}</p>}
+      <button className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => propose(request)}>Proponi alternativa</button>
       <button className="admin-button" disabled={busy || disabled} onClick={() => review(request, 'approved')}>Approva</button>{' '}
       <button className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => review(request, 'rejected')}>Rifiuta</button>
     </li>)}</ul>

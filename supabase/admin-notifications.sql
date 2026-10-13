@@ -38,8 +38,7 @@ begin
       end as scheduled_at
     from public.bookings b
     where lower(coalesce(nullif(b.status,''),'confirmed')) = 'confirmed'
-      and b.booking_date between to_char((now() at time zone 'Europe/Rome')::date-1,'YYYY-MM-DD')
-                             and to_char((now() at time zone 'Europe/Rome')::date,'YYYY-MM-DD')
+      and b.booking_date = to_char((now() at time zone 'Europe/Rome')::date,'YYYY-MM-DD')
   ), events as (
     select 'request:' || r.id::text as id, b.id as booking_id, b.booking_date,
       'customer_request'::text as kind,

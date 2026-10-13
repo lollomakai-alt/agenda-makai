@@ -109,7 +109,7 @@ export async function handler(request: Request): Promise<Response> {
       .select('id,booking_id,channel,kind,status,snapshot,recipient,attempted_at')
       .eq('id', body.communicationId).eq('booking_id', body.bookingId).maybeSingle();
     if (rowError || !row || row.status !== 'sending' || row.channel !== 'email'
-      || !['confirmation', 'updated'].includes(row.kind)) return outcome('failed', 'communication_unavailable');
+      || !['confirmation', 'updated', 'cancelled', 'reminder', 'reconfirmation', 'delay', 'alternative'].includes(row.kind)) return outcome('failed', 'communication_unavailable');
     // A stuck attempt cannot replay after the provider idempotency window expires.
     const attempted = Date.parse(row.attempted_at);
     if (!Number.isFinite(attempted) || attempted > Date.now() + 60000
@@ -118,7 +118,7 @@ export async function handler(request: Request): Promise<Response> {
       .select('id,name,email,booking_date,booking_time,party_size,tables,status')
       .eq('id', body.bookingId).maybeSingle();
     if (error) return outcome('failed', 'communication_unavailable');
-    if (!booking || booking.status !== 'confirmed' || row.recipient !== booking.email
+    if (!booking || (row.kind === 'cancelled' ? booking.status !== 'cancelled' : booking.status !== 'confirmed') || row.recipient !== booking.email
       || !row.snapshot || typeof row.snapshot !== 'object'
       || (['name', 'booking_date', 'booking_time', 'party_size', 'tables'] as const).some(key => row.snapshot[key] !== booking[key])) {
       return outcome('failed', 'stale_booking');

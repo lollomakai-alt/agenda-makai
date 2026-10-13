@@ -1,5 +1,5 @@
 export const BOOKING_TYPES = Object.freeze({
-  normale: 'Normale',
+  normale: 'Cena',
   dopocena: 'Dopocena',
 });
 

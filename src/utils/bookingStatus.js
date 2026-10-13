@@ -26,10 +26,11 @@ export function bookingStatusAction(value) {
 
 export async function saveBookingStatus(client, id, status) {
   if (!Object.hasOwn(BOOKING_STATUSES, status)) throw new Error('Stato non valido.');
-  const { data, error } = await client.rpc('admin_set_booking_status_with_history', {
+  const { data, error } = await client.rpc(status === 'completed' ? 'admin_release_booking_table' : 'admin_set_booking_status_with_history', status === 'completed' ? { booking_id: id } : {
     booking_id: id, booking_status: status,
   });
   if (error) {
+    if (status === 'completed' && error.code === 'PGRST202') throw new Error('Liberazione tavolo non configurata: applicare supabase/complete-booking-system.sql.');
     if (['PGRST202', '42703', '23514'].includes(error.code)) {
       throw new Error('Gestione storico non ancora configurata in Supabase. È necessario applicare il file supabase/booking-history.sql.');
     }

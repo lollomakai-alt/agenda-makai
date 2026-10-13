@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { loadAdminNotifications, markNotificationRead, notificationBookingUrl, NOTIFICATION_PRIORITIES, unreadNotificationCount, sortNotifications } from '../utils/adminNotifications';
+import { loadAdminNotifications, markNotificationRead, archiveNotification, notificationBookingUrl, NOTIFICATION_PRIORITIES, unreadNotificationCount, sortNotifications } from '../utils/adminNotifications';
 
 export default function AdminNotifications() {
   const [open, setOpen] = useState(false);
@@ -28,6 +28,9 @@ export default function AdminNotifications() {
     const timer = window.setInterval(load, 30000);
     const channel = supabase.channel(`online-notifications-${crypto.randomUUID()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_notification_reads' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_notification_archives' }, load)
       .subscribe(status => { if (status === 'SUBSCRIBED') void load(); });
     function visible() { if (document.visibilityState === 'visible') void load(); }
     document.addEventListener('visibilitychange', visible);
@@ -44,13 +47,13 @@ export default function AdminNotifications() {
       window.removeEventListener('admin-notifications-changed', load);
     };
   }, [load]);
-  async function read(id) {
+  async function read(id, archive = false) {
     if (mutation.current) return;
     const session = sessionRevision.current;
     mutation.current = true; generation.current++; setSaving(id); setActionError('');
     try {
-      const result = await markNotificationRead(supabase, id);
-      if (active.current && session === sessionRevision.current) setState(previous => ({ ...previous, error: '', entries: sortNotifications(previous.entries.map(entry => entry.id === id ? { ...entry, read_at: result.read_at } : entry)) }));
+      const result = await (archive ? archiveNotification : markNotificationRead)(supabase, id);
+      if (active.current && session === sessionRevision.current) setState(previous => ({ ...previous, error: '', entries: sortNotifications((archive ? previous.entries.filter(entry => entry.id !== id) : previous.entries).map(entry => entry.id === id ? { ...entry, read_at: result.read_at } : entry)) }));
     } catch (error) {
       if (active.current && session === sessionRevision.current) setActionError(error.message);
     } finally {
@@ -78,9 +81,10 @@ export default function AdminNotifications() {
       <ul>{entries.map(entry => {
         const href = notificationBookingUrl(entry);
         return <li key={entry.id} className={`notification-item ${entry.read_at ? 'is-read' : 'is-unread'}`}>
-          <p><strong>{NOTIFICATION_PRIORITIES[entry.priority] || entry.priority}</strong> · {entry.read_at ? 'Letta' : 'Non letta'}</p>
+          <p><strong>{NOTIFICATION_PRIORITIES[entry.priority] || entry.priority}</strong> · {entry.read_at ? 'Vista' : 'Nuova'}</p>
           <p>{href ? <a href={href} onClick={() => setOpen(false)}>{entry.message} · Prenotazione #{entry.booking_id}</a> : entry.message}</p>
           <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</time>
+          <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id, true)}>Gestita · Archivia</button>
           {!entry.read_at && <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id)}>
             {saving === entry.id ? 'Salvataggio…' : 'Segna come letta'}
           </button>}

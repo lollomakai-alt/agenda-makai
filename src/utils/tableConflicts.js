@@ -1,6 +1,6 @@
 import { TABLE_ASSIGNMENTS, TABLE_15_19_CONFIGURATIONS } from '../config/tableAssignments.js';
 import { bookingStatus } from './bookingStatus.js';
-import { bookingsOverlap } from './bookingTime.js';
+import { bookingScheduledAt, bookingsOverlap, isValidBookingTimeForType } from './bookingTime.js';
 
 export function assignedTableIds(value) {
   return String(value || '').split(',').map(id => id.trim()).filter(Boolean);
@@ -27,10 +27,25 @@ function isAvailabilityBlocking(booking) {
   return !['cancelled', 'no_show'].includes(bookingStatus(booking.status));
 }
 
+function canShareTableForSeparateServices(left, right) {
+  const dinner = left.booking_type === 'normale' && right.booking_type === 'dopocena' ? left
+    : right.booking_type === 'normale' && left.booking_type === 'dopocena' ? right
+      : null;
+  const afterDinner = dinner === left ? right : dinner === right ? left : null;
+  if (!dinner || !afterDinner
+    || !isValidBookingTimeForType(dinner)
+    || !isValidBookingTimeForType(afterDinner)) return false;
+
+  const dinnerAt = bookingScheduledAt(dinner);
+  const afterDinnerAt = bookingScheduledAt(afterDinner);
+  return afterDinnerAt - dinnerAt >= 120 * 60 * 1000;
+}
+
 export function tableConfigurationError(booking, appointments) {
   if (!isAvailabilityBlocking(booking)) return '';
   const others = appointments.filter(other => String(other.id) !== String(booking.id)
-    && isAvailabilityBlocking(other) && bookingsOverlap(booking, other));
+    && isAvailabilityBlocking(other) && bookingsOverlap(booking, other)
+    && ((booking.booking_type || 'normale') === (other.booking_type || 'normale') || !canShareTableForSeparateServices(booking,other)));
   const assignments = new Set(assignedTableIds(booking.tables));
   for (const other of others) {
     for (const assignment of assignedTableIds(other.tables)) assignments.add(assignment);
@@ -49,7 +64,11 @@ export function conflictingTableIds(booking, appointments) {
   for (const other of appointments) {
     if (String(other.id) === String(booking.id) || !bookingsOverlap(booking, other)) continue;
     if (!isAvailabilityBlocking(other)) continue;
-    for (const id of physicalTableIds(other.tables)) if (selected.has(id)) conflicts.add(id);
+    const otherIds = physicalTableIds(other.tables);
+    if (canShareTableForSeparateServices(booking, other)) {
+      continue;
+    }
+    for (const id of otherIds) if (selected.has(id)) conflicts.add(id);
   }
   return [...conflicts].sort((a, b) => Number(a) - Number(b));
 }

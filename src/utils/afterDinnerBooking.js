@@ -1,17 +1,18 @@
-import tables from '../config/tables.json' with { type: 'json' };
-import { validateBooking } from './bookingValidation.js';
+import { validateManualBooking } from './bookingValidation.js';
+import { TABLE_ASSIGNMENTS } from '../config/tableAssignments.js';
 
 export function validateAfterDinnerBooking(values) {
-  const validation = validateBooking(values);
+  const validation = validateManualBooking(values, { requirePhone: false });
   const errors = { ...validation.errors };
-  if (/^(22|23):(00|30)$/.test(values.time || '')) {
-    delete errors.time;
-  } else {
-    errors.time = 'Il dopocena è disponibile dalle 22:00 alle 23:30, ogni 30 minuti.';
+  if (!['22:30', '23:00', '23:30', '00:00'].includes(String(values.time || ''))) {
+    errors.time = 'Il dopocena è disponibile dalle 22:30 alle 00:00, ogni 30 minuti.';
   }
   const table = String(values.table || '').trim();
-  if (!Object.hasOwn(tables, table)) errors.table = 'Scegli un tavolo configurato.';
-  else if (Number(values.party_size) > tables[table]) errors.table = `Il tavolo ${table} ha ${tables[table]} posti.`;
+  if (table && !Object.hasOwn(TABLE_ASSIGNMENTS, table)) {
+    errors.table = 'Scegli un’assegnazione tavoli configurata.';
+  } else if (table && Number(validation.data.party_size) > TABLE_ASSIGNMENTS[table]) {
+    errors.table = `L’assegnazione ${table} non ha posti sufficienti.`;
+  }
   return { errors, data: { ...validation.data, table, booking_type: 'dopocena' } };
 }
 

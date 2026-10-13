@@ -1,19 +1,19 @@
 # Mappa tavoli ADMIN
 
-Nella giornata ADMIN: piantina con 10 unità valide che coprono i 14 tavoli fisici,
-Sala Principale 10–19, Sala Nami 20–23.
+Nella giornata ADMIN: piantina con 14 tavoli fisici e 13 assegnazioni ammesse
+(alcune sono alternative): Sala Principale 10–19, Sala Nami 20–23.
 Inventario fisico da tables.json; combinazioni e capienze da TABLE_ASSIGNMENTS.
-I posti delle combinazioni non sono sommati dalle capienze fisiche (10+11 = 3).
+Capienze delle unità: 10+11 = 3, 13+14 = 3, 15+16 = 4, 15+16+17 = 6,
+18+19 = 4, 20+21 = 4 e 22+23 = 4. Gli altri gruppi restano singoli da 2.
 
 Stati per data/tipo:
 - confermata: prenotato;
 - arrivato/completata: occupato, conservando il blocco giornaliero esistente;
 - cancellata/no_show: non bloccante;
 - stato storico mancante: confermata; stato sconosciuto: occupato conservativamente.
-Filtro Tutti/Normale/Dopocena sulle prenotazioni da assegnare; lo stato sala
-include sempre tutta la giornata e tutti i tipi. Occupato prevale su in arrivo.
-Prenotazioni senza tavoli o con assegnazioni invalide sono segnalate come da
-verificare: i pulsanti liberi non garantiscono la disponibilità fisica.
+Lo stato sala include tutta la giornata e CENA/DOPOCENA; occupato prevale su in
+arrivo. “Da assegnare” è chiuso sotto la piantina e mostra insieme CENA e
+DOPOCENA in ordine cronologico.
 
 Click mostra tutte le prenotazioni collegate, orario, persone, tipo e stato;
 il collegamento apre la prenotazione. Sono indicate le combinazioni del tavolo.
@@ -25,16 +25,23 @@ Riusa validateBookingEdit, conflitti fisici e configurazioni 15–19,
 saveBookingEdit/admin_update_booking, controllo optimistic concurrency,
 trigger Supabase e storico esistenti. Anche con snapshot client obsoleto, un
 conflitto database annulla assegnazione e storico. Stati terminali non assegnabili.
-Nessun nuovo SQL o modifica alle policy. Richiede gli SQL editor/storico/conflitti
-con configurazioni attuali già presenti. Nessun nuovo algoritmo di disponibilità.
+Le capienze e i gruppi nei file SQL locali restano allineati al catalogo.
+Nessuna modifica alle policy o nuovo algoritmo di disponibilità.
 
 ## Step 2B — Piantina operativa
 
-`src/config/tableLayout.js` contiene solo coordinate percentuali schematiche,
-da confermare con la disposizione reale. Non definisce capienze o disponibilità.
-Le unità indivisibili (`10+11`, `13+14`, `15+16`, `20+21`) appaiono unite;
-le combinazioni più grandi (`15+16+17`, `18+19`) evidenziano tutti i blocchi
-coinvolti quando vengono selezionate. Le capienze provengono da TABLE_ASSIGNMENTS.
+`src/config/tableLayout.js` segue la piantina reale condivisa e non definisce
+capienze o disponibilità. Le due sale sono impilate, con Nami sopra la
+Principale. La piantina mostra i numeri dei tavoli fisici nella loro posizione. Quando una
+prenotazione è assegnata a un gruppo ammesso, i relativi tavoli appaiono uniti.
+13+14 è un gruppo fisso indivisibile da 3 coperti. 22 e 23 hanno capienza
+standard separata di 2 ciascuno; insieme formano `22+23` da 4, candidato anche
+del motore automatico quando libero e compatibile. ADMIN può comunque assegnare
+manualmente qualunque numero positivo a un'unità fisicamente valida: la
+sovracapienza standard mostra un avviso e non cambia il catalogo.
+Per i tavoli 15–19 sono ammesse soltanto queste configurazioni:
+`15+16+17` con `18+19`; `15+16` con `17` e `18+19`; oppure `15+16`, `17`,
+`18` e `19` separati. Le capienze provengono da TABLE_ASSIGNMENTS.
 
 Stati testuali e colori: LIBERO / IN ARRIVO / OCCUPATO. Non dipendono da now()
 o da una scadenza. Orari visibili sui tavoli; tocco apre il dettaglio con tutte
@@ -42,7 +49,7 @@ le prenotazioni collegate e “Cambia tavolo”. “Da assegnare” apre diretta
 la stessa assegnazione dedicata dell'elenco. Nessun tocco salva automaticamente.
 Le scelte e il salvataggio riusano rankedMapAssignments/assignMapTable.
 
-Sale affiancate sul desktop, impilate su tablet/iPhone; posizioni relative e
+Sale impilate su tutte le dimensioni; posizioni relative e
 controlli di almeno 44px. Dettaglio focalizzato dopo il tocco; stati e selezione
 accessibili anche da tastiera. Nessuna nuova libreria, nessuna liberazione automatica.
 

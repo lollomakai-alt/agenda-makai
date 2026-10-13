@@ -158,6 +158,13 @@ Deno.test('claimed email transport: server auth, immutable content and provider 
       reset(); networkFail = true; assert((await result()).status === 'unknown' && sends === 1);
       reset(); malformedProvider = true; assert((await result()).status === 'unknown' && sends === 1);
     });
+    await t.step('operational templates reuse the same immutable transport and cancellation status guard', async () => {
+      for (const kind of ['reminder','reconfirmation','delay','alternative','cancelled']) {
+        reset(); row!.kind=kind;
+        if(kind==='cancelled') booking!.status='cancelled';
+        const sent=await result(); assert(sent.status==='accepted' && sends===1);
+      }
+    });
     await t.step('missing provider configuration fails before transport', async () => {
       reset(); Deno.env.delete('RESEND_API_KEY');
       assert((await result()).errorCode === 'email_not_configured' && sends === 0);

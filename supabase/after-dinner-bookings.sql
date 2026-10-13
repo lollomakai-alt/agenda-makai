@@ -36,7 +36,7 @@ begin
   select array_agg(btrim(t)) into selected_ids
     from unnest(string_to_array(new.tables, ',')) t;
   if exists (select 1 from unnest(selected_ids) t where t not in
-    ('10+11','12','13+14','15+16+17','15+16','17','18+19','18','19','20+21','22','23')) then
+    ('10+11','12','13+14','15+16+17','15+16','17','18+19','18','19','20+21','22+23','22','23')) then
     raise exception 'Configurazione tavolo non valida' using errcode = '22023';
   end if;
   if cardinality(selected_ids) <> (select count(distinct t) from unnest(selected_ids) t) then
@@ -95,6 +95,8 @@ returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare saved public.bookings%rowtype;
   selected_capacity integer;
   selected_date date;
+  selected_table text := btrim(coalesce(p_table_id, ''));
+  covers integer;
 begin
   if coalesce(auth.jwt()->'app_metadata'->>'role', '') <> 'admin' then
     raise exception 'Accesso riservato all’amministratore' using errcode = '42501';
@@ -102,7 +104,7 @@ begin
   if p_customer_name is null or length(btrim(p_customer_name)) not between 2 and 60 then
     raise exception 'Nome non valido' using errcode = '22023';
   end if;
-  if p_customer_phone is null or p_customer_phone !~ '^\+[1-9][0-9]{7,14}$' then
+  if coalesce(p_customer_phone,'') <> '' and p_customer_phone !~ '^\+[1-9][0-9]{7,14}$' then
     raise exception 'Telefono non valido' using errcode = '22023';
   end if;
   if coalesce(p_customer_email, '') <> '' and
@@ -123,37 +125,47 @@ begin
      or extract(isodow from selected_date) = 1 then
     raise exception 'Data non disponibile' using errcode = '22023';
   end if;
-  if p_booking_time is null or p_booking_time !~ '^(22|23):(00|30)$' then
-    raise exception 'Il dopocena è disponibile dalle 22:00 alle 23:30, ogni 30 minuti'
+  if p_booking_time is null or p_booking_time !~ '^(22:30|23:(00|30)|00:00)$' then
+    raise exception 'Il dopocena è disponibile dalle 22:30 alle 00:00, ogni 30 minuti'
       using errcode = '22023';
   end if;
   if p_party_size is null or p_party_size not between 1 and 6 then
     raise exception 'Numero persone non valido' using errcode = '22023';
   end if;
   -- Configurazioni ammesse e relative capienze.
-  select configured.capacity into selected_capacity
-  from (values
-    ('10+11', 3), ('12', 2), ('13+14', 2),
-    ('15+16+17', 6), ('15+16', 4), ('17', 2),
-    ('18+19', 4), ('18', 2), ('19', 2),
-    ('20+21', 4), ('22', 2), ('23', 2)
-  ) as configured(table_id, capacity)
-  where configured.table_id = p_table_id;
-  if selected_capacity is null or p_party_size > selected_capacity then
-    raise exception 'Tavolo non valido o capienza insufficiente' using errcode = '22023';
+  if selected_table <> '' then
+    select configured.capacity into selected_capacity
+    from (values
+      ('10+11', 3), ('12', 2), ('13+14', 3),
+      ('15+16+17', 6), ('15+16', 4), ('17', 2),
+      ('18+19', 4), ('18', 2), ('19', 2),
+      ('20+21', 4), ('22+23', 4), ('22', 2), ('23', 2)
+    ) as configured(table_id, capacity)
+    where configured.table_id = selected_table;
+    if selected_capacity is null or p_party_size > selected_capacity then
+      raise exception 'Tavolo non valido o capienza insufficiente' using errcode = '22023';
+    end if;
   end if;
   if length(coalesce(p_notes, '')) > 300 then
     raise exception 'Note troppo lunghe' using errcode = '22023';
   end if;
 
   perform pg_advisory_xact_lock(734512);
+  select coalesce(sum(b.party_size), 0) into covers
+  from public.bookings b
+  where b.booking_date = p_booking_date
+    and b.status not in ('cancelled','no_show')
+    and coalesce(b.booking_type, 'normale') = 'dopocena';
+  if covers + p_party_size > 25 then
+    raise exception 'Limite giornaliero di 25 coperti raggiunto' using errcode = 'P0001';
+  end if;
   insert into public.bookings (
     name, phone, email, booking_date, booking_time, party_size, notes,
     tables, status, source, reminder_status, booking_type
   ) values (
     btrim(p_customer_name), p_customer_phone, lower(coalesce(p_customer_email, '')),
     p_booking_date, p_booking_time, p_party_size, coalesce(p_notes, ''),
-    p_table_id, 'confirmed', 'agenda', 'skipped', 'dopocena'
+    selected_table, 'confirmed', 'agenda', 'skipped', 'dopocena'
   ) returning * into saved;
 
   return jsonb_build_object(

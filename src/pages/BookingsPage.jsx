@@ -1,16 +1,18 @@
+import BookingOperationalControls from '../components/BookingOperationalControls';
+import { bookingScheduledAt } from '../utils/bookingTime';
 import BookingNoShowAction from '../components/BookingNoShowAction';
 
 import { adminFetch } from "../lib/adminFetch";
 
 import { useAppointments } from "../hooks/useAppointments";
 
-import { validateBooking } from "../utils/bookingValidation";
+import { validateManualBooking } from "../utils/bookingValidation";
 
 import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "../lib/supabase";
 
-import { dayLabel, isDay, todayInRome } from "../utils/calendar";
+import { dayLabel, isDay, shiftDay, todayInRome } from "../utils/calendar";
 
 import { bookingCallUrl } from "../utils/bookingCall";
 
@@ -57,12 +59,10 @@ import {
   validateAfterDinnerBooking,
 } from "../utils/afterDinnerBooking";
 
-import {
-  canAcceptBooking,
-  DAILY_COVER_LIMIT,
-} from "../utils/bookingCapacity";
+import { DAILY_COVER_LIMIT } from "../utils/bookingCapacity";
 
 import tables from "../config/tables.json" with { type: "json" };
+import { bookingsToCsv, formatBookingServiceDate, prepareBookingExport, BOOKING_EXPORT_COLUMNS } from "../utils/bookingExport";
 
 
 function consentDate(value) {
@@ -74,26 +74,6 @@ function consentDate(value) {
 }
 
 
-function shiftAgendaDay(value, amount) {
-  const [year, month, day] = value
-    .split("-")
-    .map(Number);
-
-  const shifted = new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day + amount,
-      12
-    )
-  );
-
-  return shifted
-    .toISOString()
-    .slice(0, 10);
-}
-
-
 function compactDayLabel(value) {
   return new Intl.DateTimeFormat(
     "it-IT",
@@ -101,6 +81,7 @@ function compactDayLabel(value) {
       weekday: "short",
       day: "numeric",
       month: "short",
+      year: "numeric",
       timeZone: "Europe/Rome",
     }
   )
@@ -122,16 +103,18 @@ export default function BookingsPage() {
     window.location.search
   ).get("date");
 
+  const today = todayInRome();
+
   const date = isDay(requested)
     ? requested
-    : todayInRome();
+    : today;
 
 
   const previousDate =
-    shiftAgendaDay(date, -1);
+    shiftDay(date, -1);
 
   const nextDate =
-    shiftAgendaDay(date, 1);
+    shiftDay(date, 1);
 
   const {
     appointments,
@@ -202,6 +185,9 @@ export default function BookingsPage() {
   const [editingId, setEditingId] =
     useState(null);
 
+  const [editingDirty, setEditingDirty] =
+    useState(false);
+
   const [editFeedback, setEditFeedback] =
     useState(null);
 
@@ -220,9 +206,6 @@ export default function BookingsPage() {
       ? id
       : null;
   });
-
-  const [showAssigned, setShowAssigned] =
-    useState(true);
 
   const [viewMode, setViewMode] =
     useState(() => {
@@ -353,7 +336,6 @@ export default function BookingsPage() {
       );
 
       if (!row) {
-        setShowAssigned(true);
         return;
       }
 
@@ -387,7 +369,6 @@ export default function BookingsPage() {
   }, [
     loading,
     date,
-    showAssigned,
     assignmentBookingId,
     appointments,
     viewMode,
@@ -530,7 +511,7 @@ export default function BookingsPage() {
         ? validateAfterDinnerBooking(
             values
           )
-        : validateBooking(values);
+        : validateManualBooking(values, { requirePhone: false });
 
     setFieldErrors(
       validation.errors
@@ -552,27 +533,6 @@ export default function BookingsPage() {
           )[0]
         )
         ?.focus();
-
-      return;
-    }
-
-    if (
-      !bookings
-      || !canAcceptBooking(
-        appointments,
-        date,
-        validation.data.party_size,
-        validation.data.time,
-        createType === 'dopocena'
-          ? validation.data.table
-          : ''
-      )
-    ) {
-      setCreateError(
-        bookings
-          ? `Capienza non disponibile per questo orario o limite giornaliero di ${DAILY_COVER_LIMIT} coperti raggiunto.`
-          : "Non riesco a verificare i coperti della giornata. Aggiorna e riprova."
-      );
 
       return;
     }
@@ -925,6 +885,7 @@ export default function BookingsPage() {
       applyUpdate({
         id: booking.id,
         status: result.status,
+        ...(result.tables !== undefined ? { tables: result.tables } : {}),
       });
 
       setStatusFeedback(
@@ -1059,22 +1020,33 @@ export default function BookingsPage() {
     );
 
 
-  const visibleBookings =
-    (operationalBookings || []).filter(
-      booking =>
-        showAssigned
-        || (
-          !booking.tables?.trim()
-          && [
-            'confirmed',
-            'arrived',
-          ].includes(
-            bookingStatus(
-              booking.status
-            )
-          )
-        )
-    );
+  const visibleBookings = operationalBookings || [];
+  const exportRows = prepareBookingExport(appointments, date);
+  const exportReady = !loading && !appointmentsError && bookings !== null;
+  const exportDateLabel = formatBookingServiceDate(date);
+
+  function printBookings() {
+    if (!exportReady) return;
+    window.print();
+  }
+
+  function downloadBookingsCsv() {
+    if (!exportReady) return;
+    const file = new Blob([bookingsToCsv(exportRows)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `prenotazioni-${date}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  const unassignedCount = visibleBookings.filter(
+    booking => !String(booking.tables || '').trim()
+      && ['confirmed', 'arrived'].includes(bookingStatus(booking.status))
+  ).length;
 
 
   const timeGroups =
@@ -1100,9 +1072,7 @@ export default function BookingsPage() {
       )
     ).sort(
       ([first], [second]) =>
-        first.localeCompare(
-          second
-        )
+        (first === "00:00" ? "24:00" : first).localeCompare(second === "00:00" ? "24:00" : second)
     );
 
 
@@ -1110,8 +1080,6 @@ export default function BookingsPage() {
     booking
   ) {
     setAssignmentBookingId(null);
-
-    setShowAssigned(true);
 
     setViewMode('list');
 
@@ -1139,6 +1107,33 @@ export default function BookingsPage() {
     statusSavingId !== null
     || editingId !== null
     || mapSaving;
+
+  const dayNavigationBusy =
+    viewBusy
+    || saving
+    || consentSaving
+    || closureSaving
+    || Boolean(assignmentBooking);
+
+
+  function dayHref(target) {
+    const params = new URLSearchParams({
+      date: target,
+    });
+
+    if (viewMode === 'map') {
+      params.set('view', 'map');
+    }
+
+    return `/prenotazioni/giorno?${params.toString()}`;
+  }
+
+
+  function guardDayNavigation(event) {
+    if (dayNavigationBusy) {
+      event.preventDefault();
+    }
+  }
 
 
   function selectView(mode) {
@@ -1206,6 +1201,9 @@ export default function BookingsPage() {
 
 
   function closeBookingDetail() {
+    if (editingDirty && !window.confirm('Chiudere e scartare le modifiche non salvate?')) return;
+    setEditingDirty(false);
+    setEditingId(null);
     setDetailBookingId(null);
   }
 
@@ -1217,6 +1215,9 @@ export default function BookingsPage() {
       bookingStatusAction(
         booking.status
       );
+
+    const editing =
+      editingId === booking.id;
 
     const confirmed =
       bookingStatus(
@@ -1236,14 +1237,9 @@ export default function BookingsPage() {
         now
       );
 
-    const callUrl =
-      bookingCallUrl(
-        booking.phone
-      );
-
     return (
-      <div className="booking-card-content booking-detail-content">
-        <section
+      <div className={`booking-card-content booking-detail-content${editing ? ' is-editing' : ' is-viewing'}`}>
+        {!editing && <section
           className="booking-detail-overview"
           aria-label="Riepilogo prenotazione"
         >
@@ -1294,153 +1290,71 @@ export default function BookingsPage() {
                 : 'Senza tavolo'}
             </span>
           </div>
-        </section>
-        <section
-          className="booking-detail-management"
-          aria-label="Gestione prenotazione"
-        >
-          <div className="booking-management-actions">
-            <BookingEditor
-              booking={booking}
-              appointments={
-                appointments
-              }
-              hideTableField
-              disabled={
-                statusSavingId !== null
-                || (
-                  editingId !== null
-                  && editingId
-                    !== booking.id
-                )
-              }
-              onEditing={
-                open =>
-                  setEditingId(
-                    open
-                      ? booking.id
-                      : null
-                  )
-              }
-              onSaved={
-                result => {
-                  setEditingId(
-                    null
-                  );
+        </section>}
 
-                  applyUpdate(
-                    result.booking
-                  );
-
-                  setEditFeedback({
-                    date:
-                      result.booking
-                        .booking_date,
-                  });
-                }
-              }
-            />
-          </div>
-        </section>
-
+        {!editing && <BookingOperationalControls booking={booking} disabled={statusSavingId !== null || editingId !== null} onChanged={item => {applyUpdate(item);refreshAppointments();}} />}
         <div
           className="booking-primary-actions"
           aria-label="Azioni rapide prenotazione"
         >
-          {statusAction && (
-            <button
-              type="button"
-              className="admin-button booking-detail-primary booking-icon-action booking-status-icon"
-              disabled={
-                statusSavingId !== null
-                || editingId !== null
-              }
-              aria-label={
-                statusAction.label
-              }
-              title={
-                statusAction.label
-              }
-              onClick={() =>
-                changeStatus(
-                  booking,
-                  statusAction.status
-                )
-              }
-            >
-              <span aria-hidden="true">
-                ✓
-              </span>
-            </button>
+          {!editing && statusAction && (
+            <div className="booking-primary-action-slot is-status">
+              <button
+                type="button"
+                className="admin-button booking-detail-primary booking-icon-action booking-status-icon"
+                disabled={statusSavingId !== null || editingId !== null || (statusAction.status === 'arrived' && booking.booking_type === 'dopocena' && bookingScheduledAt(booking) > now)}
+                aria-label={statusAction.label}
+                title={statusAction.label}
+                onClick={() => changeStatus(booking, statusAction.status)}
+              >
+                <span className="booking-action-icon" aria-hidden="true">✓</span>
+                <span>{statusAction.label}</span>
+              </button>
+            </div>
           )}
 
-          <BookingCommunications
-            booking={booking}
-            compact
-          />
+          {!editing && <div className="booking-primary-action-slot is-table">
+            <BookingTableControls
+              booking={booking}
+              appointments={appointments}
+              compact
+              showLabel
+              disabled={statusSavingId !== null || editingId !== null}
+              onOpenMap={() => openAssignmentMap(booking)}
+              onSaving={saving => setEditingId(saving ? booking.id : null)}
+              onSaved={result => {
+                applyUpdate(result.booking);
+                setRequestRevision(value => value + 1);
+                window.dispatchEvent(new Event('admin-notifications-changed'));
+              }}
+            />
+          </div>}
 
-          <BookingTableControls
-            booking={booking}
-            appointments={
-              appointments
-            }
-            compact
-            disabled={
-              statusSavingId !== null
-              || editingId !== null
-            }
-            onOpenMap={() =>
-              openAssignmentMap(
-                booking
-              )
-            }
-            onSaving={
-              saving =>
-                setEditingId(
-                  saving
-                    ? booking.id
-                    : null
-                )
-            }
-            onSaved={
-              result => {
-                applyUpdate(
-                  result.booking
-                );
+          {!editing && bookingCallUrl(booking.phone) && <div className="booking-primary-action-slot is-contacts">
+            <BookingCommunications booking={booking} compact />
+          </div>}
 
-                setRequestRevision(
-                  value =>
-                    value + 1
-                );
+          <div className="booking-primary-action-slot is-edit" key="booking-editor-slot">
+            <BookingEditor
+              booking={booking}
+              appointments={appointments}
+              hideTableField
+              disabled={statusSavingId !== null || (editingId !== null && editingId !== booking.id)}
+              onEditing={open => {
+                setEditingDirty(false);
+                setEditingId(open ? booking.id : null);
+              }}
+              onDirtyChange={setEditingDirty}
+              onSaved={result => {
+                setEditingDirty(false);
+                setEditingId(null);
+                applyUpdate(result.booking);
+                setEditFeedback({ date: result.booking.booking_date });
+              }}
+            />
+          </div>
 
-                window.dispatchEvent(
-                  new Event(
-                    'admin-notifications-changed'
-                  )
-                );
-              }
-            }
-          />
-
-          <BookingNoShowAction
-            booking={booking}
-            now={now}
-            compact
-            disabled={
-              statusSavingId !== null
-              || editingId !== null
-              || mapSaving
-            }
-            onNoShow={
-              item =>
-                changeStatus(
-                  item,
-                  'no_show'
-                )
-            }
-          />
-
-          {statusSavingId
+          {!editing && statusSavingId
             === booking.id && (
             <span
               className="booking-action-saving"
@@ -1451,34 +1365,35 @@ export default function BookingsPage() {
           )}
         </div>
 
-        {booking.phone && (
-          <span className="booking-card-phone">
-            {callUrl
-              ? (
-                <a href={callUrl}>
-                  {booking.phone}
-                </a>
-              )
-              : booking.phone}
-          </span>
+        {!editing && booking.notes && (
+          <p className="booking-detail-notes">
+            <strong>Note</strong>
+            <span>{booking.notes}</span>
+          </p>
         )}
 
-        <div className="booking-operational-actions">
-          {booking.notes && (
-            <p>
-              Note: {booking.notes}
-            </p>
-          )}
+        {!editing && <div
+          className="booking-secondary-actions"
+          aria-label="Azioni secondarie prenotazione"
+        >
+          <BookingNoShowAction
+            booking={booking}
+            now={now}
+            disabled={
+              statusSavingId !== null
+              || editingId !== null
+              || mapSaving
+            }
+            onNoShow={item => changeStatus(item, 'no_show')}
+          />
 
+          {bookingStatus(booking.status) !== 'cancelled' && (
           <button
             className="admin-button admin-button-secondary booking-action-danger"
             type="button"
             disabled={
               statusSavingId !== null
               || editingId !== null
-              || bookingStatus(
-                booking.status
-              ) === 'cancelled'
             }
             onClick={() =>
               changeStatus(
@@ -1487,11 +1402,13 @@ export default function BookingsPage() {
               )
             }
           >
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6" /></svg>
             Cancella prenotazione
           </button>
-        </div>
+          )}
+        </div>}
 
-        {statusError
+        {!editing && statusError
           ?.bookingId
           === booking.id && (
           <p
@@ -1502,7 +1419,7 @@ export default function BookingsPage() {
           </p>
         )}
 
-        {previousNoShows > 0 && (
+        {!editing && previousNoShows > 0 && (
           <p
             className="booking-customer-warning"
             role="status"
@@ -1518,7 +1435,7 @@ export default function BookingsPage() {
           </p>
         )}
 
-        {delayNotification && (
+        {!editing && delayNotification && (
           <p
             className="booking-delay-notification"
             role="status"
@@ -1830,9 +1747,12 @@ export default function BookingsPage() {
             aria-label="Cambio giorno"
           >
             <a
-              className="agenda-day-nav"
-              href={`/prenotazioni/giorno?date=${previousDate}`}
+              className={`agenda-day-nav${dayNavigationBusy ? ' is-disabled' : ''}`}
+              href={dayHref(previousDate)}
               aria-label={`Giorno precedente: ${dayLabel(previousDate)}`}
+              aria-disabled={dayNavigationBusy}
+              tabIndex={dayNavigationBusy ? -1 : undefined}
+              onClick={guardDayNavigation}
             >
               ‹
             </a>
@@ -1841,6 +1761,7 @@ export default function BookingsPage() {
               className="agenda-sticky-date"
               href={`/prenotazioni?month=${date.slice(0, 7)}`}
               aria-label={`Apri il calendario di ${dayLabel(date)}`}
+              aria-current={date === today ? 'date' : undefined}
               title={dayLabel(date)}
             >
               <span className="admin-sr-only">
@@ -1856,20 +1777,37 @@ export default function BookingsPage() {
                 {compactDayLabel(date)}
               </span>
 
-              {date === todayInRome() && (
+              {date === today && (
                 <span className="agenda-today">
                   Oggi
                 </span>
               )}
             </a>
 
+            {date !== today && (
+              <a
+                className={`agenda-today-nav${dayNavigationBusy ? ' is-disabled' : ''}`}
+                href={dayHref(today)}
+                aria-label={`Torna a oggi: ${dayLabel(today)}`}
+                aria-disabled={dayNavigationBusy}
+                tabIndex={dayNavigationBusy ? -1 : undefined}
+                onClick={guardDayNavigation}
+              >
+                Oggi
+              </a>
+            )}
+
             <a
-              className="agenda-day-nav"
-              href={`/prenotazioni/giorno?date=${nextDate}`}
+              className={`agenda-day-nav${dayNavigationBusy ? ' is-disabled' : ''}`}
+              href={dayHref(nextDate)}
               aria-label={`Giorno successivo: ${dayLabel(nextDate)}`}
+              aria-disabled={dayNavigationBusy}
+              tabIndex={dayNavigationBusy ? -1 : undefined}
+              onClick={guardDayNavigation}
             >
               ›
             </a>
+
           </nav>
 
           <div
@@ -1947,8 +1885,8 @@ export default function BookingsPage() {
                   : onlineClosed === null
                     ? 'Da verificare'
                     : onlineClosed
-                      ? 'CHIUSE'
-                      : 'APERTE'}
+                      ? 'Online chiuse'
+                      : 'Online aperte'}
               </span>
             </button>
 
@@ -2011,28 +1949,6 @@ export default function BookingsPage() {
             </button>
           </div>
 
-          {viewMode === 'list' && (
-            <label className="agenda-unassigned-filter">
-              <input
-                type="checkbox"
-                checked={
-                  !showAssigned
-                }
-                disabled={viewBusy}
-                onChange={
-                  event =>
-                    setShowAssigned(
-                      !event.target
-                        .checked
-                    )
-                }
-              />
-              <span>
-                Da assegnare
-              </span>
-            </label>
-          )}
-
           <button
             className="admin-button mobile-primary-action agenda-create-compact"
             type="button"
@@ -2061,10 +1977,10 @@ export default function BookingsPage() {
               {showCreate ? "×" : "+"}
             </span>
 
-            <span className="agenda-create-text">
+              <span className="agenda-create-text">
               {showCreate
                 ? "Chiudi"
-                : "Prenotazione"}
+                : "Nuova prenotazione"}
             </span>
           </button>
         </div>
@@ -2244,7 +2160,6 @@ export default function BookingsPage() {
                   ? "error-phone"
                   : undefined
               }
-              required
               minLength="8"
               maxLength="30"
               inputMode="tel"
@@ -2295,34 +2210,7 @@ export default function BookingsPage() {
           <label>
             Ora
 
-            <input
-              name="time"
-              aria-invalid={
-                Boolean(
-                  fieldErrors.time
-                )
-              }
-              aria-describedby={
-                fieldErrors.time
-                  ? "error-time"
-                  : undefined
-              }
-              type="time"
-              required
-              min={
-                createType
-                  === 'dopocena'
-                  ? "22:00"
-                  : "18:00"
-              }
-              max={
-                createType
-                  === 'dopocena'
-                  ? "23:30"
-                  : "23:00"
-              }
-              step="1800"
-            />
+            <input name="time" type="time" required step="60" aria-invalid={Boolean(fieldErrors.time)} />
 
             {fieldErrors.time && (
               <small
@@ -2352,7 +2240,6 @@ export default function BookingsPage() {
               type="number"
               required
               min="1"
-              max="6"
               inputMode="numeric"
             />
 
@@ -2367,52 +2254,6 @@ export default function BookingsPage() {
               </small>
             )}
           </label>
-
-          {createType
-            === 'dopocena' && (
-            <label>
-              Tavolo
-
-              <select
-                name="table"
-                required
-                aria-invalid={
-                  Boolean(
-                    fieldErrors.table
-                  )
-                }
-              >
-                <option value="">
-                  Scegli tavolo
-                </option>
-
-                {Object.entries(
-                  tables
-                ).map(
-                  ([
-                    id,
-                    capacity,
-                  ]) => (
-                    <option
-                      key={id}
-                      value={id}
-                    >
-                      Tavolo {id} ·{' '}
-                      {capacity} posti
-                    </option>
-                  )
-                )}
-              </select>
-
-              {fieldErrors.table && (
-                <small className="field-error">
-                  {
-                    fieldErrors.table
-                  }
-                </small>
-              )}
-            </label>
-          )}
 
           <label className="manual-booking-notes">
             Note facoltative
@@ -2562,14 +2403,17 @@ export default function BookingsPage() {
           viewMode !== 'list'
         }
       >
+        {!loading && !error && (
+          <p className={`agenda-unassigned-count${unassignedCount === 0 ? ' is-empty' : ''}`} role="status">
+            {unassignedCount} da assegnare
+          </p>
+        )}
         {!loading
           && !error
           && !visibleBookings
             .length && (
             <p role="status">
-              {showAssigned
-                ? 'Nessuna prenotazione per questa data.'
-                : 'Nessuna prenotazione senza tavolo.'}
+              Nessuna prenotazione per questa data.
             </p>
           )}
 
@@ -2592,12 +2436,12 @@ export default function BookingsPage() {
                   }
                   className="booking-time-heading"
                 >
-                  <span aria-hidden="true">
-                    🕒
-                  </span>{' '}
                   <time>
                     {time}
                   </time>
+                  <span className="booking-time-count">
+                    · {group.length} {group.length === 1 ? 'prenotazione' : 'prenotazioni'}
+                  </span>
                 </h2>
 
                 <div className="booking-time-list">
@@ -2619,6 +2463,8 @@ export default function BookingsPage() {
                         );
 
                       const unassigned =
+                        booking.booking_type === 'normale'
+                        &&
                         !String(
                           booking.tables
                           || ''
@@ -2632,6 +2478,8 @@ export default function BookingsPage() {
                           )
                         );
 
+                      const isDelayed = Boolean(bookingDelayNotification(booking, now));
+
                       return (
                         <article
                           id={
@@ -2642,7 +2490,7 @@ export default function BookingsPage() {
                             booking.id
                           }
                           className={
-                            `booking-row booking-card-compact${
+                            `booking-row booking-card-compact service-${booking.booking_type || "unknown"} status-${bookingStatus(booking.status).toLowerCase()}${
                               [
                                 "cancelled",
                                 "no_show",
@@ -2660,7 +2508,7 @@ export default function BookingsPage() {
                             type="button"
                             className="booking-card-summary"
                             aria-label={
-                              `Prenotazione di ${booking.name}`
+                              `Prenotazione di ${booking.name}${unassigned ? ', tavolo da assegnare' : ''}`
                             }
                             aria-haspopup="dialog"
                             aria-controls="booking-detail-drawer"
@@ -2684,81 +2532,26 @@ export default function BookingsPage() {
                               )
                             }
                           >
-                            <time className="booking-card-time">
-                              {booking
-                                .booking_time
-                                ?.slice(
-                                  0,
-                                  5
-                                )}
-                            </time>
-
                             <strong className="booking-card-name">
                               {
                                 booking.name
                               }
                             </strong>
-
-                            <span className="booking-card-covers">
-                              {
-                                booking.party_size
-                              }{' '}
-                              persone
-                            </span>
-
-                            <span
-                              className={
-                                `booking-status status-${bookingStatus(booking.status).toLowerCase()}`
-                              }
-                            >
-                              {bookingStatusLabel(
-                                booking.status
+                            <span className="booking-card-covers">{booking.party_size} pers.</span>
+                            <span className="booking-card-meta">
+                              {booking.tables ? (
+                                <span className="booking-card-table is-assigned" title={`Tavolo ${booking.tables}`}>Tavolo {booking.tables}</span>
+                              ) : (
+                                <span className="booking-card-table is-unassigned">Tavolo da assegnare</span>
                               )}
+                              <span className={`booking-indicator is-status status-${bookingStatus(booking.status).toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
                             </span>
-
-                            {(hasNotes
-                              || previousNoShows
-                                > 0
-                              || unassigned) && (
-                              <ul className="booking-card-flags">
-                                {hasNotes && (
-                                  <li>
-                                    <span
-                                      className="booking-flag-note"
-                                      aria-label="Nota o allergia presente"
-                                    >
-                                      Nota
-                                    </span>
-                                  </li>
-                                )}
-
-                                {previousNoShows
-                                  > 0 && (
-                                  <li>
-                                    <span
-                                      className="booking-flag-noshow"
-                                      aria-label={
-                                        `Cliente con ${previousNoShows} NO_SHOW precedenti`
-                                      }
-                                    >
-                                      NO_SHOW
-                                    </span>
-                                  </li>
-                                )}
-
-                                {unassigned && (
-                                  <li>
-                                    <span
-                                      className="booking-flag-table"
-                                      aria-label="Tavolo non assegnato"
-                                    >
-                                      Senza tavolo
-                                    </span>
-                                  </li>
-                                )}
-                              </ul>
-                            )}
                           </button>
+                          {(hasNotes || isDelayed || previousNoShows > 0) && <div className="booking-card-quick-actions" aria-label={`Indicatori ${booking.name}`}>
+                            {hasNotes && <button type="button" className="booking-indicator is-note" onClick={() => openBookingDetail(booking)}>NOTE</button>}
+                            {isDelayed && <button type="button" className="booking-indicator is-delay" onClick={() => openBookingDetail(booking)}>RITARDO</button>}
+                            {previousNoShows > 0 && <span className="booking-indicator is-noshow">NO_SHOW · {previousNoShows}</span>}
+                          </div>}
                         </article>
                       );
                     }
@@ -2768,6 +2561,28 @@ export default function BookingsPage() {
             )
           )}
         </div>
+        <div className="booking-export-tools">
+          <details className="booking-export-menu">
+            <summary>Esporta / Stampa</summary>
+            <div className="booking-export-actions">
+              <button type="button" disabled={!exportReady} onClick={printBookings}>Stampa</button>
+              <button type="button" disabled={!exportReady} onClick={downloadBookingsCsv}>Scarica CSV</button>
+            </div>
+          </details>
+          {!exportReady && <p className="booking-export-message" role={appointmentsError ? 'alert' : 'status'}>
+            {appointmentsError ? 'Esportazione non disponibile: impossibile caricare tutte le prenotazioni. Aggiorna e riprova.' : 'Esportazione disponibile al termine del caricamento.'}
+          </p>}
+        </div>
+        <section className="booking-export-print" aria-label="Prenotazioni da stampare">
+          <h1>Makai — Prenotazioni</h1>
+          <p>{exportDateLabel}</p>
+          <table>
+            <thead><tr>{BOOKING_EXPORT_COLUMNS.map(column => <th key={column} scope="col">{column}</th>)}</tr></thead>
+            <tbody>{exportRows.map((row, index) => <tr key={`${row.Ora}-${index}`}>
+              {BOOKING_EXPORT_COLUMNS.map(column => <td key={column}>{row[column]}</td>)}
+            </tr>)}</tbody>
+          </table>
+        </section>
       </section>
 
       <section
@@ -2831,6 +2646,13 @@ export default function BookingsPage() {
                   onOpenAssignment={
                     openAssignmentMap
                   }
+                  renderBookingDetail={
+                    bookingDetailContent
+                  }
+                  onCreateBooking={() => {
+                    setShowCreate(true);
+                    setCustomerSearch("");
+                  }}
                   onCancel={
                     assignmentBooking
                       ? () =>
@@ -2896,15 +2718,20 @@ export default function BookingsPage() {
             }
           >
             <header className="booking-detail-drawer-header">
-              <h2 id="booking-detail-title">
-                {
-                  detailBooking.name
-                }
-              </h2>
+              <div className="booking-detail-title-group">
+                <h2 id="booking-detail-title">
+                  {detailBooking.name}
+                </h2>
+                <span className="booking-detail-mode">
+                  {editingId === detailBooking.id
+                    ? 'Modifica'
+                    : 'Visualizzazione'}
+                </span>
+              </div>
 
               <button
                 type="button"
-                className="admin-button admin-button-secondary"
+                className="admin-button admin-button-secondary booking-drawer-close"
                 onClick={
                   closeBookingDetail
                 }

@@ -8,6 +8,9 @@ const fields = {
 
 export function historyChanges(entry) {
   if (entry.action === 'waitlist_converted') return [`Voce lista d’attesa #${entry.new_data?.waitlist_id}`, `Tavolo: ${entry.new_data?.tables || '—'}`];
+  if (entry.action==='customer_reconfirmed') return ['Prenotazione riconfermata dal cliente'];
+  if (entry.action==='customer_alternative_proposed') return [`Alternativa proposta: ${entry.new_data?.proposal || ''}`];
+  if (entry.action==='table_assigned') return [`Tavolo assegnato: ${entry.new_data?.tables || ''}`];
   if (entry.action?.startsWith('customer_request_')) {
     const data = entry.new_data || {};
     return [`Richiesta #${data.request_id}: ${REQUEST_TYPES[data.request_type] || data.request_type}${data.requested_value == null ? '' : ` → ${data.requested_value}`}`, `Esito: ${{ pending: 'In attesa', approved: 'Approvata', rejected: 'Rifiutata' }[data.request_status] || data.request_status}`];

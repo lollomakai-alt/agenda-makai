@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { editableBookingValues, saveBookingEdit } from '../utils/bookingEdit';
 
-export default function BookingTableControls({ booking, appointments, disabled = false, compact = false, onOpenMap, onSaved, onSaving }) {
+export default function BookingTableControls({ booking, appointments, disabled = false, compact = false, showLabel = false, onOpenMap, onSaved, onSaving }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -109,6 +109,7 @@ export default function BookingTableControls({ booking, appointments, disabled =
           />
           <path d="M8 4v3M16 4v3M8 17v3M16 17v3" />
         </svg>
+        {showLabel && <span>Tavolo</span>}
       </button>
 
       {table && open && (

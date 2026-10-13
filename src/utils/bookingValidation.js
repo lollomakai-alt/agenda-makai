@@ -1,4 +1,4 @@
-import { isDay, todayInRome } from './calendar.js';
+import { isDay, todayInRome, operationalDayInRome } from './calendar.js';
 
 export function normalizePhone(raw = '') {
   const value = String(raw).trim();
@@ -38,6 +38,7 @@ export function validateBooking(
   values,
   {
     requirePhone = true,
+    now = Date.now(),
   } = {}
 ) {
   const errors = {};
@@ -57,8 +58,8 @@ export function validateBooking(
   const partySize = Number(values.party_size);
 
   if (
-    name.length > 60 ||
-    !/^[\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*(?: [\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)+$/u.test(name)
+    name.length < 2 || name.length > 60 ||
+    !/^[\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*(?: [\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)*$/u.test(name)
   ) {
     errors.name = 'Inserisci nome e cognome, senza numeri o simboli.';
   }
@@ -80,22 +81,22 @@ export function validateBooking(
     errors.party_size = 'Inserisci un numero intero da 1 a 6.';
   }
 
-  if (!/^(18|19|20|21|22):(00|30)$|^23:00$/.test(values.time)) {
+  if (!/^(19|20|21):(00|30)$|^22:(00|30)$/.test(values.time)) {
     errors.time =
-      'Scegli un orario tra le 18:00 e le 23:00, ogni 30 minuti.';
+      'Scegli un orario tra le 19:00 e le 22:30, ogni 30 minuti.';
   }
 
   if (notes.length > 300) {
     errors.notes = 'Le note possono contenere al massimo 300 caratteri.';
   }
 
-  const today = todayInRome();
+  const today = todayInRome(now);
   const lastDay = new Date(`${today}T12:00:00Z`);
   lastDay.setUTCDate(lastDay.getUTCDate() + 60);
 
   if (
     !isDay(values.date) ||
-    values.date < today ||
+    values.date < operationalDayInRome(now) ||
     values.date > lastDay.toISOString().slice(0, 10)
   ) {
     errors.date =
@@ -118,4 +119,23 @@ export function validateBooking(
       party_size: partySize,
     },
   };
+}
+
+// Staff entry keeps data-shape checks but deliberately skips online service,
+// date-window, party-size and availability rules.
+export function validateManualBooking(values, { requirePhone = false } = {}) {
+  const validation = validateBooking(values, { requirePhone });
+  const errors = { ...validation.errors };
+  delete errors.party_size;
+  delete errors.time;
+  delete errors.date;
+  const partySize = Number(values.party_size);
+  if (!Number.isSafeInteger(partySize) || partySize < 1 || partySize > 2147483647) {
+    errors.party_size = 'Inserisci un numero intero positivo.';
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(values.time || ''))) {
+    errors.time = 'Inserisci un orario valido.';
+  }
+  if (!isDay(values.date)) errors.date = 'Inserisci una data valida.';
+  return { errors, data: { ...validation.data, party_size: partySize } };
 }

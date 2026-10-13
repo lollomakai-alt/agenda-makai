@@ -21,10 +21,10 @@ test('Postgres temporal trigger: daily occupancy, explicit release, grouped conf
   const insert=async(tables,time,people=2,type='normale',source='agenda')=>(await db.query(`insert into bookings(booking_date,booking_time,party_size,tables,booking_type,source) values($1,$2,$3,$4,$5,$6) returning *`,[day,time,people,tables,type,source])).rows[0];
   const first=await insert('12','20:00');
   await assert.rejects(insert('12','21:00'),/stessa giornata/);
-  await assert.rejects(insert('12','22:00',2,'dopocena'),/stessa giornata/);
-  const later=await insert('22','22:00',2,'dopocena');
+  await assert.rejects(insert('12','22:30',2,'dopocena'),/stessa giornata/);
+  const later=await insert('22','22:30',2,'dopocena');
   await assert.rejects(db.query(`update bookings set tables='12',booking_time='21:30' where id=$1`,[later.id]),/stessa giornata/);
-  assert.equal((await db.query('select booking_time from bookings where id=$1',[later.id])).rows[0].booking_time,'22:00');
+  assert.equal((await db.query('select booking_time from bookings where id=$1',[later.id])).rows[0].booking_time,'22:30');
   await db.exec('delete from bookings;delete from booking_history;');
   await insert('15+16+17','20:00',6);
   await assert.rejects(insert('15+16','21:00',4),/stessa giornata/);

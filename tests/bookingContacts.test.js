@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
-test('Contatti exposes direct call and WhatsApp actions with safe disabled states', async () => {
+test('Contatti groups call and WhatsApp and hides unavailable actions', async () => {
   const server = await createServer({
     server: {
       middlewareMode: true,
@@ -58,6 +58,10 @@ test('Contatti exposes direct call and WhatsApp actions with safe disabled state
         && node.props['aria-label'] === 'WhatsApp'
     );
 
+    assert.ok(tree.some(node => node.type === 'details'));
+    assert.ok(tree.some(node => node.type === 'summary'
+      && nodes(node).some(child => child.type === 'span' && child.props.children === 'Contatti')));
+
     assert.ok(call);
     assert.equal(
       call.props.href,
@@ -65,6 +69,8 @@ test('Contatti exposes direct call and WhatsApp actions with safe disabled state
     );
 
     assert.ok(whatsapp);
+    assert.ok(tree.some(node => node.type === 'span' && node.props.children === 'Chiama'));
+    assert.ok(tree.some(node => node.type === 'span' && node.props.children === 'WhatsApp'));
     assert.equal(
       whatsapp.props.disabled,
       false
@@ -86,12 +92,7 @@ test('Contatti exposes direct call and WhatsApp actions with safe disabled state
       )
     );
 
-    assert.ok(
-      !tree.some(
-        node =>
-          node.props?.role === 'group'
-      )
-    );
+    assert.ok(tree.some(node => node.props?.role === 'group'));
 
     for (
       const phone of [
@@ -112,49 +113,7 @@ test('Contatti exposes direct call and WhatsApp actions with safe disabled state
         })
       );
 
-      const disabledCall =
-        tree.find(
-          node =>
-            node.type === 'a'
-            && node.props[
-              'aria-label'
-            ] === 'Chiama'
-        );
-
-      const disabledWhatsApp =
-        tree.find(
-          node =>
-            node.type === 'button'
-            && node.props[
-              'aria-label'
-            ] === 'WhatsApp'
-        );
-
-      assert.ok(
-        disabledCall
-      );
-
-      assert.equal(
-        disabledCall.props.href,
-        undefined
-      );
-
-      assert.equal(
-        disabledCall.props[
-          'aria-disabled'
-        ],
-        true
-      );
-
-      assert.ok(
-        disabledWhatsApp
-      );
-
-      assert.equal(
-        disabledWhatsApp.props
-          .disabled,
-        true
-      );
+      assert.equal(tree.length, 0);
     }
 
     tree = nodes(

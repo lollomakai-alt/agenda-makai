@@ -36,11 +36,27 @@ test('arrived, completed, cancelled and no_show remove the notification, includi
 });
 
 test('winter, midnight rollover and invalid dates use the same shared Rome calculation', () => {
-  const winter = { ...booking, booking_date: '2026-12-20', booking_time: '23:50:15' };
-  const midnightBoundary = Date.parse('2026-12-20T23:05:15Z');
-  assert.equal(bookingDelayNotification(winter, midnightBoundary - 1), null);
-  assert.ok(bookingDelayNotification(winter, midnightBoundary));
+  const winter = { ...booking, booking_date: '2026-12-20', booking_time: '23:40:15' };
+  const winterBoundary = Date.parse('2026-12-20T22:55:15Z');
+  assert.equal(bookingDelayNotification(winter, winterBoundary - 1), null);
+  assert.ok(bookingDelayNotification(winter, winterBoundary));
   for (const bad of [{ ...booking, booking_date: '2026-02-30' }, { ...booking, booking_time: '24:00' }, { ...booking, id: null }]) {
     assert.equal(bookingDelayNotification(bad, boundary + 3600000), null);
   }
+});
+
+test('delay warning is limited to the booking day in Europe/Rome', () => {
+  const today = { ...booking, booking_date: '2026-10-10', booking_time: '00:00' };
+  const past = { ...today, booking_date: '2026-10-09' };
+  const future = { ...today, booking_date: '2026-10-11' };
+  const beforeRomeMidnight = Date.parse('2026-10-10T21:59:59Z');
+  const afterRomeMidnight = Date.parse('2026-10-10T22:00:00Z');
+
+  assert.ok(bookingDelayNotification(today, beforeRomeMidnight));
+  assert.equal(bookingDelayNotification(past, beforeRomeMidnight), null);
+  assert.equal(bookingDelayNotification(future, beforeRomeMidnight), null);
+  assert.ok(bookingDelayNotification(today, afterRomeMidnight));
+  assert.equal(bookingDelayNotification(future, afterRomeMidnight), null);
+  assert.equal(bookingDelayNotification(future, afterRomeMidnight + 15 * 60000), null);
+  assert.equal(bookingDelayNotification(today, Date.parse('2026-10-11T00:00:00Z')),null);
 });

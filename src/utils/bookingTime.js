@@ -16,7 +16,8 @@ export function bookingScheduledAt(booking) {
   if (!isDay(booking.booking_date) || !time) {
     return null;
   }
-  const wallTime = Date.parse(`${booking.booking_date}T${time[1]}:${time[2]}:${time[3] || '00'}Z`);
+  const operationalOffset = booking.booking_type === 'dopocena' && time[1] === '00' ? 86400000 : 0;
+  const wallTime = operationalOffset + Date.parse(`${booking.booking_date}T${time[1]}:${time[2]}:${time[3] || '00'}Z`);
   // Interpret the stored wall time in Rome, independently of the browser zone.
   const offsets = [...new Set([-86400000, 0, 86400000].map(delta =>
     localTimestamp(wallTime + delta) - (wallTime + delta)))];
@@ -24,6 +25,23 @@ export function bookingScheduledAt(booking) {
   // Match PostgreSQL: standard-time occurrence for ambiguous/nonexistent DST times.
   return matches.length ? Math.max(...matches) : wallTime - Math.min(...offsets);
 }
+
+export function isValidBookingTimeForType(booking) {
+  const scheduledAt = bookingScheduledAt(booking);
+  if (scheduledAt === null) return false;
+
+  const start = booking.booking_type === 'dopocena' ? '22:30' : '19:00';
+  const end = booking.booking_type === 'dopocena' ? '00:00' : '22:30';
+  if (!['normale', 'dopocena'].includes(booking.booking_type)) return false;
+
+  const startAt = bookingScheduledAt({ ...booking, booking_time: start });
+  const endAt = bookingScheduledAt({ ...booking, booking_time: end });
+  const slotDuration = 30 * 60 * 1000;
+  return scheduledAt >= startAt
+    && scheduledAt <= endAt
+    && scheduledAt % slotDuration === 0;
+}
+
 
 // The date scopes the service; elapsed time never releases an assignment.
 // Keep the existing predicate name for callers shared with the SQL/backend.

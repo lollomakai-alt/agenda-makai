@@ -107,7 +107,7 @@ begin
     raise exception 'Data non disponibile' using errcode = '22023';
   end if;
   if availability_change and (
-    (previous_booking.booking_type = 'dopocena' and selected_time !~ '^(22|23):(00|30)$')
+    (previous_booking.booking_type = 'dopocena' and selected_time !~ '^(22:30|23:(00|30))$')
     or (coalesce(previous_booking.booking_type, 'normale') <> 'dopocena'
       and selected_time !~ '^(18|19|20|21|22):(00|30)$|^23:00$')
   ) then
@@ -118,10 +118,10 @@ begin
       into selected_count, selected_capacity
     from unnest(string_to_array(selected_tables, ',')) selected(table_id)
     join (values
-      ('10+11', 3), ('12', 2), ('13+14', 2),
+      ('10+11', 3), ('12', 2), ('13+14', 3),
       ('15+16+17', 6), ('15+16', 4), ('17', 2),
       ('18+19', 4), ('18', 2), ('19', 2),
-      ('20+21', 4), ('22', 2), ('23', 2)
+      ('20+21', 4), ('22+23', 4), ('22', 2), ('23', 2)
     ) configured(table_id, capacity) on configured.table_id = selected.table_id;
     if selected_count <> cardinality(string_to_array(selected_tables, ',')) then
       raise exception 'Assegnazione tavoli non configurata' using errcode = '22023';

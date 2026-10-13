@@ -1,0 +1,423 @@
+/* =========================================================
+   Riga prenotazione
+   ========================================================= */
+
+.booking-row {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+
+  align-items: center;
+
+  column-gap: 16px;
+
+  padding: 12px 16px;
+
+  border: 1px solid var(--admin-border);
+  border-left: 3px solid var(--admin-accent);
+  border-radius: var(--radius-sm);
+
+  background: var(--admin-panel);
+
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.booking-row.is-cancelled {
+  border-left-color: var(--admin-danger);
+
+  opacity: 0.85;
+}
+
+@media (hover: hover) {
+  .booking-row:hover {
+    border-color: var(--admin-border-strong);
+
+    background: var(--admin-panel-2);
+
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.booking-row-main {
+  display: grid;
+
+  grid-template-columns:
+    minmax(52px, auto)
+    minmax(140px, 1.5fr)
+    minmax(140px, 1fr)
+    max-content;
+
+  align-items: center;
+
+  gap: 12px 16px;
+
+  min-width: 0;
+
+  font-size: 14px;
+}
+
+.booking-row-covers,
+.booking-row-name,
+.booking-row-phone {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+
+  min-width: 0;
+
+  overflow-wrap: anywhere;
+}
+
+.booking-row-covers strong {
+  color: var(--admin-accent);
+
+  font-size: 20px;
+
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-row-name {
+  margin: 0;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.booking-row-phone {
+  color: var(--admin-muted);
+
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-row-phone a {
+  color: inherit;
+
+  text-decoration: none;
+}
+
+.booking-row-phone a:hover {
+  color: var(--admin-accent);
+}
+
+.booking-status {
+  width: fit-content;
+
+  padding: 4px 9px;
+
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--radius-pill);
+
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.booking-status.status-cancelled,
+.booking-status.status-no_show {
+  border-color: var(--admin-danger-border);
+
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}
+
+.booking-status.status-arrived {
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+  border-color: var(--admin-success);
+}
+
+.booking-status.status-completed {
+  background: var(--admin-panel-2);
+  color: var(--admin-muted);
+  border-color: var(--admin-muted);
+}
+
+.booking-status-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.booking-status-editor select {
+  max-width: 100%;
+  padding: 8px;
+  color: var(--admin-text);
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-accent);
+  border-radius: 8px;
+}
+
+.booking-edit-fields {
+  display: grid;
+  gap: 12px;
+  grid-column: 1 / -1;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.booking-delay-notification {
+  margin: 12px 0;
+  padding: 10px 12px;
+  color: var(--admin-warning);
+  background: var(--admin-warning-bg);
+  border: 1px solid var(--admin-warning-border);
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.booking-customer-warning {
+  margin: 12px 0;
+  padding: 10px 12px;
+  color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+  border: 1px solid var(--admin-danger-border);
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.customer-card {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-panel);
+}
+
+.customer-card > summary {
+  color: var(--admin-accent);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.customer-card-contact,
+.customer-card-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 14px 0;
+}
+
+.customer-card-contact p,
+.customer-card-stats div,
+.customer-card-history p {
+  margin: 0;
+}
+
+.customer-card-stats div {
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--admin-panel-2);
+}
+
+.customer-card-stats dt { color: var(--admin-muted); font-size: 12px; }
+.customer-card-stats dd { margin: 4px 0 0; font-weight: 800; }
+
+.customer-card-history {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.customer-card-history > li {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.table-map {
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-panel);
+}
+
+.table-map-heading,
+.table-map-rooms {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.table-map-heading h2,
+.table-map-heading p,
+.table-map-room h3 {
+  margin: 0;
+}
+
+.table-map-rooms { margin-top: 18px; }
+.table-map-room { flex: 1 1 280px; }
+.table-map-room ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.table-map-item {
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  width: 100%; aspect-ratio: 1; box-sizing: border-box; gap: 4px; padding: 8px;
+  border: 2px solid var(--admin-success-border); border-radius: 0;
+  background: var(--admin-success-bg); color: var(--admin-success); cursor: pointer;
+}
+.table-map-item.is-reserved { border-color: var(--admin-warning-border); background: var(--admin-warning-bg); color: var(--admin-warning); }
+.table-map-item.is-occupied { border-color: var(--admin-danger-border); background: var(--admin-danger-bg); color: var(--admin-danger); }
+.table-map-item[aria-pressed="true"] { outline: 3px solid var(--admin-accent); outline-offset: 3px; }
+.table-map-item:disabled { cursor: wait; }
+.table-map-item small { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.table-map-detail { margin-top: 1rem; padding: 1rem; border: 1px solid var(--admin-border); border-radius: 8px; overflow-wrap: anywhere; }
+
+.booking-type {
+  width: fit-content;
+  padding: 4px 9px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.booking-type-dopocena { color: var(--admin-warning); border-color: var(--admin-warning); }
+
+.booking-row .booking-confirmation {
+  margin: 0;
+
+  padding: 10px 12px;
+
+  font-size: 13px;
+}
+
+.booking-confirmation-action {
+  display: grid;
+  gap: 6px;
+}
+
+.booking-confirmation-action small {
+  color: var(--admin-muted);
+
+  font-size: 11px;
+
+  text-align: center;
+}
+
+.booking-confirmation-action button:disabled {
+  cursor: not-allowed;
+}
+
+.booking-row-details {
+  grid-column: 1 / -1;
+
+  margin-top: 8px;
+
+  font-size: 13px;
+}
+
+.booking-row-details summary {
+  display: flex;
+  align-items: center;
+
+  width: fit-content;
+  min-height: 32px;
+
+  color: var(--admin-muted);
+
+  transition: color var(--transition-fast);
+}
+
+.booking-row-details summary:hover,
+.booking-row-details[open] summary {
+  color: var(--admin-accent);
+}
+
+.booking-row-details p {
+  margin: 10px 0;
+}
+
+.booking-row-details small {
+  display: block;
+
+  color: var(--admin-muted);
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   Consenso marketing
+   ========================================================= */
+
+.marketing-consent-panel {
+  margin-top: 16px;
+  padding: 16px;
+
+  border: 1px solid var(--admin-border);
+  border-left: 3px solid var(--admin-border-strong);
+  border-radius: var(--radius-sm);
+
+  background: var(--admin-input);
+}
+
+.booking-row-details .marketing-consent-status {
+  margin-top: 0;
+
+  color: var(--admin-muted);
+}
+
+.booking-row-details .marketing-consent-status.is-active {
+  color: var(--admin-success);
+}
+
+.marketing-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.marketing-consent-form {
+  display: grid;
+
+  grid-template-columns:
+    minmax(140px, 0.45fr)
+    minmax(220px, 1fr);
+
+  gap: 14px;
+
+  margin-top: 16px;
+}
+
+.marketing-consent-form > p,
+.marketing-consent-form > .marketing-consent-actions,
+.marketing-consent-form > .manual-booking-feedback {
+  grid-column: 1 / -1;
+
+  margin: 0;
+}
+
+.marketing-consent-form label {
+  display: grid;
+  gap: 7px;
+
+  color: var(--admin-muted);
+
+  font-size: 13px;
+  font-weight: 600;
+}

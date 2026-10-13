@@ -7,7 +7,7 @@ function fixture(status = 'confirmed') {
   const calls = [];
   const client = { rpc: async (name, body) => {
     calls.push({ name, body });
-    booking.status = body.booking_status;
+    booking.status = name === 'admin_release_booking_table' ? 'completed' : name === 'admin_restore_released_table' ? 'arrived' : body.booking_status;
     return { data: { booking_id: booking.id, status: booking.status } };
   }};
   return { booking, calls, client };
@@ -26,7 +26,7 @@ for (const [previous, next] of [['confirmed', 'arrived'], ['arrived', 'completed
     assert.equal(booking.status, previous);
     assert.equal(session.getLast(), null);
     assert.deepEqual(calls, [next, previous].map(status => ({
-      name: 'admin_set_booking_status_with_history', body: { booking_id: 42, booking_status: status },
+      name: status === 'completed' ? 'admin_release_booking_table' : next === 'completed' ? 'admin_restore_released_table' : 'admin_set_booking_status_with_history', body: status === 'completed' ? {booking_id:42} : next === 'completed' ? {booking_id:42,previous_tables:''} : { booking_id: 42, booking_status: status },
     })));
     assert.equal(await session.undo(client, booking), null);
     assert.equal(calls.length, 2);

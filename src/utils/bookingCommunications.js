@@ -13,7 +13,7 @@ async function communicationRequest(client, bookingId, suffix, body, request = g
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
  });
  const result = await response.json().catch(() => null);
- if (!response.ok && !(suffix === 'send-confirmation-email' && response.status === 502
+ if (!response.ok && !(['send-confirmation-email','send-template-email'].includes(suffix) && response.status === 502
    && ['failed', 'unknown'].includes(result?.status))) {
   throw new Error(typeof result?.detail === 'string' ? result.detail : 'Operazione non confermata. Aggiorna il log prima di riprovare.');
  }
@@ -70,4 +70,15 @@ export async function openBookingWhatsApp(client, booking, confirmation = false,
   if (!confirmation) { chat.close(); throw failure; }
   throw new Error('Chat WhatsApp aperta. Registrazione nel log non riuscita.');
  }
+}
+
+export async function prepareEmailTemplate(client,bookingId,kind,proposal='',request) {
+ const result=await communicationRequest(client,bookingId,'communications/prepare-template',{kind,proposal},request);
+ if(!result?.communication?.id) throw new Error('Preparazione non confermata.');
+ return result.communication;
+}
+export async function sendEmailTemplate(client,bookingId,communicationId,request) {
+ const result=await communicationRequest(client,bookingId,'send-template-email',{communication_id:communicationId},request);
+ if(!['accepted','failed','unknown'].includes(result?.status)) throw new Error('Esito non confermato. Aggiorna il log.');
+ return result;
 }

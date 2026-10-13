@@ -15,12 +15,12 @@ test('all five states send only the booking id and canonical status to the datab
   const calls = [];
   const client = { rpc: async (name, body) => {
     calls.push({ name, body });
-    return { data: { booking_id: body.booking_id, status: body.booking_status }, error: null };
+    return { data: { booking_id: body.booking_id, status: name === "admin_release_booking_table" ? "completed" : body.booking_status }, error: null };
   } };
   for (const status of Object.keys(BOOKING_STATUSES)) {
     assert.deepEqual(await saveBookingStatus(client, 42, status), { booking_id: 42, status });
     assert.deepEqual(calls.at(-1), {
-      name: 'admin_set_booking_status_with_history', body: { booking_id: 42, booking_status: status },
+      name: status === 'completed' ? 'admin_release_booking_table' : 'admin_set_booking_status_with_history', body: status === 'completed' ? {booking_id:42} : { booking_id: 42, booking_status: status },
     });
   }
   const count = calls.length;
@@ -43,7 +43,7 @@ test('confirmed offers Arrivato through the existing canonical state update', as
     const calls = [];
     const client = { rpc: async (name, body) => {
       calls.push({name, body});
-      return {data: {booking_id: 42, status: body.booking_status}};
+      return {data: {booking_id: 42, status: name === "admin_release_booking_table" ? "completed" : body.booking_status}};
     }};
     await saveBookingStatus(client, 42, action.status);
     assert.deepEqual(calls, [{name: 'admin_set_booking_status_with_history', body: {booking_id: 42, booking_status: 'arrived'}}]);
@@ -57,10 +57,10 @@ test('arrived offers Libera tavolo through the existing completed state update',
     const calls = [];
     const client = { rpc: async (name, body) => {
       calls.push({name, body});
-      return {data: {booking_id: 42, status: body.booking_status}};
+      return {data: {booking_id: 42, status: name === "admin_release_booking_table" ? "completed" : body.booking_status}};
     }};
     await saveBookingStatus(client, 42, action.status);
-    assert.deepEqual(calls, [{name: 'admin_set_booking_status_with_history', body: {booking_id: 42, booking_status: 'completed'}}]);
+    assert.deepEqual(calls, [{name: 'admin_release_booking_table', body: {booking_id: 42}}]);
   }
 });
 

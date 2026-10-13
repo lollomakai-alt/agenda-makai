@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
-test('table controls: assign, pencil menu, change and remove only tables through existing RPC', async () => {
+test('table controls: assign, pencil menu, change and remove only tables through existing RPC', async t => {
+ t.mock.timers.enable({
+  apis: ['Date'],
+  now: Date.parse('2026-10-10T12:00:00+02:00'),
+ });
+ t.after(() => t.mock.timers.reset());
  const previousHooks = globalThis.__tableHooks;
  const previousClient = globalThis.__tableClient;
  let slots = [], index = 0;
@@ -30,7 +35,9 @@ test('table controls: assign, pencil menu, change and remove only tables through
   let mapCalls=0,saved=null;const locks=[];
   const props={booking,appointments:[booking],onOpenMap:()=>mapCalls++,onSaved:result=>{saved=result;},onSaving:value=>locks.push(value)};
   function render(overrides={}){index=0;return nodes(Controls({...props,...overrides}));}
-  let tree=render({booking:{...booking,tables:''}});
+  let tree=render({booking:{...booking,tables:''},compact:true,showLabel:true});
+  assert.ok(tree.some(node=>node.type==='span'&&node.props.children==='Tavolo'));
+  tree=render({booking:{...booking,tables:''}});
   assert.ok(tree.some(node=>node.props.children==='Nessun tavolo assegnato'));
   const assign=tree.find(node=>node.type==='button');assert.equal(assign.props.children,'ASSEGNA TAVOLO');assign.props.onClick();assert.equal(mapCalls,1);
   slots=[];tree=render();

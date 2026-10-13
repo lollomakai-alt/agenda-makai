@@ -16,7 +16,7 @@ test('map assignment against Postgres: existing editor, grouped tables, history,
       create table booking_history(id bigint generated always as identity primary key,booking_id bigint,action text,old_data jsonb,new_data jsonb,created_at timestamptz default now());
       grant select,insert,update on bookings to authenticated;
       set request.jwt.claims='{"app_metadata":{"role":"admin"}}';`);
-    for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','online-booking.sql','pending-online-capacity.sql','temporal-table-conflicts.sql','manual-table-assignment.sql','manual-assignment-capacity.sql']) await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
+    for(const file of ['booking-status.sql','booking-history.sql','booking-edit.sql','table-conflicts.sql','after-dinner-bookings.sql','online-booking.sql','pending-online-capacity.sql','temporal-table-conflicts.sql','manual-table-assignment.sql','manual-assignment-capacity.sql','admin-manual-booking-edits.sql']) await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
     const date=(await db.query(`select to_char(d,'YYYY-MM-DD') as day from generate_series((now() at time zone 'Europe/Rome')::date+1,(now() at time zone 'Europe/Rome')::date+7,'1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].day;
     await db.query(`insert into bookings(id,name,phone,email,booking_date,booking_time,party_size,tables,notes,status,booking_type) values(42,'Mario Rossi','private','private',$1,'20:00',2,'','Seggiolone','confirmed','normale'),(43,'Altro Cliente','','',$1,'20:30',2,'12','','confirmed','normale')`,[date]);
     await db.exec('set role authenticated');
@@ -34,9 +34,10 @@ test('map assignment against Postgres: existing editor, grouped tables, history,
     await db.query('update bookings set party_size=5 where id=42');
     await db.exec('set role authenticated');
     const five=(await db.query('select * from bookings where id=42')).rows[0];
-    await assert.rejects(client.rpc('admin_update_booking',{booking_id:42,changes:{tables:'15+16'},expected:{booking_date:five.booking_date,booking_time:five.booking_time,party_size:5,tables:five.tables,notes:five.notes}}).then(r=>{if(r.error)throw r.error;}),/Capienza/);
-    await assert.rejects(assignMapTable(client,five,'15+16',[],'15'),/non disponibile/);
-    const manual=await assignMapTable(client,five,'15+16+17',[],'15');
+    const update=await client.rpc('admin_update_booking',{booking_id:42,changes:{tables:'15+16'},expected:{booking_date:five.booking_date,booking_time:'20:00',party_size:5,tables:five.tables,notes:five.notes}});
+    assert.equal(update.data.booking.tables,'15+16');
+    const fiveAfterUpdate=(await db.query('select * from bookings where id=42')).rows[0];
+    const manual=await assignMapTable(client,fiveAfterUpdate,'15+16+17',[],'15');
     assert.equal(manual.booking.tables,'15+16+17');
     const illegal=await client.rpc('admin_assign_booking_tables',{booking_id:42,changes:{party_size:4},expected:{}});
     assert.match(illegal.error.message,/Campo non modificabile/);

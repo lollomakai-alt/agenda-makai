@@ -110,7 +110,7 @@ begin
     raise exception 'Data non disponibile' using errcode = '22023';
   end if;
   if availability_change and (
-    (previous_booking.booking_type = 'dopocena' and selected_time !~ '^(22|23):(00|30)$')
+    (previous_booking.booking_type = 'dopocena' and selected_time !~ '^(22:30|23:(00|30))$')
     or (coalesce(previous_booking.booking_type, 'normale') <> 'dopocena'
       and selected_time !~ '^(18|19|20|21|22):(00|30)$|^23:00$')
   ) then
@@ -121,10 +121,10 @@ begin
       into selected_count, selected_capacity
     from unnest(string_to_array(selected_tables, ',')) selected(table_id)
     join (values
-      ('10+11', 3), ('12', 2), ('13+14', 2),
+      ('10+11', 3), ('12', 2), ('13+14', 3),
       ('15+16+17', 6), ('15+16', 4), ('17', 2),
       ('18+19', 4), ('18', 2), ('19', 2),
-      ('20+21', 4), ('22', 2), ('23', 2)
+      ('20+21', 4), ('22+23', 4), ('22', 2), ('23', 2)
     ) configured(table_id, capacity) on configured.table_id = selected.table_id;
     if selected_count <> cardinality(string_to_array(selected_tables, ',')) then
       raise exception 'Assegnazione tavoli non configurata' using errcode = '22023';
@@ -182,7 +182,7 @@ begin
   end if;
   select array_agg(btrim(t)) into selected_ids from unnest(string_to_array(new.tables, ',')) t;
   if exists (select 1 from unnest(selected_ids) t where t not in
-    ('10+11','12','13+14','15+16+17','15+16','17','18+19','18','19','20+21','22','23')) then
+    ('10+11','12','13+14','15+16+17','15+16','17','18+19','18','19','20+21','22+23','22','23')) then
     raise exception 'Configurazione tavolo non valida' using errcode = '22023';
   end if;
   if cardinality(selected_ids) <> (select count(distinct t) from unnest(selected_ids) t) then
@@ -259,18 +259,18 @@ revoke all on function private.check_daily_table_conflicts(), private.protect_pe
 revoke all on function public.admin_assign_booking_tables(bigint,jsonb,jsonb) from public,anon;
 grant execute on function public.admin_assign_booking_tables(bigint,jsonb,jsonb) to authenticated;
 
--- La ricerca esistente conserva priorità alla capienza più efficiente,
--- poi alla configurazione consigliata; non elimina unità fisicamente libere.
+-- La ricerca usa le regole condivise persone-capienza e conserva soltanto
+-- gli incastri compatibili con le configurazioni fisiche dei tavoli.
 create or replace function private.fit_online_parties(parties integer[], used text[], groups text[], minimum_group text default '')
 returns boolean language plpgsql stable security invoker set search_path = '' as $$
 declare option record; physical text[];
 begin
   if cardinality(parties) = 0 then return true; end if;
   if cardinality(parties) > 10 then return false; end if;
-  for option in select * from private.online_table_groups() where capacity >= parties[1] and group_id > minimum_group
-      order by capacity, (not private.online_groups_compatible(groups || group_id)), cardinality(string_to_array(group_id,'+')), group_id loop
+  for option in select * from private.online_table_candidates(parties[1]) c where c.group_id > minimum_group
+      order by c.preference, cardinality(string_to_array(c.group_id,'+')), c.group_id loop
     physical := string_to_array(option.group_id,'+');
-    if not physical && used then
+    if not physical && used and private.online_groups_compatible(groups || option.group_id) then
       if private.fit_online_parties(parties[2:cardinality(parties)],used || physical,groups || option.group_id,case when parties[2]=parties[1] then option.group_id else '' end) then return true; end if;
     end if;
   end loop;
@@ -318,7 +318,7 @@ begin
       committed:=committed+unit_capacity;
     end loop;
     if committed>peak then peak:=committed; peak_waste:=waste; end if;
-  return jsonb_build_object('total',25,'occupied',peak,'unused',peak_waste,'remaining',greatest(0,25-peak),'verified',true);
+  return jsonb_build_object('total',26,'occupied',peak,'unused',peak_waste,'remaining',greatest(0,26-peak),'verified',true);
 end;
 $$;
 revoke all on function private.service_capacity(text,text,bigint) from public,anon,authenticated,service_role;
@@ -333,7 +333,8 @@ begin
   if people is null or people not between 0 and 6 then return 'unverified'; end if;
   if people > 0 and exists(select 1 from public.online_booking_closures c where c.booking_date = day::date) then return 'closed'; end if;
   select coalesce(sum(b.party_size),0) into covers from public.bookings b
-    where b.booking_date=day and b.status='confirmed' and (exclude_id is null or b.id<>exclude_id);
+    where b.booking_date=day and coalesce(b.booking_type,'normale')='normale'
+      and b.status not in ('cancelled','no_show') and (exclude_id is null or b.id<>exclude_id);
   if covers + people > 25 then return 'full'; end if;
   -- Il controllo pubblico giorno/persone resta prudente, ma conta unità intere.
   for point_time in select distinct b.booking_time from public.bookings b
@@ -365,10 +366,12 @@ begin
       end loop;
     end if;
   end loop;
-  -- Le configurazioni sono preferenze: i tavoli occupati restano indisponibili.
+  -- Le nuove combinazioni devono rispettare le configurazioni fisiche valide.
   select coalesce(array_agg(p order by p desc),array[]::integer[]) into parties from unnest(parties) p;
   return case when private.fit_online_parties(parties,used,groups) then 'available' else 'full' end;
 end;
 $$;
-revoke all on function private.online_day_status(text,integer,bigint), private.fit_online_parties(integer[],text[],text[],text) from public,anon,authenticated,service_role;
+revoke all on function private.online_day_status(text,integer,bigint), private.fit_online_parties(integer[],text[],text[],text),
+  private.online_table_candidates(integer), private.choose_online_dinner_table(text,integer,bigint)
+  from public,anon,authenticated,service_role;
 commit;
