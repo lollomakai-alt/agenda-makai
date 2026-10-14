@@ -82,9 +82,9 @@ export default function AdminNotifications() {
         const href = notificationBookingUrl(entry);
         return <li key={entry.id} className={`notification-item ${entry.read_at ? 'is-read' : 'is-unread'}`}>
           <p><strong>{NOTIFICATION_PRIORITIES[entry.priority] || entry.priority}</strong> · {entry.read_at ? 'Vista' : 'Nuova'}</p>
-          <p>{href ? <a href={href} onClick={() => setOpen(false)}>{entry.message} · Prenotazione #{entry.booking_id}</a> : entry.message}</p>
+          <p>{href ? <a href={href} onClick={() => setOpen(false)}>{entry.message}{entry.booking_id ? ` · Prenotazione #${entry.booking_id}` : ''}</a> : entry.message}</p>
           <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</time>
-          <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id, true)}>Gestita · Archivia</button>
+          {entry.kind !== 'dopocena_request' && <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id, true)}>Gestita · Archivia</button>}
           {!entry.read_at && <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id)}>
             {saving === entry.id ? 'Salvataggio…' : 'Segna come letta'}
           </button>}

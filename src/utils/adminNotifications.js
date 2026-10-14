@@ -3,6 +3,9 @@ import { isDay, operationalDayInRome } from './calendar.js';
 export const NOTIFICATION_PRIORITIES = Object.freeze({ high: 'Alta', normal: 'Normale' });
 
 export function notificationBookingUrl(notification) {
+  if (notification.kind === 'dopocena_request') {
+    return isDay(notification.booking_date) ? `/prenotazioni/giorno?date=${notification.booking_date}` : null;
+  }
   if (!/^[1-9]\d*$/.test(String(notification.booking_id)) || !isDay(notification.booking_date)) return null;
   const map = notification.kind === 'online_unassigned' ? `&assign=${notification.booking_id}` : '';
   return `/prenotazioni/giorno?date=${notification.booking_date}${map}#booking-${notification.booking_id}`;
@@ -26,7 +29,7 @@ export function currentDayNotifications(notifications, now = new Date()) {
   const today = notificationDayInRome(now);
   return notifications.filter(notification => {
     if (['delay','waiting_table','reconfirmation'].includes(notification.kind)) return notification.booking_date === operationalDayInRome(now);
-    if (notification.kind === 'customer_request' || notification.kind === 'communication_failed') return true;
+    if (['customer_request', 'communication_failed', 'dopocena_request'].includes(notification.kind)) return true;
     if (!Number.isFinite(Date.parse(notification.created_at))) return true;
     return notificationDayInRome(notification.created_at) === today;
   });

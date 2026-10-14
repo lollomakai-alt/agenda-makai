@@ -20,13 +20,14 @@ test('daily filter uses service day for delays and event day for requests and on
     {id:'old-request',kind:'customer_request',booking_date:'2026-10-20',read_at:null,created_at:'2026-10-09T20:00:00Z'},
     {id:'future-request',kind:'customer_request',booking_date:'2026-10-20',read_at:null,created_at:'2026-10-10T11:00:00Z'},
     {id:'future-online',kind:'online_booking',booking_date:'2026-10-21',read_at:null,created_at:'2026-10-10T10:00:00Z'},
+    {id:'old-dopocena',kind:'dopocena_request',booking_date:'2026-10-21',read_at:null,created_at:'2026-10-09T10:00:00Z'},
     {id:'today-delay',kind:'delay',booking_date:'2026-10-10',read_at:'2026-10-10T09:30:00Z',created_at:'2026-10-10T09:00:00Z'},
     {id:'old-delay',kind:'delay',booking_date:'2026-10-09',read_at:null,created_at:'2026-10-10T11:30:00Z'},
   ];
   const original = structuredClone(history);
   const active = sortNotifications(currentDayNotifications(history, now));
-  assert.deepEqual(active.map(row=>row.id),['future-request','future-online','today-delay','old-request']);
-  assert.equal(unreadNotificationCount(active),3);
+  assert.deepEqual(active.map(row=>row.id),['future-request','future-online','today-delay','old-request','old-dopocena']);
+  assert.equal(unreadNotificationCount(active),4);
   assert.deepEqual(history,original);
 });
 test('Rome midnight changes event notifications and service-day delays independently of UTC', () => {
@@ -76,4 +77,9 @@ test('mark read uses only notification RPC; unconfirmed writes and failures neve
 
 test('online notification opens the booking detail after automatic assignment', () => {
  assert.equal(notificationBookingUrl({kind:'online_booking',booking_id:42,booking_date:'2026-10-04'}),'/prenotazioni/giorno?date=2026-10-04#booking-42');
+});
+
+test('pending DOPOCENA notification opens its service day without a booking ID', () => {
+  assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-10-20'}),'/prenotazioni/giorno?date=2026-10-20');
+  assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-02-30'}),null);
 });

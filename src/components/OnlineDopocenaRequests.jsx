@@ -50,6 +50,7 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
         : 'Richiesta rifiutata.');
       await refresh();
       onChanged?.();
+      window.dispatchEvent(new Event('admin-notifications-changed'));
     } catch (failure) {
       setError(failure.message);
     } finally {
