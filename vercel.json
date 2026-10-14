@@ -23,6 +23,10 @@
     {
       "source": "/prenotazioni/giorno",
       "destination": "/index.html"
+    },
+    {
+      "source": "/manutenzione",
+      "destination": "/index.html"
     }
   ]
 }

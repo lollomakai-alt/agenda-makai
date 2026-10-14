@@ -215,3 +215,9 @@ _13 ottobre 2026; confrontati README e documenti Drive con decisioni successive.
 ## Verifica collegamento gateway manutenzione, 14 ottobre 2026
 - **Verifica locale:** allowlist Agenda espone solo GET/POST `site-maintenance`; il gateway continua a verificare il ruolo `admin` da `app_metadata` e inoltra la richiesta al backend con il secret server-side. Test gateway e UI 9/9 superati; `git diff --check` superato.
 - **Limite:** prova del gateway con Auth/backend simulati, non con sessione Supabase reale. Nessuna modifica al database live o deploy.
+
+## Ripristino accesso al pannello manutenzione, 14 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** aggiunta a `vercel.json` la rewrite `/manutenzione` → `/index.html`; il percorso diretto restituiva Vercel 404 benché il route React e il link fossero presenti. Aggiunta un'asserzione di regressione in `tests/maintenanceSettings.test.js`.
+- **Verifiche locali:** `npm test` 243/243, `npm run build` superata e `git diff --check` superato.
+- **DA FARE:** attendere il deploy Agenda della correzione, aprire la pagina con sessione admin e attivare la modalità manutenzione. Nessuna modifica al database eseguita.
+- **DEPLOYATO:** non ancora verificato. **VERIFICATO IN PRODUZIONE:** non ancora.
