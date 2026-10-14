@@ -246,3 +246,8 @@ _13 ottobre 2026; confrontati README e documenti Drive con decisioni successive.
 - **Verifiche locali:** `npm test` 246/246, build Vite superata; prova SQL/API isolata dell'accettazione senza tavolo e senza email; `git diff --check` superato.
 - **DA FARE:** pubblicare insieme al Sito e provare la coda con account ADMIN reale in Production prima di disattivare la manutenzione.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** database v2 verificato nel registro precedente; UI/RPC da sessione ADMIN non verificate live. Nessun commit, push o deploy.
+
+## Push coda DOPOCENA v2 — 14 ottobre 2026
+- **DEPLOYATO:** commit `1ade749cbe8d0509937d028f275fd3144fccf137` inviato a `origin/main`; stato Vercel del commit `success` con descrizione «Deployment has completed».
+- **VERIFICATO IN PRODUZIONE:** il percorso pubblico `/manutenzione` su `agenda-makai.vercel.app` ha risposto HTTP 200 dopo il push. La coda e le RPC non sono state provate con una sessione ADMIN live in questo intervento.
+- **DA FARE:** prova amministrativa delle richieste DOPOCENA e controllo coordinato con il Sito prima della riapertura. `package-lock.backup.json` preesistente escluso dal commit.
