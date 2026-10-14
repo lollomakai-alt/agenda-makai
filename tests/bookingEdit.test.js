@@ -80,6 +80,7 @@ test('type change rejects invalid slots, sizes, occupied status and missing serv
   assert.match(validateBookingEdit(base, { ...original, status: 'arrived' }, { manualTables: true }).errors.booking_type, /confermate/);
   const after = { ...booking, booking_type: 'normale', tables: '12', status: 'confirmed' };
   const afterValues = { ...editableBookingValues(after), booking_type: 'dopocena', booking_time: '22:30', tables: '', party_size: '26' };
-  assert.match(validateBookingEdit(afterValues, after, { manualTables: true }).errors.party_size, /25/);
+  assert.equal(validateBookingEdit(afterValues, after, { manualTables: true }).errors.party_size, undefined);
+  assert.match(validateBookingEdit({ ...afterValues, party_size: '27' }, after, { manualTables: true }).errors.party_size, /26/);
   await assert.rejects(saveBookingEdit({ rpc: async () => ({ error: { code: 'PGRST202' } }) }, original, base, [], { manualTables: true }), /migrazione ADMIN/);
 });

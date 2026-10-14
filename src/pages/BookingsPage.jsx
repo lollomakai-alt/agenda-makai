@@ -1,6 +1,7 @@
 import BookingOperationalControls from '../components/BookingOperationalControls';
 import { bookingScheduledAt } from '../utils/bookingTime';
 import BookingNoShowAction from '../components/BookingNoShowAction';
+import OnlineDopocenaRequests from '../components/OnlineDopocenaRequests';
 
 import { adminFetch } from "../lib/adminFetch";
 
@@ -1985,6 +1986,11 @@ export default function BookingsPage() {
           </button>
         </div>
       </section>
+
+      {!assignmentBooking && <OnlineDopocenaRequests
+        disabled={viewBusy || loading || Boolean(appointmentsError)}
+        onChanged={refreshAppointments}
+      />}
 
       {closureError && (
         <p

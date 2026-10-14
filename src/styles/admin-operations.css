@@ -6,6 +6,24 @@
 .booking-requests ul { padding-left: 1.3rem; }
 .booking-requests li { margin: 1rem 0; }
 
+.online-dopocena-requests { margin: 1rem 0; padding: 1rem; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-panel); }
+.online-dopocena-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: .75rem; }
+.online-dopocena-heading h2 { margin: 0; font-size: 1.1rem; }
+.online-dopocena-heading p { margin: .4rem 0 .75rem; max-width: 70ch; }
+.online-dopocena-list { display: grid; gap: .75rem; list-style: none; margin: .75rem 0 0; padding: 0; }
+.online-dopocena-item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; padding: .85rem; border: 1px solid var(--admin-border); border-radius: 10px; background: var(--admin-panel); }
+.online-dopocena-customer { display: grid; gap: .25rem; min-width: 0; overflow-wrap: anywhere; }
+.online-dopocena-customer p { margin: .25rem 0; }
+.online-dopocena-status { display: grid; align-content: start; justify-items: end; gap: .5rem; }
+.online-dopocena-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.online-dopocena-actions .admin-button { min-height: 44px; }
+@media (max-width: 600px) {
+  .online-dopocena-requests { padding: 12px; }
+  .online-dopocena-item, .online-dopocena-status { width: 100%; justify-items: start; }
+  .online-dopocena-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .online-dopocena-actions .admin-button { width: 100%; }
+}
+
 .admin-push-notifications { margin: 1rem auto; padding: 1rem; max-width: 1200px; border: 1px solid var(--admin-border); border-radius: 12px; }
 .admin-push-notifications h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
 .admin-push-notifications p { margin: 0 0 .75rem; }

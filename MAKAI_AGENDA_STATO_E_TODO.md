@@ -219,5 +219,30 @@ _13 ottobre 2026; confrontati README e documenti Drive con decisioni successive.
 ## Ripristino accesso al pannello manutenzione, 14 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** aggiunta a `vercel.json` la rewrite `/manutenzione` → `/index.html`; il percorso diretto restituiva Vercel 404 benché il route React e il link fossero presenti. Aggiunta un'asserzione di regressione in `tests/maintenanceSettings.test.js`.
 - **Verifiche locali:** `npm test` 243/243, `npm run build` superata e `git diff --check` superato.
-- **DA FARE:** attendere il deploy Agenda della correzione, aprire la pagina con sessione admin e attivare la modalità manutenzione. Nessuna modifica al database eseguita.
-- **DEPLOYATO:** non ancora verificato. **VERIFICATO IN PRODUZIONE:** non ancora.
+- **DEPLOYATO:** commit `ae795ee2b91c8c9ecb708bc0eb9b132234b054f5` su `main`; Vercel ha mostrato il deployment Production come pronto con il dominio Agenda assegnato.
+- **VERIFICATO IN PRODUZIONE:** aperto `/manutenzione` con sessione amministrativa; il pannello ha letto lo stato server `Attiva` e lo storico ha registrato l'attivazione del 14 ottobre 2026. L'interruttore è stato attivato dall'Agenda. Nessuna migrazione SQL è stata applicata; l'aggiornamento dello stato e la riga di audit sono le sole scritture live effettuate in questa operazione.
+- **DA FARE:** risolvere e verificare la funzione SQL planner mancante `private.online_slot_status` prima di disattivare la manutenzione e riaprire le prenotazioni online.
+
+## Verifica produzione e attivazione manutenzione, 14 ottobre 2026
+- **VERIFICATO IN PRODUZIONE:** il percorso diretto `/manutenzione` è servito dall'Agenda dopo la correzione; pannello autenticato, stato globale attivo e voce nello storico confermati visivamente.
+- **VERIFICATO IN PRODUZIONE:** il Sito pubblico mostra la pagina «La ciurma Makai è ai lavori!» dopo l'attivazione. Le prenotazioni online risultano quindi intenzionalmente sospese.
+- **Problema residuo:** la precedente verifica live in sola lettura ha rilevato che `private.online_slot_status` non esiste nello schema attuale; l'API disponibilità restituiva HTTP 503 prima dell'attivazione. Perciò il guasto di disponibilità non è risolto dall'interruttore manutenzione. La migrazione resta da revisionare e autorizzare; non è stata applicata.
+
+## Analisi motore coordinato v2 — 14 ottobre 2026
+- **DA FARE:** finalizzazione della migrazione unica e rollback. L’analisi corrente ha verificato in sola lettura lo schema live (`public.bookings`: 213 righe; RLS attiva) e trovato incompatibilità nel flusso DOPOCENA in attesa, email di rifiuto, riorganizzazione sicura e rollback autonomo. La migrazione locale 20261013170000 non corrisponde alle regole aggiornate (mantiene 25 e handoff automatico) e non è stata riutilizzata o applicata.
+- **IMPLEMENTATO LOCALMENTE:** solo rapporto di verifica nel workspace Codex; nessuna modifica al codice Agenda o ai file SQL del repository.
+- **Verifiche/limiti:** test preesistenti PGlite 12/12, non riferiti a v2. La prova PostgreSQL isolata non è partita per limitazione shared-memory del sandbox. Nessuna scrittura live.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** solo schema/metadati in sola lettura, nessuna funzione nuova verificata.
+
+
+## Migrazione DB booking engine v2 — 14 ottobre 2026
+- **DEPLOYATO:** migrazione `20261014002635` applicata a Supabase Production dopo prova PostgreSQL isolata; nessuna modifica alle 213 prenotazioni esistenti. RLS bookings conservata, manutenzione lasciata attiva. Capienza fisica CENA verificata a 26; DOPOCENA restituisce `manual_review` e non assegna tavoli automaticamente.
+- **DA FARE:** collegare la UI Agenda alla nuova coda e alle RPC admin, poi testare con sessione ADMIN reale. Nessuna modifica applicativa Agenda in questo intervento; non disattivare la manutenzione prima dell’integrazione e dello smoke test.
+- Rollback autonomo disponibile nel workspace di consegna; non applicato. Nessun commit/push/deploy applicativo.
+
+
+## Coda richieste DOPOCENA v2 — 14 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** aggiunta alla vista giornaliera Agenda la coda protetta DOPOCENA con azioni di accettazione e rifiuto via RPC admin. Accettazione crea una prenotazione `confirmed` senza tavolo; rifiuto registra l'esito. Non parte alcuna email/WhatsApp in questa fase. La capacità visualizzata è allineata al tetto fisico CENA di 26.
+- **Verifiche locali:** `npm test` 246/246, build Vite superata; prova SQL/API isolata dell'accettazione senza tavolo e senza email; `git diff --check` superato.
+- **DA FARE:** pubblicare insieme al Sito e provare la coda con account ADMIN reale in Production prima di disattivare la manutenzione.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** database v2 verificato nel registro precedente; UI/RPC da sessione ADMIN non verificate live. Nessun commit, push o deploy.

@@ -77,7 +77,7 @@ export default function BookingEditor({ booking, appointments, disabled, onSaved
         Number(values.party_size) > TABLE_ASSIGNMENTS[values.tables] &&
         <p className="booking-edit-turn-note" role="status">Sovracapienza: {values.party_size} persone per {TABLE_ASSIGNMENTS[values.tables]} coperti. Conferma solo se gestibile durante il servizio.</p>}
       {values.booking_type !== bookingType(original.booking_type) && <p className="booking-edit-turn-note">{values.booking_type === 'dopocena'
-        ? 'Il tavolo viene liberato. Il turno richiede disponibilità entro 25 persone.'
+        ? 'Il tavolo viene liberato. Il turno richiede disponibilità entro 26 persone.'
         : 'Scegli un tavolo CENA. La disponibilità viene verificata prima del salvataggio; eventuale sovracapienza resta una scelta dello staff.'}</p>}
       <label className="booking-edit-notes">Note<textarea name="notes" value={values.notes} maxLength="300" rows="3" onChange={change} aria-invalid={Boolean(errors.notes)} />{errors.notes && <small className="field-error">{errors.notes}</small>}</label>
     </fieldset>

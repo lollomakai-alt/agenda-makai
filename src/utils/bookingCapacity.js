@@ -3,7 +3,7 @@ import { bookingsOverlap } from './bookingTime.js';
 import { assignedUnitCapacity, physicalTableIds } from './tableConflicts.js';
 import { bookingStatus } from './bookingStatus.js';
 
-export const DAILY_COVER_LIMIT = 25; // Automatic people quota, enforced separately per service.
+export const DAILY_COVER_LIMIT = 26; // Physical maximum per service, enforced separately.
 export function physicalDinnerCapacity() {
   const flexible = new Set(TABLE_15_19_CONFIGURATIONS.flat());
   const fixed = Object.entries(TABLE_ASSIGNMENTS).filter(([id]) => !flexible.has(id) && id !== '22+23').reduce((n,[,cap])=>n+cap,0);
@@ -13,7 +13,7 @@ export function physicalDinnerCapacity() {
 export function canAcceptBooking(bookings, date, partySize, time = null, tables = '', type = 'normale') {
   if (!Number.isSafeInteger(Number(partySize)) || Number(partySize) < 1) return false;
   const active = bookings.filter(b => b.booking_date === date && (b.booking_type || 'normale') === type && !['cancelled','no_show'].includes(bookingStatus(b.status)));
-  if (type === 'dopocena') return !tables && active.reduce((n,b) => n+Number(b.party_size),0)+Number(partySize)<=25;
+  if (type === 'dopocena') return !tables && active.reduce((n,b) => n+Number(b.party_size),0)+Number(partySize)<=26;
   const capacity = serviceCapacity(active, { booking_date:date, booking_time:time, booking_type:type });
   const required = tables ? assignedUnitCapacity(tables) : Number(partySize);
   return capacity.verified && required !== null

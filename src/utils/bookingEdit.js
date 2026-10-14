@@ -42,8 +42,8 @@ export function validateBookingEdit(values, original, { manualTables = false, no
     if (normalized.booking_type === 'normale' && (!Number.isSafeInteger(partySize) || partySize < 1)) {
       errors.party_size = 'Inserisci un numero intero positivo.';
     }
-    if (normalized.booking_type === 'dopocena' && (!Number.isSafeInteger(partySize) || partySize < 1 || partySize > 25)) {
-      errors.party_size = 'Per il cambio a DOPOCENA scegli da 1 a 25 persone.';
+    if (normalized.booking_type === 'dopocena' && (!Number.isSafeInteger(partySize) || partySize < 1 || partySize > 26)) {
+      errors.party_size = 'Per il cambio a DOPOCENA scegli da 1 a 26 persone.';
     }
     if (normalized.booking_type === 'normale' && !tables) errors.tables = 'Seleziona un tavolo CENA.';
     if (normalized.booking_type === 'dopocena' && tables) errors.tables = 'Il DOPOCENA inizia senza tavolo.';
