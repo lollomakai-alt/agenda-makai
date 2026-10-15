@@ -14,7 +14,7 @@ test('notifications are ordered newest first regardless of read status or priori
   assert.deepEqual(rows,original);
   assert.equal(unreadNotificationCount([]),0);
 });
-test('daily filter uses service day for delays and event day for requests and online bookings', () => {
+test('daily filter keeps future online bookings and pending requests alongside service-day delays', () => {
   const now = new Date('2026-10-10T12:00:00Z');
   const history = [
     {id:'old-request',kind:'customer_request',booking_date:'2026-10-20',read_at:null,created_at:'2026-10-09T20:00:00Z'},
@@ -33,7 +33,7 @@ test('daily filter uses service day for delays and event day for requests and on
 test('Rome midnight changes event notifications and service-day delays independently of UTC', () => {
   const history = [
     {id:'request-before',kind:'customer_request',booking_date:'2026-10-20',created_at:'2026-10-10T21:59:59Z'},
-    {id:'online-after',kind:'online_booking',booking_date:'2026-10-21',created_at:'2026-10-10T22:00:00Z'},
+    {id:'online-after',kind:'online_booking',booking_date:'2026-10-21',created_at:'2026-10-09T22:00:00Z'},
     {id:'delay-before',kind:'delay',booking_date:'2026-10-10',created_at:'2026-10-10T22:00:00Z'},
     {id:'delay-after',kind:'delay',booking_date:'2026-10-11',created_at:'2026-10-10T21:59:59Z'},
   ];
@@ -41,8 +41,19 @@ test('Rome midnight changes event notifications and service-day delays independe
   const afterMidnight = new Date('2026-10-10T22:00:00Z');
   assert.equal(notificationDayInRome(beforeMidnight),'2026-10-10');
   assert.equal(notificationDayInRome(afterMidnight),'2026-10-11');
-  assert.deepEqual(currentDayNotifications(history,beforeMidnight).map(row=>row.id),['request-before','delay-before']);
+  assert.deepEqual(currentDayNotifications(history,beforeMidnight).map(row=>row.id),['request-before','online-after','delay-before']);
   assert.deepEqual(currentDayNotifications(history,afterMidnight).map(row=>row.id),['request-before','online-after','delay-before']);
+});
+test('online bookings created earlier stay visible when read until the service date passes', () => {
+  const now = new Date('2026-10-15T12:00:00Z');
+  const notices = [
+    {id:'future-new',kind:'online_booking',booking_date:'2026-10-20',read_at:null,created_at:'2026-10-01T10:00:00Z'},
+    {id:'future-read',kind:'online_booking',booking_date:'2026-10-21',read_at:'2026-10-02T10:00:00Z',created_at:'2026-10-01T10:00:00Z'},
+    {id:'today-read',kind:'online_booking',booking_date:'2026-10-15',read_at:'2026-10-02T10:00:00Z',created_at:'2026-10-01T10:00:00Z'},
+    {id:'past',kind:'online_booking',booking_date:'2026-10-14',read_at:null,created_at:'2026-10-15T10:00:00Z'},
+  ];
+  assert.deepEqual(currentDayNotifications(notices,now).map(row=>row.id),['future-new','future-read','today-read']);
+  assert.equal(unreadNotificationCount(currentDayNotifications(notices,now)),1);
 });
 test('unknown notification kinds use their event day and malformed events stay visible', () => {
   const now = new Date('2026-10-10T12:00:00Z');
