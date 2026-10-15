@@ -83,3 +83,10 @@ test('pending DOPOCENA notification opens its service day without a booking ID',
   assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-10-20'}),'/prenotazioni/giorno?date=2026-10-20');
   assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-02-30'}),null);
 });
+
+test('informative customer changes remain visible after the event day', () => {
+  const now=new Date('2026-10-15T12:00:00Z');
+  const event={id:'customer_event:42',kind:'customer_information',booking_id:42,booking_date:'2026-10-20',created_at:'2026-10-14T12:00:00Z'};
+  assert.deepEqual(currentDayNotifications([event],now),[event]);
+  assert.equal(notificationBookingUrl(event),'/prenotazioni/giorno?date=2026-10-20#booking-42');
+});

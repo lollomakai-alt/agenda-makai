@@ -56,6 +56,10 @@ export function bookingWhatsAppConfirmationUrl(booking) {
  return whatsappCommunicationUrl({ channel: 'whatsapp', status: 'opened', kind: 'confirmation', recipient, snapshot: booking });
 }
 
+export function usesDirectWhatsAppConfirmation(booking, compact) {
+ return Boolean(compact && booking?.status !== 'cancelled');
+}
+
 export async function openBookingWhatsApp(client, booking, confirmation = false, openWindow = (...args) => window.open(...args)) {
  const url = confirmation ? bookingWhatsAppConfirmationUrl(booking) : null;
  if (confirmation && !url) throw new Error('Numero di telefono mancante o non valido.');

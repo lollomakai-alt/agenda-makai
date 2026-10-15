@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { loadOnlineDopocenaRequests, reviewOnlineDopocenaRequest } from '../utils/onlineDopocenaRequests';
+import { loadOnlineDopocenaRequests, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../utils/onlineDopocenaRequests';
 
 function displayDate(value) {
   if (!value) return '';
@@ -15,6 +15,9 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
   const [busyId, setBusyId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
+  const decisionPending = useRef(false);
+  const [whatsAppOffer, setWhatsAppOffer] = useState(null);
+  const [whatsAppError, setWhatsAppError] = useState('');
 
   const refresh = useCallback(async () => {
     try {
@@ -35,16 +38,26 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
   }, [refresh, revision]);
 
   async function decide(request, decision) {
-    if (busyId || disabled) return;
+    if (decisionPending.current || busyId || disabled) return;
     const question = decision === 'accepted'
       ? `Accettare la richiesta di ${request.name} e creare la prenotazione DOPOCENA senza tavolo?`
       : `Rifiutare la richiesta DOPOCENA di ${request.name}?`;
     if (!window.confirm(question)) return;
+    decisionPending.current = true;
+    const chat = window.open('about:blank', '_blank');
+    if (chat) chat.opener = null;
+    setWhatsAppOffer(null);
+    setWhatsAppError('');
     setBusyId(request.request_id);
     setError('');
     setFeedback('');
     try {
       const result = await reviewOnlineDopocenaRequest(supabase, request, decision);
+      const url = onlineDopocenaWhatsAppUrl(request, decision, result.booking_id);
+      if (url && chat) chat.location.href = url;
+      else if (url) setWhatsAppOffer({ url, label: decision === 'accepted' ? 'Apri WhatsApp con la conferma' : 'Apri WhatsApp con il rifiuto' });
+      else if (chat) chat.close();
+      if (!url) setWhatsAppError('Operazione salvata, ma il numero della richiesta non è valido per WhatsApp.');
       setFeedback(decision === 'accepted'
         ? `Richiesta accettata. Prenotazione #${result.booking_id} creata senza tavolo.`
         : 'Richiesta rifiutata.');
@@ -52,8 +65,10 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
       onChanged?.();
       window.dispatchEvent(new Event('admin-notifications-changed'));
     } catch (failure) {
+      chat?.close();
       setError(failure.message);
     } finally {
+      decisionPending.current = false;
       setBusyId(null);
     }
   }
@@ -72,6 +87,8 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
     {loading && <p role="status">Caricamento richieste…</p>}
     {error && <p role="alert">{error}</p>}
     {feedback && <p role="status">{feedback}</p>}
+    {whatsAppOffer && <p><a className="admin-button" href={whatsAppOffer.url} target="_blank" rel="noopener noreferrer">{whatsAppOffer.label}</a></p>}
+    {whatsAppError && <p role="alert">{whatsAppError}</p>}
     {!loading && !error && requests.length === 0 && <p role="status">Nessuna richiesta DOPOCENA ricevuta.</p>}
     {requests.length > 0 && <ul className="online-dopocena-list">{requests.map(request => <li className={`online-dopocena-item is-${request.status}`} key={request.request_id}>
       <div className="online-dopocena-customer">

@@ -64,6 +64,7 @@ import { DAILY_COVER_LIMIT } from "../utils/bookingCapacity";
 
 import tables from "../config/tables.json" with { type: "json" };
 import { bookingsToCsv, formatBookingServiceDate, prepareBookingExport, BOOKING_EXPORT_COLUMNS } from "../utils/bookingExport";
+import { openBookingWhatsApp } from "../utils/bookingCommunications";
 
 
 function consentDate(value) {
@@ -179,6 +180,10 @@ export default function BookingsPage() {
 
   const [statusFeedback, setStatusFeedback] =
     useState(null);
+
+  const [cancelWhatsAppOffer, setCancelWhatsAppOffer] = useState(null);
+  const [cancelWhatsAppError, setCancelWhatsAppError] = useState('');
+  const cancelWhatsAppPending = useRef(false);
 
   const [undoError, setUndoError] =
     useState("");
@@ -865,6 +870,9 @@ export default function BookingsPage() {
     statusChangePending.current =
       true;
 
+    setCancelWhatsAppOffer(null);
+    setCancelWhatsAppError('');
+
     setStatusSavingId(
       booking.id
     );
@@ -897,6 +905,10 @@ export default function BookingsPage() {
 
       setUndoError("");
 
+      if (result.status === 'cancelled') {
+        setCancelWhatsAppOffer({ ...booking, status: 'cancelled' });
+      }
+
       refreshAppointments();
     } catch (failure) {
       setStatusError({
@@ -910,6 +922,19 @@ export default function BookingsPage() {
         false;
 
       setStatusSavingId(null);
+    }
+  }
+
+  async function openCancellationWhatsApp() {
+    if (!cancelWhatsAppOffer || cancelWhatsAppPending.current) return;
+    cancelWhatsAppPending.current = true;
+    setCancelWhatsAppError('');
+    try {
+      await openBookingWhatsApp(supabase, cancelWhatsAppOffer, false);
+    } catch (failure) {
+      setCancelWhatsAppError(failure.message || 'Chat WhatsApp non disponibile.');
+    } finally {
+      cancelWhatsAppPending.current = false;
     }
   }
 
@@ -2366,6 +2391,16 @@ export default function BookingsPage() {
           >
             ANNULLA
           </button>
+        </div>
+      )}
+
+      {cancelWhatsAppOffer && (
+        <div className="booking-status-feedback" role="status">
+          <span>{cancelWhatsAppOffer.name}: cancellazione registrata. Vuoi avvisare il cliente?</span>
+          <button type="button" className="admin-button" disabled={statusSavingId !== null} onClick={openCancellationWhatsApp}>
+            Apri WhatsApp con messaggio di cancellazione
+          </button>
+          {cancelWhatsAppError && <span role="alert">{cancelWhatsAppError}</span>}
         </div>
       )}
 

@@ -34,3 +34,10 @@ test('denied history reads are not presented as an empty history', async () => {
     then(resolve) { return Promise.resolve({ error: { message: 'Accesso negato' } }).then(resolve); } };
   await assert.rejects(loadBookingHistory({ from: () => chain }, 42), /Storico non disponibile: Accesso negato/);
 });
+
+test('customer cancellation and staff alternative show their actual event without false field changes', () => {
+  assert.deepEqual(historyChanges({action:'customer_cancelled',old_data:{booking_date:'2026-10-20',booking_time:'20:00',tables:'12'},new_data:{status:'cancelled',tables:''}}),
+    ['Prenotazione cancellata dal cliente','Tavolo liberato: 12']);
+  assert.deepEqual(historyChanges({action:'customer_request_alternative',new_data:{request_id:9,alternative:'Alle 21:00'}}),
+    ['Richiesta #9: alternativa proposta','Alle 21:00']);
+});

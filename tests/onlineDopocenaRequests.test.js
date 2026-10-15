@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadOnlineDopocenaRequests, reviewOnlineDopocenaRequest } from '../src/utils/onlineDopocenaRequests.js';
+import { loadOnlineDopocenaRequests, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../src/utils/onlineDopocenaRequests.js';
 
 test('loads the private DOPOCENA queue through its admin RPC', async () => {
   const rows=[{request_id:'r1',status:'pending'}];
@@ -33,4 +33,20 @@ test('rejects unconfirmed admin outcomes and reports a missing live SQL contract
   await assert.rejects(reviewOnlineDopocenaRequest({rpc:async()=>({error:{code:'PGRST202'}})},
     {request_id:'r1',status:'pending'},'rejected'),/non configurata/);
   await assert.rejects(loadOnlineDopocenaRequests({rpc:async()=>({data:{}})}),/non confermato/);
+});
+
+test('prepares confirmation and pirate rejection WhatsApp links for the request phone', () => {
+  const request = { name: 'Luca Rossi', phone: '333 1234567', booking_date: '2026-10-15', booking_time: '23:00:00', party_size: 2 };
+  const accepted = new URL(onlineDopocenaWhatsAppUrl(request, 'accepted', 73));
+  assert.equal(accepted.pathname, '/393331234567');
+  assert.match(accepted.searchParams.get('text'), /rotta verso Makai Pigneto è confermata/);
+  const rejected = new URL(onlineDopocenaWhatsAppUrl(request, 'rejected'));
+  assert.equal(rejected.pathname, '/393331234567');
+  const text = rejected.searchParams.get('text');
+  assert.match(text, /Ahoy Luca Rossi! 🏴‍☠️/);
+  assert.match(text, /15\/10\/2026/);
+  assert.match(text, /23:00/);
+  assert.match(text, /non possiamo accoglierti/);
+  assert.equal(onlineDopocenaWhatsAppUrl({ ...request, phone: 'invalid' }, 'rejected'), null);
+  assert.equal(onlineDopocenaWhatsAppUrl(request, 'pending'), null);
 });

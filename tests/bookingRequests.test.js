@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBookingRequest, reviewBookingRequest, loadBookingRequests, requestValue } from '../src/utils/bookingRequests.js';
+import { createBookingRequest, reviewBookingRequest, loadBookingRequests, loadBookingRequestAlternatives, requestValue } from '../src/utils/bookingRequests.js';
 import { historyChanges } from '../src/utils/bookingHistory.js';
 
 test('five request types validate values before writing; no unrelated field accepted', () => {
@@ -47,4 +47,15 @@ test('history displays lifecycle including requested value and rejection without
     assert.equal(changes[0], 'Richiesta #9: Persone → 3');
     assert.equal(changes.length,2);
   }
+});
+
+test('staff receives only confirmed compatible alternatives from the protected RPC', async () => {
+  const calls=[];
+  const options=[{booking_date:'2026-10-20',booking_time:'21:00',party_size:3}];
+  const result=await loadBookingRequestAlternatives({rpc:async(name,args)=>{
+    calls.push([name,args]);return {data:options};
+  }},9);
+  assert.deepEqual(result,options);
+  assert.deepEqual(calls,[['admin_booking_request_alternatives',{request_id:9}]]);
+  await assert.rejects(loadBookingRequestAlternatives({rpc:async()=>({data:{}})},9),/non disponibili/);
 });

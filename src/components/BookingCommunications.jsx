@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { COMMUNICATION_STATUSES, loadCommunications, prepareCommunication, openBookingWhatsApp, prepareEmailTemplate, sendEmailTemplate } from '../utils/bookingCommunications';
+import { COMMUNICATION_STATUSES, loadCommunications, prepareCommunication, openBookingWhatsApp, prepareEmailTemplate, sendEmailTemplate, usesDirectWhatsAppConfirmation } from '../utils/bookingCommunications';
 import BookingContacts from './BookingContacts';
 import BookingConfirmationEmail, { canSendConfirmationEmail } from './BookingConfirmationEmail';
 import { KINDS } from '../../supabase/functions/agenda-communications/messages';
@@ -18,7 +18,7 @@ export default function BookingCommunications({ booking, compact = false }) {
   try{await run();}catch(failure){setError(failure.message);}finally{setBusy(false);setRevision(n=>n+1);}
  }
  async function whatsapp() {
-  await openBookingWhatsApp(supabase, booking, compact);
+  await openBookingWhatsApp(supabase, booking, usesDirectWhatsAppConfirmation(booking, compact));
  }
  if (compact) {
   return <div className="booking-communications is-compact">

@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import { communicationMessage, whatsappCommunicationUrl, prepareCommunication, sendCommunication } from '../src/utils/bookingCommunications.js';
 import { sendQueuedEmail } from '../supabase/functions/agenda-communications/send.js';
 const snapshot={name:'Mario Rossi',booking_date:'2026-10-15',booking_time:'20:00',party_size:2};
-test('communication templates: confirmed, approved update and cancellation; manual WhatsApp encodes contacts safely',()=>{
+test('communication templates: confirmed, automatic update and cancellation; manual WhatsApp encodes contacts safely',()=>{
  for(const kind of ['confirmation','updated','cancelled']) {
   const message=communicationMessage(snapshot,kind);
   assert.match(message.text,/15\/10\/2026/);assert.match(message.text,/20:00/);assert.match(message.text,/Persone: 2/);
   assert.doesNotMatch(message.text,/marketing|Seggiolone/);
  }
- assert.match(communicationMessage(snapshot,'updated').text,/approvata/);
+ assert.match(communicationMessage(snapshot,'updated').text,/aggiornata/);
  assert.match(communicationMessage(snapshot,'cancelled').text,/cancellata/);
+ const rejection=communicationMessage(snapshot,'rejected').text;
+ assert.match(rejection,/Ahoy Mario Rossi! 🏴‍☠️/);assert.match(rejection,/15\/10\/2026/);assert.match(rejection,/20:00/);assert.match(rejection,/non possiamo accoglierti/);
  const url=whatsappCommunicationUrl({channel:'whatsapp',status:'opened',recipient:'+393331234567',kind:'cancelled',snapshot});
  assert.match(url,/^https:\/\/wa.me\/393331234567\?text=/);assert.match(decodeURIComponent(url),/cancellata/);
  assert.throws(()=>whatsappCommunicationUrl({channel:'whatsapp',status:'accepted'}));

@@ -25,9 +25,18 @@ function failure(error) {
 }
 
 export async function loadBookingRequests(client) {
-  const { data, error } = await client.from('booking_requests').select('id,booking_id,request_type,requested_value,status,created_at,reviewed_at').order('created_at', { ascending: false }).order('id', { ascending: false });
+  const { data, error } = await client.from('booking_requests')
+    .select('id,booking_id,request_type,requested_value,status,created_at,reviewed_at,alternative_note,origin,booking:bookings!booking_requests_booking_id_fkey(id,name,booking_date,booking_time,party_size,tables,status,booking_type)')
+    .order('created_at', { ascending: false }).order('id', { ascending: false });
   if (error) failure(error);
   return data || [];
+}
+
+export async function loadBookingRequestAlternatives(client, requestId) {
+  const { data, error } = await client.rpc('admin_booking_request_alternatives', { request_id: requestId });
+  if (error) failure(error);
+  if (!Array.isArray(data)) throw new Error('Alternative non disponibili.');
+  return data;
 }
 
 export async function createBookingRequest(client, bookingId, type, value) {

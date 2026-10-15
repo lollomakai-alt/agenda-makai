@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bookingWhatsAppConfirmationUrl, openBookingWhatsApp } from '../src/utils/bookingCommunications.js';
+import { bookingWhatsAppConfirmationUrl, openBookingWhatsApp, usesDirectWhatsAppConfirmation } from '../src/utils/bookingCommunications.js';
 
 const booking = { id: 42, name: 'Anna & Luca', phone: '333 1234567', booking_date: '2026-10-15', booking_time: '20:30:00', party_size: 3 };
 test('Italian mobile, international prefixes and landline normalize for WhatsApp', () => {
@@ -59,4 +59,31 @@ test('logging failure leaves chat open; blocked popup prevents RPC', async () =>
   value => { url = value; return { close() { assert.fail('must not close'); } }; }), /Chat WhatsApp aperta/);
  assert.equal(url, bookingWhatsAppConfirmationUrl(booking));
  await assert.rejects(openBookingWhatsApp({ rpc() { assert.fail('unexpected RPC'); } }, booking, true, () => null), /bloccato/);
+});
+
+test('cancelled compact message prepares the existing cancellation template for the cancelled booking', async () => {
+ const previousFetch = globalThis.fetch;
+ const events = [];
+ const chat = { opener: {}, location: {}, close() { assert.fail('chat should stay open'); } };
+ const client = { auth:{getSession:async()=>({data:{session:{access_token:'test-session'}}})} };
+ const cancelled = { ...booking, status: 'cancelled' };
+ globalThis.fetch = async (name, options) => {
+  events.push({ name, body: JSON.parse(options.body) });
+  return Response.json({communication:{booking_id:42,channel:'whatsapp',status:'opened',kind:'cancelled',recipient:'+393331234567',snapshot:cancelled}});
+ };
+ try {
+  await openBookingWhatsApp(client, cancelled, false, (url,target) => { events.push({url,target}); return chat; });
+  assert.equal(events[0].url, 'about:blank');
+  assert.equal(events[0].target, '_blank');
+  assert.equal(events[1].name, '/api/admin/bookings/42/communications/prepare');
+  assert.equal(chat.opener, null);
+  assert.match(chat.location.href, /^https:\/\/wa\.me\/393331234567\?text=/);
+  assert.match(new URL(chat.location.href).searchParams.get('text'), /prenotazione è stata cancellata/);
+ } finally { globalThis.fetch = previousFetch; }
+});
+
+test('compact WhatsApp uses the direct confirmation only for non-cancelled bookings', () => {
+ assert.equal(usesDirectWhatsAppConfirmation({status:'confirmed'}, true), true);
+ assert.equal(usesDirectWhatsAppConfirmation({status:'cancelled'}, true), false);
+ assert.equal(usesDirectWhatsAppConfirmation({status:'confirmed'}, false), false);
 });

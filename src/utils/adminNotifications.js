@@ -29,7 +29,7 @@ export function currentDayNotifications(notifications, now = new Date()) {
   const today = notificationDayInRome(now);
   return notifications.filter(notification => {
     if (['delay','waiting_table','reconfirmation'].includes(notification.kind)) return notification.booking_date === operationalDayInRome(now);
-    if (['customer_request', 'communication_failed', 'dopocena_request'].includes(notification.kind)) return true;
+    if (['customer_request', 'customer_information', 'communication_failed', 'dopocena_request'].includes(notification.kind)) return true;
     if (!Number.isFinite(Date.parse(notification.created_at))) return true;
     return notificationDayInRome(notification.created_at) === today;
   });

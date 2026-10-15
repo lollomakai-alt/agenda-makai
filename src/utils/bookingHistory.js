@@ -9,6 +9,14 @@ const fields = {
 export function historyChanges(entry) {
   if (entry.action === 'waitlist_converted') return [`Voce lista d’attesa #${entry.new_data?.waitlist_id}`, `Tavolo: ${entry.new_data?.tables || '—'}`];
   if (entry.action==='customer_reconfirmed') return ['Prenotazione riconfermata dal cliente'];
+  if (entry.action==='customer_cancelled') return [
+    'Prenotazione cancellata dal cliente',
+    `Tavolo liberato: ${entry.old_data?.tables || '—'}`,
+  ];
+  if (entry.action==='customer_request_alternative') return [
+    `Richiesta #${entry.new_data?.request_id}: alternativa proposta`,
+    entry.new_data?.alternative || '—',
+  ];
   if (entry.action==='customer_alternative_proposed') return [`Alternativa proposta: ${entry.new_data?.proposal || ''}`];
   if (entry.action==='table_assigned') return [`Tavolo assegnato: ${entry.new_data?.tables || ''}`];
   if (entry.action?.startsWith('customer_request_')) {

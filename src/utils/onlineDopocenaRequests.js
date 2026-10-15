@@ -1,4 +1,16 @@
 export const DOPOCENA_DECISIONS = Object.freeze(['accepted', 'rejected']);
+import { bookingWhatsAppConfirmationUrl, whatsappCommunicationUrl } from './bookingCommunications.js';
+import { normalizePhone } from './bookingValidation.js';
+
+export function onlineDopocenaWhatsAppUrl(request, decision, bookingId) {
+  if (decision === 'accepted') {
+    return bookingWhatsAppConfirmationUrl({ ...request, id: bookingId, status: 'confirmed', tables: '' });
+  }
+  if (decision !== 'rejected') return null;
+  const recipient = normalizePhone(request?.phone);
+  if (!recipient) return null;
+  return whatsappCommunicationUrl({ channel: 'whatsapp', status: 'opened', kind: 'rejected', recipient, snapshot: request });
+}
 
 function failure(error) {
   throw new Error(error.code === 'PGRST202' || error.code === '42883'

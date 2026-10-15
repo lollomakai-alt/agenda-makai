@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { createBookingRequest, loadBookingRequests, reviewBookingRequest, REQUEST_TYPES } from '../utils/bookingRequests';
+import { createBookingRequest, loadBookingRequests, loadBookingRequestAlternatives, reviewBookingRequest, REQUEST_TYPES } from '../utils/bookingRequests';
 
 export default function BookingRequests({ appointments, disabled, onChanged }) {
   const [requests, setRequests] = useState([]);
@@ -11,6 +11,7 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
   const [type, setType] = useState('data');
   const [value, setValue] = useState('');
   const [revision, setRevision] = useState(0);
+  const [alternatives, setAlternatives] = useState({});
   useEffect(() => {
     let active = true;
     let generation = 0;
@@ -45,12 +46,21 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
   }
-  async function propose(request) {
-    const proposal = window.prompt('Proposta alternativa (data, ora o persone):', request.alternative_note || '');
+  async function propose(request, suggestion = '') {
+    const proposal = window.prompt('Proposta alternativa (data, ora o persone):', suggestion || request.alternative_note || '');
     if (!proposal?.trim() || busy || disabled) return;
     setBusy(true); setError('');
     try { const {error} = await supabase.rpc('admin_propose_booking_alternative', {request_id:request.id,proposal:proposal.trim()}); if(error) throw error; setRevision(x=>x+1); onChanged(); }
     catch(failure) { setError(failure.message); } finally {setBusy(false);}
+  }
+  async function showAlternatives(request) {
+    if (busy || disabled) return;
+    setBusy(true); setError('');
+    try {
+      const rows = await loadBookingRequestAlternatives(supabase, request.id);
+      setAlternatives(previous => ({ ...previous, [request.id]: rows }));
+    } catch (failure) { setError(failure.message); }
+    finally { setBusy(false); }
   }
   const pending = requests.filter(request => request.status === 'pending');
   return <section className="booking-requests" aria-label="Richieste clienti">
@@ -82,14 +92,28 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
         </fieldset>
       </form>
     </details>
-    <ul>{pending.map(request => <li key={request.id}>
-      <p><a href={`/prenotazioni/giorno?date=${appointments.find(b => String(b.id) === String(request.booking_id))?.booking_date || ''}`}>Prenotazione #{request.booking_id}</a>
-        {' · '}{REQUEST_TYPES[request.request_type]}{request.requested_value !== null ? `: ${request.requested_value}` : ''}
+    <ul>{pending.map(request => {
+      const original = request.booking || appointments.find(b => String(b.id) === String(request.booking_id));
+      return <li key={request.id}>
+      <p><a href={`/prenotazioni/giorno?date=${original?.booking_date || ''}#booking-${request.booking_id}`}>Prenotazione #{request.booking_id}</a>
+        {' · '}{request.origin === 'customer' ? 'Cliente' : 'Staff'}
         {' · '}{new Date(request.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</p>
+      {original && <p>Attuale: {original.name} · {original.booking_date} alle {original.booking_time?.slice(0, 5)} · {original.party_size} persone · {original.booking_type === 'dopocena' ? 'DOPOCENA' : 'CENA'}{original.tables ? ` · Tavolo ${original.tables}` : ''}</p>}
+      <p>Richiesto: {REQUEST_TYPES[request.request_type]}{request.requested_value !== null ? ` · ${String(request.requested_value)}` : ''}</p>
       {request.alternative_note && <p>Alternativa proposta: {request.alternative_note}</p>}
+      {request.origin === 'customer' && request.request_type !== 'cancellazione' && request.request_type !== 'note' && <details>
+        <summary>Alternative compatibili</summary>
+        <button type="button" className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => showAlternatives(request)}>Cerca disponibilità</button>
+        {alternatives[request.id]?.length === 0 && <p>Nessuna alternativa automatica trovata. Verifica manualmente con il cliente.</p>}
+        {alternatives[request.id]?.map(option => <button type="button" className="admin-button admin-button-secondary"
+          key={`${option.booking_date}-${option.booking_time}`} disabled={busy || disabled}
+          onClick={() => propose(request, `${option.booking_date} alle ${option.booking_time} per ${option.party_size} persone`)}>
+          {option.booking_date} · {option.booking_time} · {option.party_size} persone
+        </button>)}
+      </details>}
       <button className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => propose(request)}>Proponi alternativa</button>
       <button className="admin-button" disabled={busy || disabled} onClick={() => review(request, 'approved')}>Approva</button>{' '}
       <button className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => review(request, 'rejected')}>Rifiuta</button>
-    </li>)}</ul>
+    </li>;})}</ul>
   </section>;
 }
