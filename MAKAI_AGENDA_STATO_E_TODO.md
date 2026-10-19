@@ -1,3 +1,9 @@
+## Pubblicazione Agenda e Backend — 19 ottobre 2026
+- **DEPLOYATO:** Agenda commit `67f3283af71c19fce61568cc248f90e684bc11ec` inviato a `origin/main`; Vercel Production `dpl_BMrGxXygUGusLWQ6RWDA9h4YS4Ac` READY, alias `agenda-makai.vercel.app`. Backend commit `378e2c79bb28b8bcd9e7357eb9ff62b38464fd66` pubblicato separatamente; la migrazione SQL mirata è registrata in Supabase come `20261019132636_prepare_staff_reconfirmation`.
+- **VERIFICATO IN PRODUZIONE:** identità del deployment Agenda e associazione al dominio; GET pubblica del dominio HTTP 200. La funzione SQL privata risulta installata con permesso al solo ruolo server. La variabile `CRON_SECRET` risulta Secret e limitata a Production nel progetto Backend.
+- **Evidenze locali:** suite Agenda 276/276, build Vite 121 moduli, test SQL della migrazione in database isolato 7/7 e controlli diff superati prima del push.
+- **DA FARE:** verifica autenticata dell'interfaccia su desktop e iPhone, e controllo concordato del ciclo di riconferma senza presumere la consegna email. Nessuna prenotazione reale creata, email reale inviata o UI autenticata osservata in questo rilascio. `AGENTS.md` modificato prima dell'intervento e `package-lock.backup.json` restano esclusi dal commit.
+
 ## Preparazione rilascio e riconferma — 19 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** corretti i controlli della mappa che facevano riferimento alla vecchia disposizione; preparata `supabase/migrations/20261019132636_prepare_staff_reconfirmation.sql` per installare soltanto la funzione privata mancante. La richiesta manuale può essere ripetuta, mentre quella programmata ha una chiave unica per prenotazione e giorno; le email in coda con link superato vengono annullate.
 - **Evidenze:** suite Agenda 276/276 superata; build Vite 121 moduli e `git diff --check` superati. La migrazione è passata in un database SQL locale isolato. Nessuna nuova prova visuale desktop/iPhone in questo passaggio.
