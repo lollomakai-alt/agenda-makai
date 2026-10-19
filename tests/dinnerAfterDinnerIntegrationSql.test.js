@@ -108,6 +108,7 @@ test('SQL manual assignment: capacity, conflicts and CENA/DOPOCENA integration',
     );
     assert.match(turnoverSql,/PERFORM pg_advisory_xact_lock\(734512\);[\s\S]*assigned := private\.choose_online_dinner_table/i);
     await db.exec(turnoverSql);
+    assert.equal((await db.query("select private.valid_service_slot('dopocena','22:47') valid")).rows[0].valid, true);
     await db.exec(`
       create trigger prepare_booking
       before insert or update on bookings
@@ -126,6 +127,7 @@ test('SQL manual assignment: capacity, conflicts and CENA/DOPOCENA integration',
         limit 1
       `)
     ).rows[0].booking_day;
+    assert.equal((await db.query("select private.service_slot_at($1,'22:47','dopocena') is not null valid", [day])).rows[0].valid, true);
 
     const insert = async (
       people,
@@ -320,7 +322,7 @@ test('SQL manual assignment: capacity, conflicts and CENA/DOPOCENA integration',
             [day]
           )
         ).rows[0].capacity.remaining,
-        22
+        25
       );
 
       await assert.rejects(
@@ -513,8 +515,12 @@ test('SQL manual assignment: capacity, conflicts and CENA/DOPOCENA integration',
     assert.equal(rpcBooking.booking_type, 'dopocena');
     assert.equal(rpcBooking.status, 'confirmed');
     assert.equal(rpcBooking.tables, '');
+    const minuteBooking = await createAfterDinner(3, '22:47');
+    assert.equal(minuteBooking.booking_time, '22:47');
+    assert.equal(minuteBooking.tables, '');
     await assert.rejects(createAfterDinner(2, '22:00'), /dalle 22:30/);
-    for (const people of [6, 6, 6, 1]) await createAfterDinner(people);
+    await assert.rejects(createAfterDinner(26), /Numero persone non valido/);
+    for (const people of [6, 6, 4]) await createAfterDinner(people);
     await assert.rejects(createAfterDinner(1), /Limite giornaliero di 25 coperti/);
     await db.exec('reset role');
 

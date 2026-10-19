@@ -46,6 +46,15 @@ test('all five editable fields are supported and equivalent existing time/table 
   assert.deepEqual(validateBookingEdit({ ...editableBookingValues(historical), notes: 'Testo' }, historical).changes, { notes: 'Testo' });
 });
 
+test('DOPOCENA accepts any minute from 22:30 through midnight when editing', () => {
+  const original = { ...booking, booking_type: 'dopocena', booking_date: '2026-10-10', booking_time: '22:30', tables: '' };
+  const values = { ...editableBookingValues(original), booking_time: '22:47' };
+  assert.equal(validateBookingEdit(values, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time, undefined);
+  for (const booking_time of ['22:29', '00:01', '21:59']) {
+    assert.ok(validateBookingEdit({ ...values, booking_time }, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time);
+  }
+});
+
 test('database failure and unexpected id are rejected', async () => {
   const values = { ...editableBookingValues(booking), notes: 'Seggiolone' };
   await assert.rejects(saveBookingEdit({ rpc: async () => ({ error: { message: 'Conflitto' } }) }, booking, values), /Conflitto/);
@@ -79,8 +88,9 @@ test('type change rejects invalid slots, sizes, occupied status and missing serv
   assert.match(validateBookingEdit({ ...base, tables: '' }, original, { manualTables: true }).errors.tables, /Seleziona/);
   assert.match(validateBookingEdit(base, { ...original, status: 'arrived' }, { manualTables: true }).errors.booking_type, /confermate/);
   const after = { ...booking, booking_type: 'normale', tables: '12', status: 'confirmed' };
-  const afterValues = { ...editableBookingValues(after), booking_type: 'dopocena', booking_time: '22:30', tables: '', party_size: '26' };
+  const afterValues = { ...editableBookingValues(after), booking_type: 'dopocena', booking_time: '22:47', tables: '', party_size: '25' };
   assert.equal(validateBookingEdit(afterValues, after, { manualTables: true }).errors.party_size, undefined);
-  assert.match(validateBookingEdit({ ...afterValues, party_size: '27' }, after, { manualTables: true }).errors.party_size, /26/);
+  assert.equal(validateBookingEdit({ ...afterValues, booking_time: '22:47' }, after, { manualTables: true }).errors.booking_time, undefined);
+  assert.match(validateBookingEdit({ ...afterValues, party_size: '26' }, after, { manualTables: true }).errors.party_size, /25/);
   await assert.rejects(saveBookingEdit({ rpc: async () => ({ error: { code: 'PGRST202' } }) }, original, base, [], { manualTables: true }), /migrazione ADMIN/);
 });

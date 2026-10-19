@@ -127,6 +127,17 @@
       minmax(0, 1fr);
   }
 
+  .manual-booking-form > label {
+    min-width: 0;
+  }
+
+  .manual-booking-form input[type="time"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .manual-booking-heading,
   .manual-booking-notes,
   .manual-booking-feedback {

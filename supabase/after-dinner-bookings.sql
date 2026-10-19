@@ -86,6 +86,32 @@ end;
 $$;
 revoke all on function private.check_daily_table_conflicts() from public, anon, authenticated;
 
+create or replace function private.valid_service_slot(service text, slot text)
+returns boolean language sql immutable security invoker set search_path = '' as $$
+  select coalesce(case service
+    when 'normale' then slot ~ '^(19|20|21|22):(00|30)(:00)?$'
+    when 'dopocena' then slot ~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)(:00)?$'
+    else false end, false);
+$$;
+
+create or replace function private.service_slot_at(day text, slot text, service text)
+returns timestamptz language plpgsql stable security invoker set search_path = '' as $$
+declare selected_date date;
+begin
+  if day !~ '^\d{4}-\d{2}-\d{2}$' or slot !~ '^([01]\d|2[0-3]):[0-5]\d$'
+     or not pg_input_is_valid(day, 'date') then return null; end if;
+  selected_date := day::date;
+  if service = 'normale' and slot ~ '^(19|20|21|22):(00|30)$' then
+    return (selected_date::text || ' ' || slot)::timestamp at time zone 'Europe/Rome';
+  end if;
+  if service = 'dopocena' and slot ~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)$' then
+    return ((selected_date + case when slot = '00:00' then 1 else 0 end)::text || ' ' || slot)::timestamp at time zone 'Europe/Rome';
+  end if;
+  return null;
+exception when invalid_datetime_format or datetime_field_overflow then return null;
+end;
+$$;
+
 create or replace function public.admin_create_after_dinner_booking(
   p_customer_name text, p_customer_phone text, p_customer_email text,
   p_booking_date text, p_booking_time text, p_party_size integer,
@@ -125,11 +151,11 @@ begin
      or extract(isodow from selected_date) = 1 then
     raise exception 'Data non disponibile' using errcode = '22023';
   end if;
-  if p_booking_time is null or p_booking_time !~ '^(22:30|23:(00|30)|00:00)$' then
-    raise exception 'Il dopocena è disponibile dalle 22:30 alle 00:00, ogni 30 minuti'
+  if p_booking_time is null or p_booking_time !~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)$' then
+    raise exception 'Il dopocena è disponibile dalle 22:30 alle 00:00'
       using errcode = '22023';
   end if;
-  if p_party_size is null or p_party_size not between 1 and 6 then
+  if p_party_size is null or p_party_size not between 1 and 25 then
     raise exception 'Numero persone non valido' using errcode = '22023';
   end if;
   -- Configurazioni ammesse e relative capienze.

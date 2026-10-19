@@ -43,7 +43,7 @@ BEGIN
   END IF;
 
   IF to_char(after_dinner_at AT TIME ZONE 'Europe/Rome', 'HH24:MI')
-     NOT IN ('22:30', '23:00', '23:30') THEN
+     !~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)$' THEN
     RETURN false;
   END IF;
 
@@ -164,7 +164,7 @@ BEGIN
   dinner_capacity := private.service_capacity_for_type(day, reference_time, 'normale', exclude_id);
   after_dinner_capacity := private.service_capacity_for_type(day, reference_time, 'dopocena', exclude_id);
   requested_type := CASE
-    WHEN reference_time ~ '^(22:30|23:00|23:30)(:00)?$' THEN 'dopocena'
+    WHEN reference_time ~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)(:00)?$' THEN 'dopocena'
     ELSE 'normale'
   END;
 

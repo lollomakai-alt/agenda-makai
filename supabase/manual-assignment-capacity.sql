@@ -110,7 +110,7 @@ begin
     raise exception 'Data non disponibile' using errcode = '22023';
   end if;
   if availability_change and (
-    (previous_booking.booking_type = 'dopocena' and selected_time !~ '^(22:30|23:(00|30))$')
+    (previous_booking.booking_type = 'dopocena' and selected_time !~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)$')
     or (coalesce(previous_booking.booking_type, 'normale') <> 'dopocena'
       and selected_time !~ '^(18|19|20|21|22):(00|30)$|^23:00$')
   ) then
