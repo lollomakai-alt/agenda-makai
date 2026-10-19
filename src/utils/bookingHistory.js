@@ -21,7 +21,7 @@ export function historyChanges(entry) {
   if (entry.action==='table_assigned') return [`Tavolo assegnato: ${entry.new_data?.tables || ''}`];
   if (entry.action?.startsWith('customer_request_')) {
     const data = entry.new_data || {};
-    return [`Richiesta #${data.request_id}: ${REQUEST_TYPES[data.request_type] || data.request_type}${data.requested_value == null ? '' : ` → ${data.requested_value}`}`, `Esito: ${{ pending: 'In attesa', approved: 'Approvata', rejected: 'Rifiutata' }[data.request_status] || data.request_status}`];
+    return [`Richiesta #${data.request_id}: ${REQUEST_TYPES[data.request_type] || data.request_type}${data.requested_value == null ? '' : ` → ${data.requested_value}`}`, `Esito: ${{ pending: 'In attesa dello staff · prenotazione invariata', approved: 'Approvata', rejected: 'Rifiutata · prenotazione invariata' }[data.request_status] || data.request_status}`];
   }
   return Object.entries(fields).flatMap(([key, label]) => {
     const before = entry.old_data?.[key];

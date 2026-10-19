@@ -288,6 +288,15 @@
   min-width: 0;
 }
 
+.booking-detail-phone {
+  display: block;
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 .booking-detail-mode {
   display: block;
   margin-top: 2px;
@@ -680,5 +689,71 @@
 @container booking-drawer (max-width: 319px) {
   .booking-detail-content.is-viewing > .booking-primary-actions {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* Riepilogo del dettaglio allineato al riferimento grafico della giornata. */
+@media screen and (max-width: 600px) {
+  .booking-detail-title-group h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 27px;
+    line-height: 1.08;
+  }
+
+  .booking-detail-mode {
+    display: none;
+  }
+
+  .booking-detail-content.is-viewing > .booking-detail-overview {
+    gap: 10px;
+    padding: 2px 0 12px;
+  }
+
+  .booking-detail-overview-secondary {
+    gap: 7px;
+    font-size: 14px;
+  }
+
+  .booking-detail-time {
+    font-size: 16px;
+  }
+
+  .booking-detail-overview-main {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 7px;
+  }
+
+  .booking-detail-stat {
+    box-sizing: border-box;
+    display: flex;
+    min-width: 0;
+    min-height: 70px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 9px 8px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .booking-detail-stat small {
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .booking-detail-stat .booking-status {
+    align-self: flex-start;
+    max-width: 100%;
+    white-space: normal;
   }
 }

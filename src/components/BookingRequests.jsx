@@ -47,7 +47,7 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
     finally { setBusy(false); }
   }
   async function propose(request, suggestion = '') {
-    const proposal = window.prompt('Proposta alternativa (data, ora o persone):', suggestion || request.alternative_note || '');
+    const proposal = window.prompt('Proposta da concordare con il cliente (data, ora o persone):', suggestion || request.alternative_note || '');
     if (!proposal?.trim() || busy || disabled) return;
     setBusy(true); setError('');
     try { const {error} = await supabase.rpc('admin_propose_booking_alternative', {request_id:request.id,proposal:proposal.trim()}); if(error) throw error; setRevision(x=>x+1); onChanged(); }
@@ -66,7 +66,7 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
   return <section className="booking-requests" aria-label="Richieste clienti">
     <h2>Richieste clienti</h2>
     {loading ? <p role="status">Caricamento richieste…</p> : <p role={pending.length ? 'alert' : 'status'}>
-      {pending.length ? `${pending.length} richieste in attesa, anche per altre date.` : 'Nessuna richiesta in attesa.'}</p>}
+      {pending.length ? `${pending.length} richieste ricevute, in attesa della decisione dello staff, anche per altre date.` : 'Nessuna richiesta in attesa dello staff.'}</p>}
     <button className="admin-button admin-button-secondary" disabled={busy} onClick={() => setRevision(x => x + 1)}>Aggiorna richieste</button>
     {error && <p role="alert">{error}</p>}
     <details><summary>Registra richiesta ricevuta dal cliente</summary>
@@ -87,7 +87,7 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
                 min={type === 'persone' ? 1 : undefined} max={type === 'persone' ? 6 : undefined}
                 value={value} onChange={event => setValue(event.target.value)} />}
           </label>}
-          <p>La prenotazione resta invariata fino all’approvazione dello staff.</p>
+          <p>La richiesta resta in attesa dello staff: registrarla non modifica e non cancella la prenotazione. Nessun messaggio al cliente viene inviato da questo modulo.</p>
           <button className="admin-button" type="submit">Registra richiesta</button>
         </fieldset>
       </form>
@@ -99,12 +99,12 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
         {' · '}{request.origin === 'customer' ? 'Cliente' : 'Staff'}
         {' · '}{new Date(request.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</p>
       {original && <p>Attuale: {original.name} · {original.booking_date} alle {original.booking_time?.slice(0, 5)} · {original.party_size} persone · {original.booking_type === 'dopocena' ? 'DOPOCENA' : 'CENA'}{original.tables ? ` · Tavolo ${original.tables}` : ''}</p>}
-      <p>Richiesto: {REQUEST_TYPES[request.request_type]}{request.requested_value !== null ? ` · ${String(request.requested_value)}` : ''}</p>
-      {request.alternative_note && <p>Alternativa proposta: {request.alternative_note}</p>}
+      <p>In attesa dello staff: {REQUEST_TYPES[request.request_type]}{request.requested_value !== null ? ` · ${String(request.requested_value)}` : ''}</p>
+      {request.alternative_note && <p>Alternativa proposta, da concordare: {request.alternative_note}</p>}
       {request.origin === 'customer' && request.request_type !== 'cancellazione' && request.request_type !== 'note' && <details>
         <summary>Alternative compatibili</summary>
         <button type="button" className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => showAlternatives(request)}>Cerca disponibilità</button>
-        {alternatives[request.id]?.length === 0 && <p>Nessuna alternativa automatica trovata. Verifica manualmente con il cliente.</p>}
+        {alternatives[request.id]?.length === 0 && <p>Nessuna alternativa trovata. Verifica con il cliente senza promettere disponibilità.</p>}
         {alternatives[request.id]?.map(option => <button type="button" className="admin-button admin-button-secondary"
           key={`${option.booking_date}-${option.booking_time}`} disabled={busy || disabled}
           onClick={() => propose(request, `${option.booking_date} alle ${option.booking_time} per ${option.party_size} persone`)}>

@@ -4,7 +4,8 @@ import { normalizePhone } from './bookingValidation.js';
 
 export function onlineDopocenaWhatsAppUrl(request, decision, bookingId) {
   if (decision === 'accepted') {
-    return bookingWhatsAppConfirmationUrl({ ...request, id: bookingId, status: 'confirmed', tables: '' });
+    // Service context for the text only; the RPC and its payload stay unchanged.
+    return bookingWhatsAppConfirmationUrl({ ...request, id: bookingId, status: 'confirmed', tables: '', booking_type: 'dopocena' });
   }
   if (decision !== 'rejected') return null;
   const recipient = normalizePhone(request?.phone);
@@ -23,6 +24,11 @@ export async function loadOnlineDopocenaRequests(client) {
   if (error) failure(error);
   if (!Array.isArray(data)) throw new Error('Elenco richieste DOPOCENA non confermato.');
   return data;
+}
+
+export async function loadPendingOnlineDopocenaCount(client) {
+  const requests = await loadOnlineDopocenaRequests(client);
+  return requests.filter(request => request.status === 'pending').length;
 }
 
 export async function reviewOnlineDopocenaRequest(client, request, decision) {

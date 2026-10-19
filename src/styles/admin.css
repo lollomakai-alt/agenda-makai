@@ -4,14 +4,14 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
-@import "@radix-ui/colors/slate-dark.css";
-@import "@radix-ui/colors/slate-dark-alpha.css";
-@import "@radix-ui/colors/jade-dark.css";
-@import "@radix-ui/colors/jade-dark-alpha.css";
-@import "@radix-ui/colors/ruby-dark.css";
-@import "@radix-ui/colors/ruby-dark-alpha.css";
-@import "@radix-ui/colors/amber-dark.css";
-@import "@radix-ui/colors/amber-dark-alpha.css";
+@import "@radix-ui/colors/slate.css";
+@import "@radix-ui/colors/slate-alpha.css";
+@import "@radix-ui/colors/jade.css";
+@import "@radix-ui/colors/jade-alpha.css";
+@import "@radix-ui/colors/ruby.css";
+@import "@radix-ui/colors/ruby-alpha.css";
+@import "@radix-ui/colors/amber.css";
+@import "@radix-ui/colors/amber-alpha.css";
 
 @import "./admin-foundations.css";
 @import "./admin-calendar.css";
@@ -20,3 +20,8 @@
 @import "./admin-operations.css";
 @import "./admin-booking-drawer.css";
 @import "./admin-neon.css";
+@import "./admin-day-reference.css";
+
+@import "./admin-light.css";
+
+@import "./admin-appearance.css";

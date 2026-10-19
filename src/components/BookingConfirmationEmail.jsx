@@ -23,11 +23,11 @@ export default function BookingConfirmationEmail({ booking, rows = [], ready = f
     try {
       const result = await sendCommunication(supabase, booking.id);
       setFeedback({ error: result.status !== 'accepted', blocked: result.status !== 'failed',
-        message: result.status === 'accepted' ? 'Email accettata dal servizio.'
-          : result.status === 'unknown' ? 'Esito incerto: verifica su Resend prima di intervenire.'
-          : 'Invio fallito. Aggiorna il log prima di riprovare.' });
+        message: result.status === 'accepted' ? 'Email accettata dal provider. La consegna non è ancora verificata.'
+          : result.status === 'unknown' ? 'Esito dell’invio incerto. Verifica su Resend prima di riprovare: l’email potrebbe essere già stata accettata.'
+          : 'Invio fallito. Aggiorna il log prima di riprovare; nessuna consegna confermata.' });
     } catch (failure) {
-      setFeedback({ error: true, blocked: true, message: failure.message || 'Invio non confermato. Aggiorna il log e verifica su Resend.' });
+      setFeedback({ error: true, blocked: true, message: failure.message || 'Invio non confermato. Aggiorna il log e verifica su Resend prima di riprovare.' });
     } finally {
       inFlight.current = false;
       setSending(false);
@@ -40,7 +40,7 @@ export default function BookingConfirmationEmail({ booking, rows = [], ready = f
     <button type="button" className="admin-button admin-button-secondary" disabled={sending || busy || !ready || emailSendBlocked(booking, rows) || Boolean(feedback?.blocked)} onClick={send}>
       {sending ? 'Invio…' : 'Invia conferma email'}
     </button>
-    {blocked && !feedback && <p role="status">Email già gestita o invio da verificare. Consulta il log.</p>}
+    {blocked && !feedback && <p role="status">Invio già gestito o da verificare. Consulta il log: accettazione del provider e consegna sono esiti distinti.</p>}
     {feedback && <p className={`manual-booking-feedback${feedback.error ? ' is-error' : ''}`}
       role={feedback.error ? 'alert' : 'status'}>{feedback.message}</p>}
   </div>;

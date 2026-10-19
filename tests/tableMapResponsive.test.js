@@ -121,7 +121,21 @@ test('iPad and desktop keep both physical sides distinct without clipping or ove
     }
   }
   const css = readFileSync(new URL('../src/styles/admin-operations.css', import.meta.url), 'utf8');
-  assert.match(css, /@media screen and \(max-width: 700px\)/);
   assert.match(css, /@media screen and \(min-width: 701px\)/);
   assert.match(css, /floor-plan-selected-detail/);
+});
+
+test('joined map tables keep square units and double their width on portrait maps', () => {
+  const css = readFileSync(new URL('../src/styles/admin-operations.css', import.meta.url), 'utf8');
+  assert.match(css, /--table-square: clamp\(58px, 17cqw, 120px\);\s*width: var\(--table-square\); height: var\(--table-square\)/);
+  assert.match(css, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas \.table-map-item\[data-physical-count="2"\]\s*\{\s*width: calc\(2 \* var\(--table-square\)\);/);
+  assert.match(css, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas \.table-map-item\[data-physical-count="3"\]\s*\{\s*width: calc\(3 \* var\(--table-square\)\);/);
+});
+
+test('desktop reference map preserves double and triple widths for joined tables', () => {
+  const css = readFileSync(new URL('../src/styles/admin-day-reference.css', import.meta.url), 'utf8');
+  assert.match(css, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas \.table-map-item\[data-physical-count="2"\]\s*\{\s*width: calc\(2 \* clamp\(58px, 9cqw, 100px\)\);/);
+  assert.match(css, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas \.table-map-item\[data-physical-count="3"\]\s*\{\s*width: calc\(3 \* clamp\(58px, 9cqw, 100px\)\);/);
+  assert.match(css, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas \.table-map-item\[data-physical-count="2"\]\s*\{\s*width: calc\(2 \* clamp\(44px, 15cqw, 88px\)\);/);
+  assert.match(css, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas \.table-map-item\[data-physical-count="3"\]\s*\{\s*width: calc\(3 \* clamp\(44px, 15cqw, 88px\)\);/);
 });

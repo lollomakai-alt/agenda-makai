@@ -1,0 +1,161 @@
+/* Colori ad alto contrasto. L'ora automatica è Europe/Rome: giorno 07–19. */
+@media screen {
+  :root {
+    --ui-color-scheme: light;
+    --ui-bg: #faf7f0;
+    --ui-surface: #ffffff;
+    --ui-surface-soft: #f3f0e8;
+    --ui-hover: #eae8df;
+    --ui-text: #222b2c;
+    --ui-muted: #43585a;
+    --ui-disabled: #596b6d;
+    --ui-border: #b9c8c5;
+    --ui-border-strong: #967c75;
+    --ui-primary: #a94f38;
+    --ui-primary-hover: #873c2a;
+    --ui-on-primary: #ffffff;
+    --ui-selected-bg: #f5e4de;
+    --ui-selected-text: #703521;
+    --ui-success-bg: #edf4ec;
+    --ui-success-text: #355d3e;
+    --ui-success-border: #82a68b;
+    --ui-warning-bg: #fcf3df;
+    --ui-warning-text: #775516;
+    --ui-warning-border: #bc9a55;
+    --ui-danger-bg: #fbefef;
+    --ui-danger-text: #943f49;
+    --ui-danger-border: #c88e96;
+    --ui-overlay: rgb(30 40 42 / 32%);
+    --jade-9: var(--ui-success-border); --jade-11: var(--ui-success-text); --jade-a2: var(--ui-success-bg); --jade-a3: var(--ui-success-bg);
+    --ruby-9: var(--ui-danger-border); --ruby-11: var(--ui-danger-text); --ruby-a2: var(--ui-danger-bg); --ruby-a3: var(--ui-danger-bg);
+    --amber-9: var(--ui-warning-border); --amber-11: var(--ui-warning-text); --amber-a2: var(--ui-warning-bg); --amber-a3: var(--ui-warning-bg);
+  }
+  :root[data-agenda-theme="dark"] {
+    --ui-color-scheme: dark;
+    --ui-bg: #1d2326;
+    --ui-surface: #282f32;
+    --ui-surface-soft: #30393c;
+    --ui-hover: #3b474a;
+    --ui-text: #f5f0e5;
+    --ui-muted: #d4dfdd;
+    --ui-disabled: #bccbc9;
+    --ui-border: #687b7d;
+    --ui-border-strong: #b9a499;
+    --ui-primary: #e08a68;
+    --ui-primary-hover: #eda286;
+    --ui-on-primary: #342019;
+    --ui-selected-bg: #51382f;
+    --ui-selected-text: #ffe5da;
+    --ui-success-bg: #2a3b30;
+    --ui-success-text: #c1ddc4;
+    --ui-success-border: #73947a;
+    --ui-warning-bg: #423a29;
+    --ui-warning-text: #efdaa5;
+    --ui-warning-border: #b49b62;
+    --ui-danger-bg: #463135;
+    --ui-danger-text: #f0c1c7;
+    --ui-danger-border: #b9838a;
+    --ui-overlay: rgb(6 12 14 / 56%);
+  }
+  html, body, .admin-shell { background: var(--ui-bg); color: var(--ui-text); }
+  .admin-shell { --day-bg: var(--ui-bg); --day-surface: var(--ui-surface-soft); }
+  .admin-shell-day .booking-detail-drawer { --admin-panel: var(--ui-surface); --admin-panel-2: var(--ui-surface-soft); }
+  .admin-shell-day .agenda-create-compact,
+  .admin-shell-day .agenda-create-compact:not(:disabled):hover,
+  .admin-shell-private .notification-badge { color: var(--ui-on-primary); }
+  .admin-shell-private .notification-badge { background: var(--ui-primary); }
+  .appearance-control { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 13px; }
+  .appearance-options { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--ui-border); border-radius: 9px; background: var(--ui-surface); }
+  .admin-shell .appearance-options button { display: grid; place-items: center; width: 32px; min-width: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ui-muted); }
+  .admin-shell .appearance-options button:hover { background: var(--ui-hover); color: var(--ui-text); }
+  .admin-shell .appearance-options button[aria-pressed="true"] { background: var(--ui-selected-bg); color: var(--ui-selected-text); }
+  .appearance-options button:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+  .appearance-options svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .admin-shell .admin-header-actions .appearance-control { padding: 0 6px; }
+  .admin-shell-day .booking-card-compact .booking-card-name { font-size: 16px; }
+  .admin-shell-day .agenda-view-switch button { font-size: 11px; font-weight: 700; }
+  .admin-shell-day .agenda-create-text { font-size: 11px; }
+  .admin-shell-day .booking-reconfirmation-summary { font-size: 12px; }
+  .admin-shell-day .booking-detail-stat { font-size: 13px; }
+  .admin-shell-day .booking-detail-stat:first-child { font-size: 12px; }
+  .admin-shell-day .booking-detail-stat:first-child > span { white-space: nowrap; }
+  .admin-shell-day .booking-detail-stat small { font-size: 11px; }
+  @media (min-width: 1101px) {
+    .admin-shell-day .booking-card-compact .booking-card-name { font-size: 15px; }
+    .admin-shell-private .admin-header-actions { gap: 4px; }
+  }
+  @media (max-width: 1100px) {
+    .admin-shell .admin-header-actions .appearance-control { justify-content: space-between; min-height: 44px; padding: 6px 12px; border-top: 1px solid var(--ui-border); }
+    .admin-shell .appearance-options button { width: 40px; min-width: 40px; min-height: 40px; }
+  }
+}
+
+/* Scheda cliente: il recapito segue il nome ed è subito chiamabile. */
+@media screen {
+  .admin-shell-day .customer-card-contact { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell-day .customer-card-phone a { color: var(--ui-primary); font-weight: 700; text-underline-offset: 2px; }
+  .admin-shell-day .notification-panel-help { color: var(--ui-muted); font-size: 13px; }
+  .admin-shell-day .notification-item a { color: var(--ui-primary); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  .admin-shell-day .agenda-view-switch button[aria-pressed="true"],
+  .admin-shell-day .table-floor-plan .floor-plan-room-tabs button[aria-selected="true"],
+  .admin-shell-day .table-floor-plan .floor-plan-shifts button[aria-pressed="true"] { border-color: var(--ui-primary); }
+  .admin-shell-day :is(.agenda-view-switch button[aria-pressed="true"],
+    .table-floor-plan .floor-plan-room-tabs button[aria-selected="true"],
+    .table-floor-plan .floor-plan-shifts button[aria-pressed="true"]) { font-weight: 750; }
+  .admin-shell-day .agenda-sticky-summary strong { text-decoration: none; }
+  .admin-shell-day .agenda-sticky-summary .agenda-day-summary > strong:first-of-type {
+    text-decoration-line: underline;
+    text-decoration-color: var(--ui-success-text);
+    text-decoration-thickness: 3px;
+    text-underline-offset: 4px;
+  }
+  .admin-shell-day .agenda-sticky-summary[data-online-state="closed"] .agenda-day-summary > strong:first-of-type {
+    text-decoration-color: var(--ui-danger-text);
+  }
+  .admin-shell-day .agenda-online-toggle.is-open {
+    border-color: var(--ui-success-border);
+    background: var(--ui-success-bg);
+  }
+  .admin-shell-day .agenda-online-toggle.is-open > span[aria-live] strong {
+    color: var(--ui-success-text);
+  }
+  .admin-shell-day .agenda-online-toggle.is-closed {
+    border-color: var(--ui-danger-border);
+    background: var(--ui-danger-bg);
+  }
+  .admin-shell-day .agenda-online-toggle.is-closed > span[aria-live] strong {
+    color: var(--ui-danger-text);
+  }
+  .admin-shell-day .agenda-online-toggle.is-open .agenda-online-dot {
+    width: 9px;
+    height: 9px;
+    background: var(--ui-success-text);
+  }
+  .admin-shell-day .agenda-online-toggle.is-closed .agenda-online-dot {
+    width: 9px;
+    height: 9px;
+    background: var(--ui-danger-text);
+  }
+  .admin-shell .admin-calendar { --cal-open: #168447; --cal-closed: #c33250; }
+  :root[data-agenda-theme="dark"] .admin-shell .admin-calendar {
+    --cal-open: #50dc8c;
+    --cal-closed: #ff7189;
+  }
+  .admin-shell .admin-calendar .calendar-grid .cell-bar {
+    width: 32px;
+    height: 7px;
+    outline: 1px solid var(--cal-surface);
+  }
+  @media (max-width: 768px) {
+    .admin-shell .admin-calendar .calendar-grid .cell-bar { width: 27px; height: 6px; }
+  }
+}
+
+/* Il registro delle prenotazioni resta distinto dalla coda operativa. */
+@media screen {
+  .admin-shell-day .notification-history { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--ui-border); }
+  .admin-shell-day .notification-history h2 { margin-bottom: 4px; }
+  .admin-shell-day .notification-history ul { margin-top: 10px; }
+  .admin-shell-day .notification-history .notification-item { background: var(--ui-surface-soft); }
+  .admin-shell-day .notification-history .notification-item p + p { color: var(--ui-muted); font-size: 13px; }
+}

@@ -309,7 +309,7 @@ test(
         tree.find(
           node =>
             node.type === 'button' &&
-            node.props.children === name
+            node.props['aria-controls'] === (name === 'MAPPA' ? 'agenda-map' : 'agenda-list')
         );
 
       const online = tree =>
@@ -645,8 +645,8 @@ test(
 
           assert.equal(
             tree.find(node => node.type === 'a'
-              && node.props['aria-label']?.startsWith('Torna a oggi:')),
-            undefined
+              && node.props['aria-label']?.startsWith('Vai a oggi:')).props.href,
+            '/prenotazioni/giorno?date=2026-10-10'
           );
 
           switchTo(
@@ -788,7 +788,7 @@ test(
 
           const busyToday = tree.find(
             node => node.type === 'a'
-              && node.props['aria-label']?.startsWith('Torna a oggi:')
+              && node.props['aria-label']?.startsWith('Vai a oggi:')
           );
           let preventedToday = 0;
 
@@ -805,7 +805,7 @@ test(
 
           const today = tree.find(
             node => node.type === 'a'
-              && node.props['aria-label']?.startsWith('Torna a oggi:')
+              && node.props['aria-label']?.startsWith('Vai a oggi:')
           );
 
           assert.ok(today);
@@ -824,7 +824,7 @@ test(
           const tree = render();
 
           assert.deepEqual(
-            tree.find(node => node.props.className?.startsWith('agenda-unassigned-count'))?.props.children,
+            tree.find(node => node.props.className?.startsWith('agenda-unassigned-count'))?.props.children[1].props.children,
             [2, ' da assegnare']
           );
 
@@ -1012,10 +1012,10 @@ test(
             tree.some(
               node =>
                 node.type ===
-                  'span' &&
+                  'strong' &&
                 node.props
                   .children ===
-                  'Online chiuse'
+                  'Chiuse'
             )
           );
 
@@ -1045,10 +1045,10 @@ test(
             tree.some(
               node =>
                 node.type ===
-                  'span' &&
+                  'strong' &&
                 node.props
                   .children ===
-                  'Online aperte'
+                  'Aperte'
             )
           );
 

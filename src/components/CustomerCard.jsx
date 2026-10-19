@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { customerBookingSummary } from '../utils/customerBookings';
 import { bookingStatus, bookingStatusLabel } from '../utils/bookingStatus';
 import { bookingScheduledAt } from '../utils/bookingTime';
+import { bookingCallUrl } from '../utils/bookingCall';
 
 const dateFormat = new Intl.DateTimeFormat('it-IT', {
   timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short',
@@ -19,12 +20,14 @@ export default function CustomerCard({ booking, appointments, now }) {
   const profile = open ? customerBookingSummary(booking, appointments) : null;
   const contactRows = profile ? [booking, ...profile.bookings.filter(item => String(item.id) !== String(booking.id))] : [];
   const firstValue = field => contactRows.find(item => String(item[field] || '').trim())?.[field] || 'Non presente';
+  const phone = firstValue('phone');
+  const callUrl = bookingCallUrl(phone);
   return <details className="customer-card" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>Apri scheda cliente</summary>
     {open && <>
       <div className="customer-card-contact">
-        <p><strong>Nome:</strong> {firstValue('name')}</p>
-        <p><strong>Telefono:</strong> {firstValue('phone')}</p>
+        <p className="customer-card-name"><strong>Nome:</strong> {firstValue('name')}</p>
+        <p className="customer-card-phone"><strong>Telefono:</strong> {callUrl ? <a href={callUrl}>{phone}</a> : phone}</p>
         <p><strong>Email:</strong> {firstValue('email')}</p>
         <p><strong>Profilo:</strong> {booking.user_id ? 'Cliente registrato' : 'Cliente senza account'}</p>
       </div>

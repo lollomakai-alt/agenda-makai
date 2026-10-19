@@ -4,6 +4,9 @@ import AdminPushNotifications from "./components/AdminPushNotifications";
 import AdminAccess from "./components/AdminAccess";
 import MobileSection from "./components/MobileSection";
 import LogoutButton from "./components/LogoutButton";
+import AppearanceControl from "./components/AppearanceControl";
+import AfterDinnerRequestsNavLink from "./components/AfterDinnerRequestsNavLink";
+import useAgendaAppearance from "./hooks/useAgendaAppearance";
 import LoginPage from "./pages/LoginPage";
 import "./styles/admin.css";
 
@@ -12,6 +15,7 @@ const BookingsPage = lazy(() => import("./pages/BookingsPage"));
 const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage"));
 const MaintenanceSettingsPage = lazy(() => import("./pages/MaintenanceSettingsPage"));
+const AfterDinnerRequestsPage = lazy(() => import("./pages/AfterDinnerRequestsPage"));
 
 const routes = {
   "/attivita": { title: "Attività", Page: ActivityPage, restricted: true },
@@ -20,6 +24,7 @@ const routes = {
   "/prenotazioni": { title: "Calendario", Page: CalendarPage, restricted: true },
   "/prenotazioni/giorno": { title: "Giornata", Page: BookingsPage, restricted: true },
   "/manutenzione": { title: "Manutenzione sito", Page: MaintenanceSettingsPage, restricted: true },
+  "/richieste-dopocena": { title: "Richieste DOPOCENA", Page: AfterDinnerRequestsPage, restricted: true },
 };
 
 class ErrorBoundary extends Component {
@@ -42,6 +47,7 @@ function NotFound() {
 }
 
 export default function App() {
+  const { preference, changePreference } = useAgendaAppearance();
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   const route = routes[path];
   const restricted = Boolean(route?.restricted);
@@ -53,24 +59,35 @@ export default function App() {
   let page = <NotFound />;
   if (route) {
     const { Page } = route;
-    page = restricted ? <AdminAccess><AdminPushNotifications /><AdminNotifications /><Page /></AdminAccess> : <Page />;
+    page = <Page />;
   }
 
-  return <div className={`admin-shell${restricted ? " admin-shell-private" : ""}`}>
-    <header className="admin-header">
+  const isDayRoute = path === "/prenotazioni/giorno";
+  const hasBookingsHeader = path === "/prenotazioni" || isDayRoute;
+  const header = <header className="admin-header">
+    <div className="admin-brand-group">
       <a href={restricted ? "/prenotazioni" : "/"} className="admin-brand">Makai <span>Agenda</span></a>
-      {restricted && <MobileSection title="Menu" className="mobile-header-menu"><div className="admin-header-actions">
-        <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
-        <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
-        <a href="/manutenzione" aria-current={path === "/manutenzione" ? "page" : undefined}>Manutenzione sito</a>
-        <span className="admin-area-label">Area riservata</span>
-        <LogoutButton />
-      </div></MobileSection>}
-    </header>
-    <ErrorBoundary>
-      <Suspense fallback={<main className="booking-admin"><p aria-live="polite">Caricamento…</p></main>}>
-        {page}
-      </Suspense>
-    </ErrorBoundary>
+      {restricted && <span className="admin-area-label">Area riservata</span>}
+    </div>
+    {restricted && <MobileSection title="Menu" className="mobile-header-menu"><div className="admin-header-actions">
+      <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
+      <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
+      <a href="/manutenzione" aria-current={path === "/manutenzione" ? "page" : undefined}>Manutenzione sito</a>
+      <AfterDinnerRequestsNavLink active={path === "/richieste-dopocena"} />
+      <AppearanceControl preference={preference} onChange={changePreference} />
+      <LogoutButton />
+    </div></MobileSection>}
+    {restricted && <AdminNotifications />}
+  </header>;
+  const content = <ErrorBoundary>
+    <Suspense fallback={<main className="booking-admin"><p aria-live="polite">Caricamento…</p></main>}>
+      {page}
+    </Suspense>
+  </ErrorBoundary>;
+
+  return <div className={`admin-shell${restricted ? " admin-shell-private" : ""}${hasBookingsHeader ? " admin-shell-bookings" : ""}${isDayRoute ? " admin-shell-day" : ""}`}>
+    {restricted
+      ? <AdminAccess>{header}<AdminPushNotifications />{content}</AdminAccess>
+      : <>{header}{content}</>}
   </div>;
 }

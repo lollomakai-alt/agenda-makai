@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { rankedMapAssignments, assignMapTable, tableMapForDate, tableBookingService } from '../utils/tableMap';
 import { floorPlanRooms, FLOOR_PLAN_STATUSES } from '../utils/tableFloorPlan';
-import { mobileTableRooms, mobilePhysicalRows, orderedMapChoices, landscapeTablePosition } from '../utils/tableMapPresentation';
+import { orderedMapChoices, landscapeTablePosition, portraitTablePosition } from '../utils/tableMapPresentation';
 import { bookingTypeLabel } from '../utils/bookingType';
 import { bookingStatus, bookingStatusLabel } from '../utils/bookingStatus';
 import { physicalTableIds, tableConfigurationError } from '../utils/tableConflicts';
@@ -18,8 +18,6 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [compactMap, setCompactMap] = useState(
-    typeof window !== 'undefined' && Boolean(window.matchMedia?.('(max-width: 700px)').matches));
   const pending = useRef(false);
   const detailRef = useRef(null);
   const headingRef = useRef(null);
@@ -41,20 +39,11 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
     !tableConfigurationError({ ...booking, tables: group }, appointments));
   const orderedChoices = orderedMapChoices(suggestions, booking?.party_size, booking?.tables?.trim());
   const recommendedGroup = orderedChoices[0]?.[0] || '';
-  const presentedRooms = compactMap ? mobileTableRooms(mapRooms, assignmentBooking ? assignmentMap : modeBookings,
-    assignmentBooking ? assignment || recommendedGroup : '') : mapRooms;
+  const presentedRooms = mapRooms;
   const visibleUnits = assignmentBooking ? presentedRooms.flatMap(room => room.units)
     : presentedRooms.find(room => room.name === activeRoom)?.units || [];
   const counts = Object.fromEntries(Object.keys(FLOOR_PLAN_STATUSES).map(status => [status, visibleUnits.filter(unit => unit.status === status).length]));
   const table = visibleUnits.find(item => item.physicalIds.includes(selected));
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const media = window.matchMedia('(max-width: 700px)');
-    const update = () => setCompactMap(media.matches);
-    update();
-    media.addEventListener?.('change', update);
-    return () => media.removeEventListener?.('change', update);
-  }, []);
   useEffect(() => {
     if (!assignmentBooking && selected !== null) {
       detailRef.current?.scrollIntoView({ block: 'nearest' });
@@ -154,23 +143,30 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
             onClick={onCreateBooking}>Nuova prenotazione</button>}</>}
     </div>;
   }
-  return <section className={`table-map table-floor-plan${assignmentBooking ? ' table-map-assignment' : ''}${compactMap ? ' is-compact-map' : ' is-wide-map'}`} aria-labelledby="table-map-title">
-    <div className="table-map-heading">
-      <div><h2 className={assignmentBooking ? 'admin-sr-only' : ''} id="table-map-title" ref={headingRef} tabIndex={-1}>{assignmentBooking ? "Assegna tavolo" : "Mappa tavoli"}</h2></div>
-      {!assignmentBooking && <p className="table-map-counts" aria-live="polite"><strong>{counts.free}</strong> {counts.free === 1 ? 'tavolo libero' : 'tavoli liberi'} · <strong>{counts.reserved}</strong> in arrivo · <strong>{counts.occupied}</strong> occupati</p>}
+  return <section className={`table-map table-floor-plan${assignmentBooking ? ' table-map-assignment' : ''} is-wide-map`} aria-labelledby="table-map-title">
+    <div className="floor-plan-panel-head">
+      <div className="table-map-heading">
+        <div><h2 className={assignmentBooking ? 'admin-sr-only' : ''} id="table-map-title" ref={headingRef} tabIndex={-1}>{assignmentBooking ? "Assegna tavolo" : "Mappa tavoli"}</h2></div>
+        {!assignmentBooking && <p className="table-map-counts" aria-live="polite"><strong>{counts.free}</strong> {counts.free === 1 ? 'tavolo libero' : 'tavoli liberi'} · <strong>{counts.reserved}</strong> in arrivo · <strong>{counts.occupied}</strong> occupati</p>}
+      </div>
+      {!assignmentBooking && <ul className="floor-plan-legend" aria-label="Stati della sala">{Object.entries(FLOOR_PLAN_STATUSES).map(([status, label]) =>
+        <li key={status} className={`is-${status}`}><span aria-hidden="true" />{label}</li>)}</ul>}
     </div>
     {assignmentBooking && <p className="assignment-selected-booking"><strong>{assignmentBooking.name}</strong> · {assignmentBooking.booking_time?.slice(0,5)} · {assignmentBooking.party_size} persone · {bookingTypeLabel(assignmentBooking.booking_type)} · {assignmentBooking.booking_date}
       {assignmentBooking.tables?.trim() && <span> · Tavolo attuale: {assignmentBooking.tables}</span>}</p>}
     {assignmentBooking && <button type="button" className="admin-button admin-button-secondary" disabled={saving} onClick={() => { if (!pending.current) onCancel?.(); }}>ANNULLA</button>}
-    {!assignmentBooking && <ul className="floor-plan-legend" aria-label="Stati della sala">{Object.entries(FLOOR_PLAN_STATUSES).map(([status, label]) =>
-      <li key={status} className={`is-${status}`}><span aria-hidden="true" />{label}</li>)}</ul>
-    }
     {!assignmentBooking && <div className="floor-plan-controls">
-      <div className="floor-plan-room-tabs" role="tablist" aria-label="Sale">
-        {['Sala Principale', 'Sala Nami'].map(room => <button key={room} id={`room-tab-${room === 'Sala Nami' ? 'nami' : 'principale'}`} type="button" role="tab" aria-controls={`room-panel-${room === 'Sala Nami' ? 'nami' : 'principale'}`} aria-selected={activeRoom === room} onClick={() => { setSelected(null); setActiveRoom(room); }}>{room.replace('Sala ', '')}</button>)}
+      <div className="floor-plan-control-group">
+        <span className="floor-plan-control-label">Sala:</span>
+        <div className="floor-plan-room-tabs" role="tablist" aria-label="Sale">
+          {['Sala Principale', 'Sala Nami'].map(room => <button key={room} id={`room-tab-${room === 'Sala Nami' ? 'nami' : 'principale'}`} type="button" role="tab" aria-controls={`room-panel-${room === 'Sala Nami' ? 'nami' : 'principale'}`} aria-selected={activeRoom === room} onClick={() => { setSelected(null); setActiveRoom(room); }}>{room.replace('Sala ', '')}</button>)}
+        </div>
       </div>
-      <div className="floor-plan-shifts" role="group" aria-label="Turno">
-        <span>Turno:</span>{[['cena', 'CENA'], ['dopocena', 'DOPOCENA'], ['live', 'LIVE']].map(([mode, label]) => <button key={mode} type="button" aria-pressed={activeMode === mode} onClick={() => { setSelected(null); setActiveMode(mode); }}>{label}</button>)}
+      <div className="floor-plan-control-group">
+        <span className="floor-plan-control-label">Servizio:</span>
+        <div className="floor-plan-shifts" role="group" aria-label="Servizio">
+          {[['cena', 'CENA'], ['dopocena', 'DOPOCENA'], ['live', 'LIVE']].map(([mode, label]) => <button key={mode} type="button" aria-pressed={activeMode === mode} onClick={() => { setSelected(null); setActiveMode(mode); }}>{label}</button>)}
+        </div>
       </div>
     </div>}
     {assignmentBooking && <div className="table-map-choices" aria-label="Soluzioni disponibili">
@@ -183,11 +179,9 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
         </button>)}</div>}
     </div>}
     <div className="table-map-rooms">
-      {presentedRooms.filter(room => assignmentBooking || room.name === activeRoom).map(room => <section key={room.name} id={`room-panel-${room.name === 'Sala Nami' ? 'nami' : 'principale'}`} aria-labelledby={!assignmentBooking ? `room-tab-${room.name === 'Sala Nami' ? 'nami' : 'principale'}` : undefined} className={`table-map-room${table && !compactMap ? ' has-detail' : ''}`} aria-label={room.name} role={!assignmentBooking ? 'tabpanel' : 'region'} tabIndex={0}>
-        <h3>{room.name}</h3><ul className={`floor-plan-canvas${room.name === 'Sala Nami' ? ' floor-plan-nami' : ''}`} aria-label={`${compactMap ? 'Tavoli' : 'Piantina'} ${room.name}`}>{room.units.flatMap(item => {
-          const physicalRow = compactMap ? mobilePhysicalRows(room).find(row => row.units.includes(item)) : null;
+      {presentedRooms.filter(room => assignmentBooking || room.name === activeRoom).map(room => <section key={room.name} id={`room-panel-${room.name === 'Sala Nami' ? 'nami' : 'principale'}`} aria-labelledby={!assignmentBooking ? `room-tab-${room.name === 'Sala Nami' ? 'nami' : 'principale'}` : undefined} className={`table-map-room${table ? ' has-detail' : ''}`} aria-label={room.name} role={!assignmentBooking ? 'tabpanel' : 'region'} tabIndex={0}>
+        <h3>{room.name}</h3><ul className={`floor-plan-canvas${room.name === 'Sala Nami' ? ' floor-plan-nami' : ''}`} aria-label={`Piantina ${room.name}`}>{room.units.flatMap(item => {
           const physicalCount = item.physicalIds.length;
-          const displayNumber = Math.min(...item.physicalIds.map(Number));
           const matchingSuggestions = suggestions.filter(([group]) =>
             item.physicalIds.every(id => physicalTableIds(group).includes(id))
           );
@@ -200,10 +194,11 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
           const isPartiallySelected = selectedCount > 0 && !isSelected;
           const isRecommended = assignmentBooking && item.group === recommendedGroup;
           const expanded = !assignmentBooking && item.physicalIds.includes(selected);
-          const landscape = compactMap ? null : landscapeTablePosition(item, room.name);
-          const style = compactMap ? undefined : { '--unit-x': `${item.x}%`, '--unit-y': `${item.y}%`, '--unit-width': `${item.width}%`, '--unit-height': `${item.height}%`, '--landscape-x': `${landscape.x}%`, '--landscape-y': `${landscape.y}%` };
-          return [physicalRow?.units[0] === item && <li key={`heading-${physicalRow.label}`} className="floor-plan-physical-heading">{physicalRow.label}</li>,
-          <li key={item.group} className={`floor-plan-unit${expanded ? ' is-expanded' : ''}${item.bookings.length && physicalCount > 1 ? ' is-assigned-group' : ''}`} style={style} data-physical-row={physicalRow?.label}>
+          const landscape = landscapeTablePosition(item, room.name);
+          const portrait = portraitTablePosition(item, room.name);
+          const style = { '--unit-x': `${item.x}%`, '--unit-y': `${item.y}%`, '--unit-width': `${item.width}%`, '--unit-height': `${item.height}%`, '--landscape-x': `${landscape.x}%`, '--landscape-y': `${landscape.y}%`, '--portrait-x': `${portrait.x}%`, '--portrait-y': `${portrait.y}%` };
+          return [
+          <li key={item.group} data-group={item.group} className={`floor-plan-unit${expanded ? ' is-expanded' : ''}${item.bookings.length && physicalCount > 1 ? ' is-assigned-group' : ''}`} style={style}>
           <button type="button" data-unit={item.group} className={`table-map-item service-${tableBookingService(serviceBookings)} is-${item.status}${canChoose ? ' is-available' : ''}${isRecommended ? ' is-recommended' : ''}${isSelected ? ' is-selected' : ''}${isPartiallySelected ? ' is-partially-selected' : ''}${assignmentBooking && !canChoose && !selectedCount ? ' is-unavailable' : ''}`} aria-pressed={isSelected} aria-expanded={!assignmentBooking ? expanded : undefined} aria-controls={!assignmentBooking ? 'table-map-detail' : undefined} disabled={saving || disabled || Boolean(assignmentBooking && !canChoose && !selectedCount)}
             data-physical-count={physicalCount}
             aria-label={`Tavolo ${item.group}: ${FLOOR_PLAN_STATUSES[item.status]}${isSelected ? ', selezionato' : isPartiallySelected ? ', parzialmente selezionato' : canChoose ? ', disponibile' : ', non disponibile'}${item.bookings.length ? `, ${item.bookings.map(linked => `${linked.booking_time?.slice(0,5) || ''} ${linked.name}, ${linked.party_size} persone`).join('; ')}` : ''}`}
@@ -215,7 +210,7 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
                 setSelected(previous => previous === item.physicalIds[0] ? null : item.physicalIds[0]); setAssignment(''); setError(''); setFeedback('');
               }
             }}>
-            <span className="floor-plan-unit-head"><span className="table-map-number"><strong>{displayNumber}</strong></span><strong className="floor-plan-list-group">Tavolo {item.group}</strong>{item.bookings.length > 0 && <small className="floor-plan-status-label">{item.status === 'reserved' ? (physicalCount === 1 ? 'ARR.' : 'IN ARRIVO') : (physicalCount === 1 ? 'OCC.' : 'OCCUPATO')}</small>}</span>
+            <span className="floor-plan-unit-head"><span className="table-map-number"><strong>{item.group}</strong></span><strong className="floor-plan-list-group">Tavolo {item.group}</strong>{item.bookings.length > 0 && <small className="floor-plan-status-label">{item.status === 'reserved' ? (physicalCount === 1 ? 'ARR.' : 'IN ARRIVO') : (physicalCount === 1 ? 'OCC.' : 'OCCUPATO')}</small>}</span>
             <span className="floor-plan-list-capacity">{item.capacity} posti</span>
             <span className="floor-plan-list-status">{FLOOR_PLAN_STATUSES[item.status]}</span>
             {isRecommended && <span className="table-map-recommended-label">Consigliato</span>}
@@ -223,10 +218,9 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
             {item.bookings.length > 0 ? <><small className="floor-plan-booking-name">{item.bookings[0].name}</small><small className="floor-plan-party-size">{item.bookings[0].party_size} pers.</small></>
               : <span className="table-map-state">LIBERO</span>}
           </button>
-          {compactMap && expanded && bookingPanel(item)}
         </li>];})}
         </ul>
-        {!compactMap && !assignmentBooking && table && bookingPanel(table)}
+        {!assignmentBooking && table && bookingPanel(table)}
       </section>)}
     </div>
     {assignmentBooking && <form onSubmit={save} className="table-map-assignment-bar" aria-label="Conferma assegnazione tavoli">

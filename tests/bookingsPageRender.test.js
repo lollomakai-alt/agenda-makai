@@ -536,14 +536,13 @@ test(
         React.createElement(App)
       );
 
-      assert.match(
-        shell,
-        /class="mobile-section mobile-header-menu"/
-      );
+      // The header is now behind AdminAccess: SSR must not expose private navigation.
+      assert.match(shell, /Verifica dell’accesso|Configura Supabase/);
+      assert.doesNotMatch(shell, /mobile-header-menu|notification-bell/);
 
       assert.doesNotMatch(shell, /admin-mobile-nav/);
 
-      assert.match(
+      assert.doesNotMatch(
         shell,
         /href="\/prenotazioni" aria-current="page">Agenda<\/a>/
       );
@@ -553,7 +552,7 @@ test(
         /href="\/lista-attesa"/
       );
 
-      assert.match(
+      assert.doesNotMatch(
         shell,
         /href="\/attivita">Attività<\/a>/
       );

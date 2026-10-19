@@ -1,7 +1,7 @@
 import { whatsappCommunicationUrl } from '../../supabase/functions/agenda-communications/messages.js';
 import { normalizePhone } from './bookingValidation.js';
 export { communicationMessage, whatsappCommunicationUrl } from '../../supabase/functions/agenda-communications/messages.js';
-export const COMMUNICATION_STATUSES = Object.freeze({ queued:'Da inviare',sending:'Invio in corso',accepted:'Accettata dal servizio email',failed:'Invio fallito',unknown:'Esito incerto: verificare',skipped:'Email assente o non valida',superseded:'Superata da un aggiornamento',opened:'Chat preparata: invio manuale' });
+export const COMMUNICATION_STATUSES = Object.freeze({ queued:'Email preparata · da inviare',sending:'Invio in corso · esito da verificare',accepted:'Accettata dal provider · consegna non verificata',failed:'Invio fallito · nessuna consegna confermata',unknown:'Invio incerto · verificare prima di riprovare',skipped:'Invio non disponibile · email assente o non valida',superseded:'Messaggio superato da un aggiornamento',opened:'Chat preparata · invio manuale, consegna non verificata',delivered:'Consegna confermata dal provider',delivery_delayed:'Consegna in ritardo secondo il provider',bounced:'Email respinta secondo il provider',complained:'Segnalazione del destinatario registrata dal provider' });
 async function communicationRequest(client, bookingId, suffix, body, request = globalThis.fetch) {
  if (!Number.isSafeInteger(bookingId) || bookingId < 1) throw new Error('Prenotazione non valida.');
  const { data: { session } = {}, error } = await client.auth.getSession();
@@ -22,7 +22,7 @@ async function communicationRequest(client, bookingId, suffix, body, request = g
 export async function loadCommunications(client, bookingId, request) {
  const result = await communicationRequest(client, bookingId, 'communications', undefined, request);
  if (!Array.isArray(result?.communications) || result.communications.some(row => String(row?.booking_id) !== String(bookingId))) {
-  throw new Error('Comunicazioni non confermate.');
+  throw new Error('Elenco comunicazioni non confermato. Aggiorna il log prima di intervenire.');
  }
  return result.communications;
 }
@@ -72,17 +72,17 @@ export async function openBookingWhatsApp(client, booking, confirmation = false,
   if (!confirmation) chat.location.href = whatsappCommunicationUrl(row);
  } catch (failure) {
   if (!confirmation) { chat.close(); throw failure; }
-  throw new Error('Chat WhatsApp aperta. Registrazione nel log non riuscita.');
+  throw new Error('Chat WhatsApp aperta: invio manuale richiesto. Registrazione nel log non riuscita; consegna non verificata.');
  }
 }
 
 export async function prepareEmailTemplate(client,bookingId,kind,proposal='',request) {
  const result=await communicationRequest(client,bookingId,'communications/prepare-template',{kind,proposal},request);
- if(!result?.communication?.id) throw new Error('Preparazione non confermata.');
+ if(!result?.communication?.id) throw new Error('Preparazione del messaggio non confermata. Aggiorna il log prima di riprovare.');
  return result.communication;
 }
 export async function sendEmailTemplate(client,bookingId,communicationId,request) {
  const result=await communicationRequest(client,bookingId,'send-template-email',{communication_id:communicationId},request);
- if(!['accepted','failed','unknown'].includes(result?.status)) throw new Error('Esito non confermato. Aggiorna il log.');
+ if(!['accepted','failed','unknown'].includes(result?.status)) throw new Error('Esito non confermato. Aggiorna il log prima di riprovare: non risulta una consegna verificata.');
  return result;
 }

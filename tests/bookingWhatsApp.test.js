@@ -22,11 +22,11 @@ test('prefilled confirmation is URL encoded, with assigned table only when prese
   assert.equal([...url.searchParams.keys()].length, 1);
   const text = url.searchParams.get('text');
   assert.match(text, /Ahoy Anna & Luca! 🏴‍☠️/);
-  assert.match(text, /rotta verso Makai Pigneto è confermata/);
+  assert.match(text, /La prenotazione al Makai è confermata/);
   assert.match(text, /15\/10\/2026/);assert.match(text, /20:30/);assert.match(text, /3 persone/);
-  assert.match(text, /L'equipaggio Makai ti aspetta/);
-  if (String(tables || '').trim() === '10+11') assert.match(text, /🪑 Tavolo 10\+11/);
-  else assert.doesNotMatch(text, /🪑|Tavolo/);
+  assert.match(text, /A presto a bordo! 🌴/);
+  if (String(tables || '').trim() === '10+11') assert.match(text, /🪑 Tavolo: 10\+11/);
+  else assert.doesNotMatch(text, /🪑|Tavolo:/);
  }
 });
 test('missing or invalid number never opens a window or writes a log', async () => {

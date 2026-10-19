@@ -49,7 +49,7 @@ test('confirmation email visibility, exact invocation, busy guard and feedback',
     assert.equal(render().find(node => node.type === 'button').props.disabled, true);
     resolveSend({ status: 'accepted' }); await pending;
     assert.equal(render().find(node => node.type === 'button').props.disabled, true);
-    assert.equal(render().find(node => node.props.role === 'status').props.children, 'Email accettata dal servizio.');
+    assert.equal(render().find(node => node.props.role === 'status').props.children, 'Email accettata dal provider. La consegna non è ancora verificata.');
     for (const result of [{ status: 'unknown' }, { status: 'failed' }]) {
       slots.length=0;
       const send = render().find(node => node.type === 'button').props.onClick();

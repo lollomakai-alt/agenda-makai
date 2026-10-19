@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentDayNotifications, loadAdminNotifications, markNotificationRead, notificationBookingUrl, notificationDayInRome, sortNotifications, unreadNotificationCount } from '../src/utils/adminNotifications.js';
+import { currentDayNotifications, isActionableNotification, loadAdminNotifications, markNotificationRead, notificationBookingUrl, notificationDayInRome, sortNotifications, unreadNotificationCount } from '../src/utils/adminNotifications.js';
 
 const rows = [
-  {id:'read',priority:'high',read_at:'2026-10-04T10:00:00Z',created_at:'2026-10-04T10:00:00Z'},
-  {id:'normal',priority:'normal',read_at:null,created_at:'2026-10-04T10:00:00Z'},
-  {id:'high',priority:'high',read_at:null,created_at:'2026-10-04T09:00:00Z'},
+  {id:'read',kind:'customer_request',priority:'high',read_at:'2026-10-04T10:00:00Z',created_at:'2026-10-04T10:00:00Z'},
+  {id:'normal',kind:'customer_request',priority:'normal',read_at:null,created_at:'2026-10-04T10:00:00Z'},
+  {id:'high',kind:'customer_request',priority:'high',read_at:null,created_at:'2026-10-04T09:00:00Z'},
 ];
 test('notifications are ordered newest first regardless of read status or priority', () => {
   const original = structuredClone(rows);
@@ -93,6 +93,11 @@ test('online notification opens the booking detail after automatic assignment', 
 test('pending DOPOCENA notification opens its service day without a booking ID', () => {
   assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-10-20'}),'/prenotazioni/giorno?date=2026-10-20');
   assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-02-30'}),null);
+});
+
+test('pending DOPOCENA requests are counted on their dedicated page, not in general notifications', () => {
+  assert.equal(isActionableNotification({kind:'dopocena_request'}),false);
+  assert.equal(isActionableNotification({kind:'customer_request'}),true);
 });
 
 test('informative customer changes remain visible after the event day', () => {

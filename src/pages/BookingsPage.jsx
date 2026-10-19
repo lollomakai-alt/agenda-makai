@@ -1,7 +1,6 @@
 import BookingOperationalControls from '../components/BookingOperationalControls';
 import { bookingScheduledAt } from '../utils/bookingTime';
 import BookingNoShowAction from '../components/BookingNoShowAction';
-import OnlineDopocenaRequests from '../components/OnlineDopocenaRequests';
 
 import { adminFetch } from "../lib/adminFetch";
 
@@ -80,10 +79,9 @@ function compactDayLabel(value) {
   return new Intl.DateTimeFormat(
     "it-IT",
     {
-      weekday: "short",
+      weekday: "long",
       day: "numeric",
       month: "short",
-      year: "numeric",
       timeZone: "Europe/Rome",
     }
   )
@@ -567,7 +565,7 @@ export default function BookingsPage() {
         );
 
         setCreateSuccess(
-          "Prenotazione dopocena aggiunta all’agenda."
+          "Prenotazione DOPOCENA registrata in Agenda. Verifica l’assegnazione del tavolo: la registrazione non garantisce un tavolo."
         );
 
         refreshAppointments();
@@ -655,7 +653,7 @@ export default function BookingsPage() {
       setCustomerSearch("");
 
       setCreateSuccess(
-        `Prenotazione aggiunta.${activityWarning}`
+        `Prenotazione registrata in Agenda.${activityWarning}`
       );
 
       refreshAppointments();
@@ -1269,34 +1267,6 @@ export default function BookingsPage() {
           className="booking-detail-overview"
           aria-label="Riepilogo prenotazione"
         >
-          <div className="booking-detail-overview-main">
-            <strong className="booking-detail-time">
-              {booking.booking_time.slice(
-                0,
-                5
-              )}
-            </strong>
-
-            <span>
-              {booking.party_size}{' '}
-              {booking.party_size === 1
-                ? 'persona'
-                : 'persone'}
-            </span>
-
-            <span
-              className={
-                `booking-status status-${bookingStatus(
-                  booking.status
-                )}`
-              }
-            >
-              {bookingStatusLabel(
-                booking.status
-              )}
-            </span>
-          </div>
-
           <div className="booking-detail-overview-secondary">
             <span>
               {dayLabel(
@@ -1308,17 +1278,52 @@ export default function BookingsPage() {
               ·
             </span>
 
-            <span className="booking-detail-table-label">
-              {String(
-                booking.tables || ''
-              ).trim()
-                ? `Tavolo ${booking.tables}`
-                : 'Senza tavolo'}
-            </span>
+            <strong className="booking-detail-time">
+              {booking.booking_time.slice(
+                0,
+                5
+              )}
+            </strong>
+          </div>
+
+          <div className="booking-detail-overview-main">
+            <div className="booking-detail-stat">
+              <span>
+                {booking.party_size}{' '}
+                {booking.party_size === 1
+                  ? 'persona'
+                  : 'persone'}
+              </span>
+            </div>
+
+            <div className="booking-detail-stat">
+              <span className="booking-detail-table-label">
+                {String(
+                  booking.tables || ''
+                ).trim()
+                  ? `Tavolo ${booking.tables}`
+                  : 'Senza tavolo'}
+              </span>
+              <small>{String(booking.tables || '').trim() ? 'Assegnato' : 'Da assegnare'}</small>
+            </div>
+
+            <div className="booking-detail-stat is-status">
+              <span
+                className={
+                  `booking-status status-${bookingStatus(
+                    booking.status
+                  )}`
+                }
+              >
+                {bookingStatusLabel(
+                  booking.status
+                )}
+              </span>
+            </div>
           </div>
         </section>}
 
-        {!editing && <BookingOperationalControls booking={booking} disabled={statusSavingId !== null || editingId !== null} onChanged={item => {applyUpdate(item);refreshAppointments();}} />}
+        {!editing && <BookingOperationalControls booking={booking} />}
         <div
           className="booking-primary-actions"
           aria-label="Azioni rapide prenotazione"
@@ -1505,10 +1510,9 @@ export default function BookingsPage() {
                 </p>
 
                 <small>
-                  Usa Comunicazioni
-                  e log per inviare
-                  l’email o aprire
-                  la chat WhatsApp.
+                  Anteprima del messaggio.
+                  Usa Comunicazioni e log per l’email;
+                  WhatsApp richiede l’invio manuale.
                 </small>
               </>
             )}
@@ -1604,7 +1608,7 @@ export default function BookingsPage() {
                       del cliente. Una
                       nuova registrazione
                       fa ripartire i
-                      24 mesi.
+                      12 mesi.
                     </p>
 
                     <label>
@@ -1803,25 +1807,18 @@ export default function BookingsPage() {
                 {compactDayLabel(date)}
               </span>
 
-              {date === today && (
-                <span className="agenda-today">
-                  Oggi
-                </span>
-              )}
             </a>
 
-            {date !== today && (
-              <a
-                className={`agenda-today-nav${dayNavigationBusy ? ' is-disabled' : ''}`}
-                href={dayHref(today)}
-                aria-label={`Torna a oggi: ${dayLabel(today)}`}
-                aria-disabled={dayNavigationBusy}
-                tabIndex={dayNavigationBusy ? -1 : undefined}
-                onClick={guardDayNavigation}
-              >
-                Oggi
-              </a>
-            )}
+            <a
+              className={`agenda-today-nav${dayNavigationBusy ? ' is-disabled' : ''}`}
+              href={dayHref(today)}
+              aria-label={`Vai a oggi: ${dayLabel(today)}`}
+              aria-disabled={dayNavigationBusy}
+              tabIndex={dayNavigationBusy ? -1 : undefined}
+              onClick={guardDayNavigation}
+            >
+              Oggi
+            </a>
 
             <a
               className={`agenda-day-nav${dayNavigationBusy ? ' is-disabled' : ''}`}
@@ -1838,6 +1835,13 @@ export default function BookingsPage() {
 
           <div
             className="agenda-sticky-summary"
+            data-online-state={
+              onlineClosed === null
+                ? 'unknown'
+                : onlineClosed
+                  ? 'closed'
+                  : 'open'
+            }
             aria-live="polite"
             aria-label="Riepilogo giornata"
           >
@@ -1856,7 +1860,7 @@ export default function BookingsPage() {
                       {bookings.length}
                     </strong>{' '}
                     <span className="agenda-bookings-label">
-                      pren.
+                      prenotazioni
                     </span>
                   </>
                 )
@@ -1909,11 +1913,14 @@ export default function BookingsPage() {
                 {closureSaving
                   ? 'Salvataggio…'
                   : onlineClosed === null
-                    ? 'Da verificare'
+                    ? <><span>online</span><strong>Da verificare</strong></>
                     : onlineClosed
-                      ? 'Online chiuse'
-                      : 'Online aperte'}
+                      ? <><span> online</span><strong>Chiuse</strong></>
+                      : <><span> online</span><strong>Aperte</strong></>}
               </span>
+              <svg className="agenda-online-chevron" aria-hidden="true" viewBox="0 0 20 20" focusable="false">
+                <path d="m5 7.5 5 5 5-5" />
+              </svg>
             </button>
 
             <span
@@ -1952,6 +1959,9 @@ export default function BookingsPage() {
                 selectView('list')
               }
             >
+              <svg className="agenda-view-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+              </svg>
               ELENCO
             </button>
 
@@ -1971,6 +1981,10 @@ export default function BookingsPage() {
                 selectView('map')
               }
             >
+              <svg className="agenda-view-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+                <path d="M9 3v15m6-12v15" />
+              </svg>
               MAPPA
             </button>
           </div>
@@ -2012,11 +2026,6 @@ export default function BookingsPage() {
         </div>
       </section>
 
-      {!assignmentBooking && <OnlineDopocenaRequests
-        disabled={viewBusy || loading || Boolean(appointmentsError)}
-        onChanged={refreshAppointments}
-      />}
-
       {closureError && (
         <p
           className="agenda-closure-error"
@@ -2040,11 +2049,9 @@ export default function BookingsPage() {
             </h2>
 
             <p>
-              La conferma email
-              e la chat WhatsApp
-              manuale sono
-              disponibili in
-              Comunicazioni e log.
+              Dopo il salvataggio, trovi le comunicazioni nella scheda.
+              Le email si inviano dal pulsante;
+              WhatsApp prepara una chat da inviare manualmente.
             </p>
           </div>
 
@@ -2396,9 +2403,9 @@ export default function BookingsPage() {
 
       {cancelWhatsAppOffer && (
         <div className="booking-status-feedback" role="status">
-          <span>{cancelWhatsAppOffer.name}: cancellazione registrata. Vuoi avvisare il cliente?</span>
+          <span>{cancelWhatsAppOffer.name}: cancellazione registrata. Puoi preparare WhatsApp e inviare il messaggio manualmente.</span>
           <button type="button" className="admin-button" disabled={statusSavingId !== null} onClick={openCancellationWhatsApp}>
-            Apri WhatsApp con messaggio di cancellazione
+            Prepara WhatsApp di cancellazione
           </button>
           {cancelWhatsAppError && <span role="alert">{cancelWhatsAppError}</span>}
         </div>
@@ -2418,7 +2425,7 @@ export default function BookingsPage() {
           className="manual-booking-feedback is-success"
           role="status"
         >
-          Modifiche salvate.
+          Modifiche alla prenotazione salvate. Verifica il log prima di inviare una comunicazione al cliente.
 
           {editFeedback.date
             !== date && (
@@ -2446,7 +2453,9 @@ export default function BookingsPage() {
       >
         {!loading && !error && (
           <p className={`agenda-unassigned-count${unassignedCount === 0 ? ' is-empty' : ''}`} role="status">
-            {unassignedCount} da assegnare
+            <span className="agenda-unassigned-icon" aria-hidden="true">!</span>
+            <span>{unassignedCount} da assegnare</span>
+            <span className="agenda-unassigned-chevron" aria-hidden="true">›</span>
           </p>
         )}
         {!loading
@@ -2549,7 +2558,7 @@ export default function BookingsPage() {
                             type="button"
                             className="booking-card-summary"
                             aria-label={
-                              `Prenotazione di ${booking.name}${unassigned ? ', tavolo da assegnare' : ''}`
+                              `Prenotazione di ${booking.name}, ${booking.party_size} persone${booking.tables ? `, tavolo ${booking.tables}` : ', tavolo da assegnare'}, stato ${bookingStatusLabel(booking.status)}`
                             }
                             aria-haspopup="dialog"
                             aria-controls="booking-detail-drawer"
@@ -2585,8 +2594,11 @@ export default function BookingsPage() {
                               ) : (
                                 <span className="booking-card-table is-unassigned">Tavolo da assegnare</span>
                               )}
-                              <span className={`booking-indicator is-status status-${bookingStatus(booking.status).toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
+                              <span className={`booking-indicator is-status booking-card-status status-${bookingStatus(booking.status).toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
                             </span>
+                            <svg className="booking-card-chevron" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                              <path d="m9 5 7 7-7 7" />
+                            </svg>
                           </button>
                           {(hasNotes || isDelayed || previousNoShows > 0) && <div className="booking-card-quick-actions" aria-label={`Indicatori ${booking.name}`}>
                             {hasNotes && <button type="button" className="booking-indicator is-note" onClick={() => openBookingDetail(booking)}>NOTE</button>}
@@ -2750,6 +2762,7 @@ export default function BookingsPage() {
           <aside
             id="booking-detail-drawer"
             className="booking-detail-drawer"
+            data-reconfirmation={detailBooking.reconfirmation_status}
             role="dialog"
             aria-modal="true"
             aria-labelledby="booking-detail-title"
@@ -2763,6 +2776,11 @@ export default function BookingsPage() {
                 <h2 id="booking-detail-title">
                   {detailBooking.name}
                 </h2>
+                {String(detailBooking.phone || '').trim() && (
+                  <span className="booking-detail-phone">
+                    {detailBooking.phone}
+                  </span>
+                )}
                 <span className="booking-detail-mode">
                   {editingId === detailBooking.id
                     ? 'Modifica'

@@ -99,3 +99,18 @@ export function landscapeTablePosition(unit, roomName) {
     y: positions.reduce((sum, position) => sum + position.y, 0) / positions.length,
   };
 }
+
+// Phone plan: match the portrait arrangement in the Makai floor-plan reference.
+// These are presentation coordinates only; physical table IDs and assignments stay unchanged.
+export function portraitTablePosition(unit, roomName) {
+  const positions = roomName === 'Sala Nami'
+    ? { 20: { x: 28, y: 72 }, 21: { x: 28, y: 30 }, 22: { x: 72, y: 22 }, 23: { x: 72, y: 50 }, 24: { x: 72, y: 78 } }
+    : { 10: { x: 12, y: 28 }, 11: { x: 30, y: 28 }, 12: { x: 50, y: 28 }, 13: { x: 70, y: 28 }, 14: { x: 88, y: 28 },
+      15: { x: 88, y: 72 }, 16: { x: 69, y: 72 }, 17: { x: 50, y: 72 }, 18: { x: 31, y: 72 }, 19: { x: 12, y: 72 } };
+  const members = sortedIds(unit.physicalIds).map(id => positions[Number(id)]).filter(Boolean);
+  if (!members.length) return { x: 50, y: 50 };
+  return {
+    x: members.reduce((sum, position) => sum + position.x, 0) / members.length,
+    y: members.reduce((sum, position) => sum + position.y, 0) / members.length,
+  };
+}

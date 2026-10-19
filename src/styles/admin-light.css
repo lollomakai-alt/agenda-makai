@@ -1,0 +1,266 @@
+/* Layout condiviso di Agenda; colori definiti dal tema giorno/sera. */
+@media screen {
+  :root {
+    color-scheme: var(--ui-color-scheme);
+    --slate-1: var(--ui-surface); --slate-2: var(--ui-surface); --slate-3: var(--ui-surface-soft);
+    --slate-4: var(--ui-surface-soft); --slate-5: var(--ui-border); --slate-6: var(--ui-border);
+    --slate-7: var(--ui-border); --slate-8: var(--ui-disabled); --slate-9: var(--ui-disabled);
+    --slate-10: var(--ui-muted); --slate-11: var(--ui-muted); --slate-12: var(--ui-text);
+    --slate-a2: rgb(35 50 65 / 3%); --slate-a3: rgb(35 50 65 / 5%);
+    --slate-a4: rgb(35 50 65 / 7%); --slate-a5: rgb(35 50 65 / 9%);
+    --slate-a8: rgb(35 50 65 / 18%); --slate-a9: rgb(35 50 65 / 30%);
+    --admin-accent: var(--ui-primary); --admin-accent-hover: var(--ui-selected-text);
+    --admin-accent-soft: var(--ui-selected-bg); --admin-accent-soft-strong: var(--ui-selected-bg);
+    --admin-accent-secondary: var(--ui-muted); --admin-accent-secondary-soft: var(--ui-surface-soft);
+    --admin-accent-secondary-text: var(--ui-selected-text); --admin-ink: var(--ui-on-primary);
+    --service-dinner-bg: var(--ui-success-bg); --service-dinner-border: var(--ui-success-border); --service-dinner-accent: var(--ui-success-text);
+    --service-after-bg: var(--ui-selected-bg); --service-after-border: var(--ui-border); --service-after-accent: var(--ui-selected-text);
+    --shadow-sm: none; --shadow: none; --shadow-lg: none; --sticky-shadow: none;
+    --shadow-focus: 0 0 0 2px var(--ui-border-strong);
+    --glow-jade: none; --glow-jade-active: none; --glow-ruby: none;
+    --glow-ruby-active: none; --glow-amber: none; --glow-amber-active: none;
+    --calendar-open-surface: var(--ui-success-bg); --calendar-closed-surface: var(--ui-danger-bg);
+  }
+  html, body, .admin-shell { background: var(--ui-surface); color: var(--ui-text); }
+  :where(.admin-shell, .admin-shell *) { box-shadow: none !important; text-shadow: none !important; }
+  .admin-shell button { transform: none !important; }
+  .admin-shell, .admin-shell-bookings {
+    --day-bg: var(--ui-surface); --day-surface: var(--ui-surface-soft); --day-border: var(--ui-border);
+    --day-text: var(--ui-text); --day-muted: var(--ui-muted); --day-cyan: var(--ui-primary);
+    --day-green: var(--ui-success-text); --day-blue: var(--ui-selected-text); --day-yellow: var(--ui-warning-text);
+  }
+  .admin-shell .admin-button, .admin-shell .admin-button-secondary {
+    border-color: var(--ui-border); background: var(--ui-surface-soft); color: var(--ui-text);
+  }
+  .admin-shell .admin-button:not(:disabled):hover { border-color: var(--ui-border-strong); background: var(--ui-surface-soft); color: var(--ui-selected-text); }
+  .admin-shell :is(input, select, textarea) { background: var(--ui-surface); color: var(--ui-text); border-color: var(--ui-border); }
+  .admin-shell :is(h1, h2, h3, h4) { text-shadow: none; }
+
+  /* Le tre zone dell'header hanno dimensioni stabili, anche con contatori a due cifre. */
+  .admin-shell .admin-header {
+    position: sticky; top: 0; min-height: 64px; height: 64px;
+    padding: 8px 16px; gap: 12px; flex-wrap: nowrap;
+    border-bottom: 1px solid var(--ui-border); background: var(--ui-surface);
+  }
+  .admin-shell .admin-brand {
+    margin-right: auto; padding: 0; color: var(--ui-text);
+    font-family: var(--font-family); font-size: 23px; line-height: 1.05; letter-spacing: -.025em;
+  }
+  .admin-shell .admin-brand span { color: var(--ui-muted); font-family: inherit; font-size: 12px; line-height: 1.3; border: 0; padding: 0; }
+  .admin-shell-private .admin-notifications {
+    position: relative; flex: 0 0 48px; width: 48px; min-width: 48px;
+    height: 40px; margin: 0; padding: 0; align-self: center;
+  }
+  .admin-shell-private .admin-notifications > .admin-button {
+    position: relative; inset: auto; display: flex; width: 48px; min-width: 48px;
+    height: 40px; min-height: 40px; padding: 7px; gap: 0; border-radius: 8px;
+    background: var(--ui-surface); border-color: var(--ui-border); color: var(--ui-muted);
+  }
+  .admin-shell-private .notification-bell { width: 21px; height: 21px; }
+  .admin-shell-private .admin-notifications > .admin-button:is(:hover, [aria-expanded="true"]) { background: var(--ui-selected-bg); color: var(--ui-text); border-color: var(--ui-border-strong); }
+  .admin-shell-private .notification-badge {
+    position: absolute; top: -5px; right: -5px;
+    display: grid; place-items: center; min-width: 18px; width: auto;
+    height: 18px; min-height: 18px; padding: 0 4px;
+    border: 2px solid var(--ui-surface); border-radius: 10px; background: var(--ui-primary); color: var(--ui-surface);
+    font-size: 10px; line-height: 1; letter-spacing: 0;
+  }
+  .admin-shell-private .mobile-header-menu { margin: 0; }
+  .admin-shell-private .mobile-header-menu > summary {
+    min-height: 40px; height: 40px; gap: 7px; padding: 6px 10px;
+    border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface);
+    color: var(--ui-text); font-size: 13px;
+  }
+  .admin-shell-private .mobile-header-menu > summary::before { font-size: 17px; color: var(--ui-muted); }
+  .admin-shell-private .mobile-header-menu .mobile-section-content,
+  .admin-shell-private .admin-notifications .notification-panel { background: var(--ui-surface); color: var(--ui-text); border-color: var(--ui-border); }
+  .admin-shell-private .admin-notifications .notification-panel { top: calc(100% + 12px); }
+
+  .admin-shell-day .bookings-day-page { padding-top: 10px; }
+  .admin-shell-day .agenda-sticky-header.agenda-heading {
+    top: 64px; gap: 10px; margin-bottom: 12px; padding-block: 10px;
+    background: var(--ui-surface); border-color: var(--ui-border);
+  }
+  .admin-shell-day .agenda-sticky-primary {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas: "date date" "summary online"; gap: 9px 8px;
+  }
+  .admin-shell-day .agenda-day-navigation { grid-template-columns: 32px minmax(0, 1fr) auto 32px; gap: 5px; }
+  .admin-shell-day :is(.agenda-day-nav, .agenda-today-nav, .agenda-sticky-date) { min-height: 34px; }
+  .admin-shell-day .agenda-day-nav { width: 32px; min-width: 32px; border-radius: 8px; font-size: 20px; }
+  .admin-shell-day .agenda-today-nav { min-width: 46px; padding: 0 8px; border-radius: 8px; font: 600 12px var(--font-family); }
+  .admin-shell-day .agenda-sticky-date { font-family: var(--font-family); font-size: clamp(16px, 4.5vw, 21px); letter-spacing: -.02em; }
+  .admin-shell-day .agenda-sticky-summary, .admin-shell-day .agenda-sticky-summary strong { font-size: 12px; }
+  .admin-shell-day .agenda-online-control { justify-self: end; width: max-content; min-width: 0; }
+  .admin-shell-day .agenda-online-toggle {
+    display: inline-flex; justify-content: center; align-items: center;
+    width: auto; min-width: 0; min-height: 34px; height: 34px;
+    padding: 5px 8px; gap: 6px; border-radius: 8px;
+    border-color: var(--ui-border); background: var(--ui-surface-soft); color: var(--ui-text); white-space: nowrap;
+  }
+  .admin-shell-day .agenda-online-toggle > span[aria-live] { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1; color: var(--ui-muted); }
+  .admin-shell-day .agenda-online-toggle > span[aria-live] strong { color: var(--ui-text); font-size: 11px; font-weight: 650; }
+  .admin-shell-day .agenda-online-dot { width: 6px; height: 6px; background: var(--ui-success-border); }
+  .admin-shell-day .agenda-online-toggle.is-closed .agenda-online-dot { background: var(--ui-disabled); }
+  .admin-shell-day .agenda-online-chevron { width: 12px; height: 12px; }
+  .admin-shell-day .agenda-sticky-secondary { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .admin-shell-day .agenda-view-switch { gap: 5px; }
+  .admin-shell-day .agenda-view-switch button, .admin-shell-day .agenda-create-compact {
+    min-height: 38px; padding: 6px 8px; gap: 5px; border-radius: 8px; font-size: 10px;
+  }
+  .admin-shell-day .agenda-view-icon { width: 14px; height: 14px; }
+  .admin-shell-day .agenda-view-switch button[aria-pressed="true"],
+  .admin-shell-day .agenda-view-switch button[aria-pressed="true"]:hover {
+    border-color: var(--ui-border-strong); background: var(--ui-selected-bg); color: var(--ui-selected-text); outline: none;
+  }
+  .admin-shell-day .agenda-create-compact, .admin-shell-day .agenda-create-compact:not(:disabled):hover {
+    border-color: var(--ui-primary); background: var(--ui-primary); color: var(--ui-surface);
+  }
+  .admin-shell-day .agenda-create-text { font-size: 10px; }
+  .admin-shell-day .agenda-create-compact > span[aria-hidden="true"] { font-size: 17px; }
+  .admin-shell-day :is(.agenda-day-nav, .agenda-today-nav):hover,
+  .admin-shell-day .agenda-view-switch button:hover { background: var(--ui-surface-soft); color: var(--ui-text); border-color: var(--ui-border-strong); }
+  .admin-shell-day .agenda-unassigned-count { min-height: 42px; margin-bottom: 12px; padding: 6px 10px; gap: 8px; grid-template-columns: 24px 1fr 16px; font-size: 13px; background: var(--ui-warning-bg); border-color: var(--ui-warning-border); color: var(--ui-warning-text); }
+  .admin-shell-day .agenda-unassigned-icon { width: 24px; height: 24px; font-size: 16px; background: var(--ui-warning-bg); color: var(--ui-warning-text); }
+  .admin-shell-day .agenda-unassigned-count.is-empty { display: none; }
+  .admin-shell-day .booking-row.booking-card-compact { background: var(--ui-surface); border-radius: 8px; border-left-width: 3px; }
+  .admin-shell-day .booking-row.booking-card-compact:hover { background: var(--ui-hover); }
+  .admin-shell-day .booking-card-compact .booking-card-name { font-family: var(--font-family); font-size: 15px; }
+  .admin-shell-day .booking-card-compact .booking-card-covers { font-size: 13px; }
+  .admin-shell-day .booking-time-heading { font-size: 15px; }
+  .admin-shell-day .booking-card-quick-actions .booking-indicator.is-note { background: var(--ui-selected-bg); border-color: var(--ui-border); color: var(--ui-selected-text); }
+  .admin-shell-day .booking-card-quick-actions .booking-indicator.is-noshow { background: var(--ui-danger-bg); border-color: var(--ui-danger-border); color: var(--ui-danger-text); }
+
+  /* Schede, menu e moduli mantengono le stesse superfici chiare. */
+  :root .admin-shell :is(.booking-detail-drawer, .booking-detail-drawer-header,
+    .booking-detail-management, .booking-requests, .booking-table-menu, .booking-contacts-menu,
+    .table-map, .table-map-detail, .floor-plan-selected-detail, .table-map-room,
+    .notification-item, .booking-admin-form, .booking-detail-edit-form) {
+    background: var(--ui-surface); color: var(--ui-text); border-color: var(--ui-border);
+  }
+  .admin-shell-day .booking-detail-drawer {
+    --admin-panel: var(--ui-surface); --admin-panel-2: var(--ui-surface-soft); --admin-border: var(--ui-border);
+    --admin-text: var(--ui-text); --admin-muted: var(--ui-muted);
+  }
+  .admin-shell-day .booking-detail-title-group h2 { color: var(--ui-text); }
+  .admin-shell-day .booking-detail-phone, .admin-shell-day .booking-detail-overview-secondary { color: var(--ui-muted); }
+  .admin-shell-day .booking-detail-time, .admin-shell-day .booking-detail-table-label { color: var(--ui-text); }
+  .admin-shell-day .booking-detail-stat { background: var(--ui-surface-soft); border-color: var(--ui-border); color: var(--ui-text); }
+  .admin-shell-day .booking-detail-stat small { color: var(--ui-muted); }
+  .admin-shell-day .booking-detail-stat .booking-status { background: transparent; color: inherit; }
+  .admin-shell-day .booking-reconfirmation-summary { color: var(--ui-muted); }
+  .admin-shell-day .booking-detail-drawer[data-reconfirmation="pending"] .booking-detail-operations { background: var(--ui-warning-bg); border: 0; }
+  .admin-shell-day .booking-detail-drawer[data-reconfirmation="pending"] .booking-reconfirmation-summary { color: var(--ui-warning-text); }
+  .admin-shell-day .booking-detail-drawer-header .booking-drawer-close,
+  .admin-shell-day .booking-primary-actions .booking-contacts-disclosure > summary,
+  .admin-shell-day .booking-primary-actions .booking-table-controls.is-compact > .booking-icon-action,
+  .admin-shell-day .booking-primary-actions .booking-primary-action-slot > .admin-button {
+    background: var(--ui-surface-soft); border-color: var(--ui-border); color: var(--ui-text);
+  }
+  .admin-shell-day .booking-primary-actions .booking-primary-action-slot.is-status > .booking-status-icon:not(:disabled) { background: var(--ui-success-bg); border-color: var(--ui-success-border); color: var(--ui-success-text); }
+  .admin-shell-day .booking-primary-actions .booking-primary-action-slot > .admin-button:hover:not(:disabled),
+  .admin-shell-day .booking-primary-actions .booking-contacts-disclosure > summary:hover { background: var(--ui-surface-soft); border-color: var(--ui-border-strong); color: var(--ui-selected-text); }
+  .admin-shell-day .booking-secondary-actions > .booking-action-danger { background: var(--ui-danger-bg); border-color: var(--ui-danger-border); color: var(--ui-danger-text); }
+  .admin-shell-day .booking-detail-notes { background: var(--ui-surface-soft); border-color: var(--ui-border); color: var(--ui-text); }
+  .admin-shell-day .booking-detail-drawer-header,
+  .admin-shell-day .booking-detail-content.is-viewing > .booking-detail-overview,
+  .admin-shell-day .booking-secondary-actions { border-color: var(--ui-border); }
+  .admin-shell-day .booking-detail-overlay { background: var(--ui-overlay); }
+
+  .table-floor-plan { padding: 12px; }
+  .table-floor-plan .floor-plan-panel-head { display: grid; gap: 8px; }
+  .table-floor-plan .table-map-heading h2 { font-size: 18px; }
+  .table-floor-plan .table-map-counts { margin: 3px 0 0; color: var(--ui-muted); font-size: 12px; }
+  .table-floor-plan .floor-plan-legend { min-height: 0; margin: 0; padding: 0; gap: 10px; font-size: 10px; }
+  .table-floor-plan .floor-plan-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0; padding: 8px 0; border-color: var(--ui-border); }
+  .table-floor-plan .floor-plan-control-group { display: flex; align-items: center; gap: 6px; padding: 0; }
+  .table-floor-plan .floor-plan-control-group + .floor-plan-control-group { padding: 0; border: 0; }
+  .table-floor-plan .floor-plan-control-label { min-width: 46px; color: var(--ui-muted); font-size: 11px; }
+  .table-floor-plan .floor-plan-room-tabs, .table-floor-plan .floor-plan-shifts { flex-wrap: nowrap; }
+  .table-floor-plan .floor-plan-room-tabs button, .table-floor-plan .floor-plan-shifts button { min-height: 32px; padding: 4px 7px; font-size: 10px; }
+  .table-floor-plan .table-map-room h3 { border-color: var(--ui-border); }
+  .table-floor-plan.is-wide-map .table-map-room .floor-plan-canvas { background: var(--ui-bg); border-color: var(--ui-border); }
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item.is-free { background: var(--ui-success-bg); border-color: var(--ui-success-border); color: var(--ui-success-text); }
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item.is-reserved { background: var(--ui-warning-bg); border-color: var(--ui-warning-border); color: var(--ui-warning-text); }
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item.is-occupied { background: var(--ui-danger-bg); border-color: var(--ui-danger-border); color: var(--ui-danger-text); }
+  .table-floor-plan .table-map-number > strong, .table-floor-plan .floor-plan-booking-name { color: inherit; }
+  .table-floor-plan .table-map-item:not([data-physical-count="1"]) .table-map-number > strong { font-size: 10px; overflow-wrap: anywhere; }
+  .table-floor-plan .floor-plan-room-tabs button, .table-floor-plan .floor-plan-shifts button { background: var(--ui-surface-soft); border-color: var(--ui-border); color: var(--ui-muted); }
+  .table-floor-plan .floor-plan-room-tabs button[aria-selected="true"], .table-floor-plan .floor-plan-shifts button[aria-pressed="true"] { background: var(--ui-selected-bg); border-color: var(--ui-border-strong); color: var(--ui-selected-text); border-radius: 8px; }
+  .table-map-assignment.is-wide-map .floor-plan-canvas .table-map-item.is-unavailable { background: var(--ui-surface-soft); border-color: var(--ui-border); color: var(--ui-disabled); }
+  .table-map-assignment.is-wide-map .floor-plan-canvas .table-map-item.is-selected { background: var(--ui-selected-bg); border-color: var(--ui-border-strong); color: var(--ui-selected-text); }
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item[aria-pressed="true"] { outline-color: var(--ui-border-strong); }
+  .booking-type-normale { color: var(--ui-success-text); }
+  .booking-type-dopocena { color: var(--ui-selected-text); }
+  .admin-shell .booking-status.status-arrived { color: var(--ui-success-text); background: var(--ui-success-bg); border-color: var(--ui-success-border); }
+
+  /* Desktop: barra in linea, righe operative e dettaglio laterale. */
+  @media (min-width: 1101px) {
+    .admin-shell-day .bookings-day-page { width: min(100%, 1280px); padding: 16px 24px 32px; }
+    .admin-shell-day .agenda-sticky-header.agenda-heading {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+      gap: 16px; margin-inline: -24px; padding: 12px 24px; margin-bottom: 20px;
+    }
+    .admin-shell-day .agenda-sticky-primary {
+      grid-template-columns: minmax(290px, 1fr) auto auto;
+      grid-template-areas: "date summary online"; gap: 12px;
+    }
+    .admin-shell-day .agenda-day-navigation { max-width: 390px; }
+    .admin-shell-day .agenda-sticky-date { font-size: 19px; }
+    .admin-shell-day .agenda-sticky-summary { white-space: nowrap; }
+    .admin-shell-day .agenda-sticky-secondary { grid-template-columns: 170px auto; }
+    .admin-shell-day .agenda-create-compact { padding-inline: 12px; }
+    .admin-shell-day .booking-time-groups { gap: 22px; }
+    .admin-shell-day .booking-row.booking-card-compact { min-height: 44px; }
+    .admin-shell-day .booking-card-compact .booking-card-summary,
+    .admin-shell-day .booking-card-compact .booking-card-summary:hover {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.4fr) max-content 20px;
+      grid-template-rows: auto; min-height: 44px; padding: 6px 12px; gap: 10px;
+    }
+    .admin-shell-day .booking-card-compact .booking-card-name { grid-column: 1; grid-row: 1; min-width: 0; font-size: 14px; }
+    .admin-shell-day .booking-card-compact .booking-card-meta {
+      grid-column: 2; grid-row: 1; display: grid; grid-template-columns: minmax(0, 1fr) max-content;
+      align-items: center; gap: 10px; min-width: 0; overflow: hidden;
+    }
+    .admin-shell-day .booking-card-compact .booking-card-table { grid-column: 1; grid-row: 1; display: block !important; min-width: 0 !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .admin-shell-day .booking-card-compact .booking-card-covers { grid-column: 3; grid-row: 1; min-width: 0; justify-self: end; font-size: 13px; }
+    .admin-shell-day .booking-card-compact .booking-card-status {
+      display: block !important; position: static !important; width: auto !important; height: auto !important;
+      min-width: 0 !important; max-width: 120px; overflow: hidden !important; clip-path: none !important; white-space: nowrap !important;
+      grid-column: 2; grid-row: 1; justify-self: end; padding: 0; border: 0; background: transparent; text-overflow: ellipsis;
+      color: var(--ui-muted); font-size: 12px; text-transform: none;
+    }
+    .admin-shell-day .booking-card-quick-actions { gap: 5px; padding: 0 12px 4px 23px; }
+    .admin-shell-day .booking-card-quick-actions .booking-indicator { min-height: 24px; padding: 2px 8px; font-size: 10px; }
+    .admin-shell-day .booking-card-chevron { grid-column: 4; grid-row: 1; justify-self: end; }
+    .admin-shell-day .booking-card-quick-actions { padding: 0 14px 8px; }
+    .admin-shell-day .booking-detail-drawer { width: 440px; max-height: 100dvh; border-radius: 0; }
+    .table-floor-plan .floor-plan-panel-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+    .table-floor-plan.is-wide-map .table-map-room .floor-plan-canvas { width: 100%; height: 420px; }
+    .table-floor-plan.is-wide-map .floor-plan-canvas > li { left: var(--portrait-x); top: var(--portrait-y); }
+    .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+    .table-floor-plan .floor-plan-unit-head { display: block; width: 100%; }
+    .table-floor-plan .floor-plan-status-label, .table-floor-plan .floor-plan-party-size { display: none; }
+    .table-floor-plan .floor-plan-booking-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1.2; }
+    .table-floor-plan.is-wide-map .table-map-room.has-detail { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; align-items: start; }
+    .table-floor-plan.is-wide-map .table-map-room.has-detail > h3 { grid-column: 1 / -1; }
+    .table-floor-plan.is-wide-map .table-map-room.has-detail > .floor-plan-canvas { grid-column: 1; }
+    .table-floor-plan.is-wide-map .table-map-room.has-detail > .floor-plan-selected-detail { grid-column: 2; margin: 0; max-height: 480px; }
+  }
+
+  @media (max-width: 1100px) {
+    .admin-shell-private .admin-header { display: grid; grid-template-columns: minmax(0, 1fr) 48px 78px; gap: 10px; }
+    .admin-shell-private .admin-brand-group { grid-column: 1; grid-row: 1; justify-self: start; }
+    .admin-shell-private .admin-brand { margin: 0; }
+    .admin-shell-private .admin-notifications { grid-column: 2; grid-row: 1; order: 0; }
+    .admin-shell-private .admin-header > .mobile-header-menu { grid-column: 3; grid-row: 1; order: 0; margin: 0; }
+    .admin-shell-private .mobile-header-menu > summary { display: flex; width: 78px; }
+    .admin-shell-private .mobile-header-menu .mobile-section-content { top: calc(100% + 10px); }
+    .admin-shell-private .admin-notifications .notification-panel { position: fixed; top: 70px; right: 12px; left: auto; bottom: auto; width: min(400px, calc(100vw - 24px)); max-height: calc(100dvh - 84px); }
+  }
+  @media (max-width: 600px) {
+    .admin-shell-private .admin-header { padding-inline: 12px; }
+    .admin-shell-private .mobile-header-menu .mobile-section-content { top: 64px; }
+    .admin-shell-day .booking-detail-drawer::before { background: var(--ui-disabled); }
+  }
+}

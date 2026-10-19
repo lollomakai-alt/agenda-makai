@@ -1,643 +1,310 @@
-import { useEffect, useState } from "react";
-
-import { bookingStatus } from "../utils/bookingStatus";
-
-import { useAppointments } from "../hooks/useAppointments";
-
+import { useEffect, useMemo, useState } from "react";
+import { adminFetch } from "../lib/adminFetch";
 import {
-
   calendarCells,
-
   dayLabel,
-
-  isMonth,
-
   monthLabel,
-
+  operationalDayInRome,
   shiftMonth,
-
   todayInRome,
-
 } from "../utils/calendar";
+import "../styles/admin-calendar.css";
 
-import { supabase } from "../lib/supabase";
+const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
-// Chiusura settimanale: lunedì. Le aperture straordinarie vanno gestite dalla fonte ufficiale.
+function isPastDate(date) {
+  return date < todayInRome();
+}
 
-const isMonday = (date) => new Date(`${date}T12:00:00Z`).getUTCDay() === 1;
+function isMonday(date) {
+  return new Date(`${date}T12:00:00Z`).getUTCDay() === 1;
+}
 
-const weekdays = [
+function isClosed(date, dayStats) {
+  if (dayStats && typeof dayStats.closed === "boolean") return dayStats.closed;
+  return isPastDate(date) || isMonday(date);
+}
 
-  "Lun",
+function getSearchParams() {
+  return new URLSearchParams(window.location.search);
+}
 
-  "Mar",
-
-  "Mer",
-
-  "Gio",
-
-  "Ven",
-
-  "Sab",
-
-  "Dom",
-
-];
-
-const COUNTED_STATUSES = new Set([
-
-  "confirmed",
-
-  "arrived",
-
-]);
+function updateUrl(params) {
+  const url = new URL(window.location.href);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined) {
+      url.searchParams.delete(key);
+    } else {
+      url.searchParams.set(key, value);
+    }
+  });
+  window.history.replaceState({}, "", url.toString());
+}
 
 export default function CalendarPage() {
+  const today = useMemo(() => todayInRome(), []);
+  const operationDay = useMemo(() => operationalDayInRome(), []);
 
-  const today = todayInRome();
-
-  const requested = new URLSearchParams(
-
-    window.location.search
-
-  ).get("month");
-
-  const month = isMonth(requested)
-
-    ? requested
-
-    : today.slice(0, 7);
-
-  const {
-
-    appointments,
-
-    loading,
-
-    error: failure,
-
-  } = useAppointments("all");
-
-  const [closedDates, setClosedDates] = useState(
-
-    new Set()
-
+  const requested = getSearchParams().get("month");
+  const [currentMonth, setCurrentMonth] = useState(
+    requested && /^\d{4}-\d{2}$/.test(requested) ? requested : today.slice(0, 7)
   );
 
-  const [
-
-    closuresLoading,
-
-    setClosuresLoading,
-
-  ] = useState(true);
-
-  const [
-
-    closuresError,
-
-    setClosuresError,
-
-  ] = useState("");
-
-  const error = failure?.message || "";
-
-  const previous = shiftMonth(month, -1);
-
-  const next = shiftMonth(month, 1);
+  const cells = useMemo(() => calendarCells(currentMonth), [currentMonth]);
+  const [daysByDate, setDaysByDate] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    setDaysByDate({});
+    setLoading(true);
+    setError('');
 
-    let active = true;
-
-    async function loadClosures() {
-
-      setClosuresLoading(true);
-
-      setClosuresError("");
-
-      if (!supabase) {
-
-        if (active) {
-
-          setClosedDates(new Set());
-
-          setClosuresError(
-
-            "Non riesco a verificare le chiusure online."
-
-          );
-
-          setClosuresLoading(false);
-
-        }
-
-        return;
-
-      }
-
-      const firstDay = `${month}-01`;
-
-      const nextMonth =
-
-        shiftMonth(month, 1);
-
-      if (!nextMonth) {
-
-        if (active) {
-
-          setClosedDates(new Set());
-
-          setClosuresError(
-
-            "Non riesco a calcolare il mese successivo."
-
-          );
-
-          setClosuresLoading(false);
-
-        }
-
-        return;
-
-      }
-
-      const nextFirstDay =
-
-        `${nextMonth}-01`;
-
-      const {
-
-        data,
-
-        error: closureFailure,
-
-      } = await supabase
-
-        .from("online_booking_closures")
-
-        .select("booking_date")
-
-        .gte("booking_date", firstDay)
-
-        .lt("booking_date", nextFirstDay);
-
-      if (!active) return;
-
-      if (closureFailure) {
-
-        setClosedDates(new Set());
-
-        setClosuresError(
-
-          "Non riesco a verificare le chiusure online."
-
+    async function loadAvailability() {
+      try {
+        const response = await adminFetch(
+          `/api/admin/bookings/month?month=${encodeURIComponent(currentMonth)}`,
+          { cache: "no-store" },
         );
 
-        setClosuresLoading(false);
+        if (!response.ok) {
+          throw new Error("Disponibilità CENA non disponibile.");
+        }
 
-        return;
+        const payload = await response.json();
+        if (!Array.isArray(payload.days)) throw new Error('Riepilogo del mese non valido.');
+        const days = payload.days;
+        const nextDaysByDate = Object.fromEntries(
+          days.map((day) => [day.date, day]),
+        );
 
+        if (!cancelled) setDaysByDate(nextDaysByDate);
+      } catch {
+        if (!cancelled) {
+          setDaysByDate({});
+          setError('Riepilogo del mese non disponibile. Ricarica la pagina per riprovare.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      setClosedDates(
-
-        new Set(
-
-          (data || [])
-
-            .map(row => row.booking_date)
-
-            .filter(Boolean)
-
-        )
-
-      );
-
-      setClosuresLoading(false);
-
     }
 
-    loadClosures();
+    void loadAvailability();
 
     return () => {
-
-      active = false;
-
+      cancelled = true;
     };
+  }, [currentMonth]);
 
-  }, [month]);
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const urlDay = getSearchParams().get("day");
+    if (urlDay && cells.includes(urlDay)) return urlDay;
+    if (cells.includes(operationDay)) return operationDay;
+    return cells.find(Boolean) || today;
+  });
 
-  const days =
+  useEffect(() => {
+    const urlDay = getSearchParams().get("day");
+    if (urlDay && cells.includes(urlDay) && urlDay !== selectedDay) {
+      setSelectedDay(urlDay);
+    }
+  }, [cells, selectedDay]);
 
-    loading || error
+  useEffect(() => {
+    if (!cells.includes(selectedDay)) {
+      const fallback = cells.includes(operationDay) ? operationDay : cells.find(Boolean) || today;
+      setSelectedDay(fallback);
+    }
+  }, [cells, selectedDay, operationDay, today]);
 
-      ? null
+  const selectedStats = daysByDate[selectedDay];
+  const selectedClosed = isClosed(selectedDay, selectedStats);
+  const selectedCovers = selectedStats && !loading && !error ? Number(selectedStats.covers) || 0 : '—';
+  const selectedAvailable = !loading && !error && selectedStats?.availability === 'available';
+  const selectedUnavailable = selectedClosed || ['full', 'closed', 'past'].includes(selectedStats?.availability);
+  const selectedAvailabilityLabel = selectedUnavailable ? 'CENA non disponibile'
+    : selectedAvailable ? 'Posti CENA disponibili' : 'Disponibilità CENA da verificare';
 
-      : appointments.reduce(
+  const handlePrevMonth = () => {
+    const prev = shiftMonth(currentMonth, -1);
+    if (prev) {
+      setCurrentMonth(prev);
+      updateUrl({ month: prev });
+    }
+  };
 
-          (result, booking) => {
+  const handleNextMonth = () => {
+    const next = shiftMonth(currentMonth, 1);
+    if (next) {
+      setCurrentMonth(next);
+      updateUrl({ month: next });
+    }
+  };
 
-            const status =
+  const handleToday = () => {
+    const m = today.slice(0, 7);
+    setCurrentMonth(m);
+    setSelectedDay(operationDay);
+    updateUrl({ month: m, day: operationDay });
+  };
 
-              bookingStatus(
+  const handleSelectDay = (date) => {
+    setSelectedDay(date);
+    updateUrl({ day: date });
+  };
 
-                booking.status
+  const openBookings = () => {
+    window.location.href = `/prenotazioni/giorno?date=${selectedDay}`;
+  };
 
-              );
-
-            if (
-
-              COUNTED_STATUSES.has(status)
-
-              && booking.booking_date
-
-                ?.startsWith(month)
-
-            ) {
-
-              const day =
-
-                result[
-
-                  booking.booking_date
-
-                ] ||= {
-
-                  covers: 0,
-
-                };
-
-              day.covers +=
-
-                Number(
-
-                  booking.party_size
-
-                ) || 0;
-
-            }
-
-            return result;
-
-          },
-
-          {}
-
-        );
-
-  const maxCovers = Math.max(
-
-    1,
-
-    ...Object.values(days || {}).map(day => day.covers)
-
-  );
-
-  return (
-
-    <main className="booking-admin calendar-page">
-
-      <div className="agenda-heading">
-
-        <div>
-
-          <p className="agenda-eyebrow">
-
-            Agenda prenotazioni
-
-          </p>
-
-          <h1>Calendario</h1>
-
-        </div>
-
-      </div>
-
-      <section
-
-        className="calendar-panel"
-
-        aria-label="Calendario mensile"
-
-      >
-
-        <div className="calendar-toolbar">
-
-          <div className="calendar-month-nav">
-
-            {previous && (
-
-              <a
-
-                className="admin-button calendar-arrow"
-
-                href={`?month=${previous}`}
-
+    return (
+    <main className="booking-admin admin-calendar-page" aria-busy={loading}>
+      {error && <p role="alert">{error}</p>}
+      <div className="admin-calendar">
+          <header className="calendar-header">
+            <div className="calendar-nav">
+              <button
+                type="button"
+                className="calendar-nav-btn"
+                onClick={handlePrevMonth}
                 aria-label="Mese precedente"
-
               >
-
-                ←
-
-              </a>
-
-            )}
-
-            <h2>
-
-              {monthLabel(month)}
-
-            </h2>
-
-            {next && (
-
-              <a
-
-                className="admin-button calendar-arrow"
-
-                href={`?month=${next}`}
-
-                aria-label="Mese successivo"
-
-              >
-
-                →
-
-              </a>
-
-            )}
-
-          </div>
-
-        </div>
-
-        {error && (
-
-          <div
-
-            className="calendar-error"
-
-            role="alert"
-
-          >
-
-            {error}
-
-          </div>
-
-        )}
-
-        {closuresError && (
-
-          <div
-
-            className="calendar-error"
-
-            role="alert"
-
-          >
-
-            {closuresError}
-
-          </div>
-
-        )}
-
-        <div
-
-          className="calendar-weekdays"
-
-          aria-hidden="true"
-
-        >
-
-          {weekdays.map(day => (
-
-            <span key={day}>
-
-              {day}
-
-            </span>
-
-          ))}
-
-        </div>
-
-        <div
-
-          className="calendar-grid"
-
-          aria-busy={
-
-            loading
-
-            || closuresLoading
-
-          }
-
-        >
-
-          {calendarCells(month).map(
-
-            (date, index) => {
-
-              if (!date) {
-
-                return (
-
-                  <div
-
-                    key={`blank-${index}`}
-
-                    className="calendar-blank"
-
-                    aria-hidden="true"
-
-                  />
-
-                );
-
-              }
-
-              const covers =
-
-                days
-
-                  ? days[date]
-
-                      ?.covers ?? 0
-
-                  : null;
-
-              const current =
-
-                date === today;
-
-              const past = date < today;
-
-              const closureKnown = !closuresLoading && !closuresError;
-
-              const weeklyClosed = isMonday(date);
-
-              const closed =
-
-                closureKnown && closedDates.has(date);
-
-              const className = [
-
-                "calendar-day",
-
-                current
-
-                  ? "is-today"
-
-                  : "",
-
-                weeklyClosed
-
-                  ? "is-weekly-closed"
-
-                  : past
-
-                    ? "is-past"
-
-                    : closureKnown
-
-                      ? closed
-
-                        ? "is-closed"
-
-                        : "is-open"
-
-                      : "is-unverified",
-
-                covers > 0 && !weeklyClosed
-
-                  ? "has-bookings"
-
-                  : "",
-
-              ]
-
-                .filter(Boolean)
-
-                .join(" ");
-
-              const coverLabel =
-
-                covers === null
-
-                  ? "coperti non disponibili"
-
-                  : `${covers} coperti`;
-
-              const onlineLabel =
-
-                weeklyClosed
-
-                  ? "lunedì, chiusura settimanale"
-
-                  : past
-
-                  ? "data passata"
-
-                  : !closureKnown
-
-                  ? "stato prenotazioni online da verificare"
-
-                  : closed
-
-                    ? "prenotazioni online chiuse"
-
-                    : "prenotazioni online aperte";
-
-              return (
-
-                <a
-
-                  key={date}
-
-                  href={`/prenotazioni/giorno?date=${date}`}
-
-                  className={
-
-                    className
-
-                  }
-
-                  style={covers > 0 ? {
-
-                    '--cover-intensity': `${Math.round(25 + 75 * covers / maxCovers)}%`,
-
-                  } : undefined}
-
-                  aria-current={
-
-                    current
-
-                      ? "date"
-
-                      : undefined
-
-                  }
-
-                  aria-label={`${dayLabel(date)}${current ? ", oggi" : ""}: ${coverLabel}, ${onlineLabel}`}
-
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
 
-                  <span className="calendar-day-number">
+              <h1 className="calendar-month">{monthLabel(currentMonth)}</h1>
 
-                    {Number(
+              <button
+                type="button"
+                className="calendar-nav-btn"
+                onClick={handleNextMonth}
+                aria-label="Mese successivo"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+            </div>
 
-                      date.slice(-2)
+            <p className="calendar-caption">Coperti per giorno</p>
+          </header>
 
-                    )}
+        <div className="calendar-grid">
+          {WEEKDAYS.map((name) => (
+            <div key={name} className="calendar-weekday">{name}</div>
+          ))}
+          {cells.map((date, index) => {
+            if (!date) return <div key={`empty-${index}`} className="calendar-cell empty" />;
 
-                  </span>
+            const dayStats = daysByDate[date];
+            const closed = isClosed(date, dayStats);
+            const covers = dayStats && !loading && !error ? Number(dayStats.covers) || 0 : '—';
+            const current = date === today;
+            const past = isPastDate(date);
+            const mondayClosed = new Date(`${date}T00:00:00Z`).getUTCDay() === 1;
+            const dinnerAvailability = dayStats?.availability;
+            let barStatus = "unverified";
+            let availabilityLabel = "disponibilità CENA non verificata";
 
-                  <span className="calendar-covers">
-
-                    <strong>
-
-                      {covers === null
-
-                        ? "—"
-
-                        : covers}
-
-                    </strong>
-
-                    <span>
-
-                      coperti
-
-                    </span>
-
-                  </span>
-
-                </a>
-
-              );
-
+            if (past) {
+              barStatus = "past";
+              availabilityLabel = "giorno passato";
+            } else if (mondayClosed) {
+              barStatus = "past";
+              availabilityLabel = "chiuso il lunedì";
+            } else if (dinnerAvailability === "available") {
+              barStatus = "open";
+              availabilityLabel = "posti CENA disponibili";
+            } else if (["full", "closed", "past"].includes(dinnerAvailability)) {
+              barStatus = "closed";
+              availabilityLabel = "CENA non disponibile";
             }
 
-          )}
+            const classes = [
+              "calendar-cell",
+              selectedDay === date && "selected",
+              current && "today",
+              closed && "closed",
+            ]
+              .filter(Boolean)
+              .join(" ");
 
+            return (
+              <button
+                key={date}
+                type="button"
+                className={classes}
+                onClick={() => handleSelectDay(date)}
+                aria-label={`${dayLabel(date)}${current ? ", oggi" : ""}: ${covers === '—' ? 'coperti da verificare' : `${covers} coperti`}, ${availabilityLabel}`}
+              >
+                <span className="cell-day-number">{Number(date.slice(8))}</span>
+                <span className={`cell-covers ${closed ? "closed" : "open"}`}>{covers}</span>
+                <span className={`cell-bar ${barStatus}`} />
+              </button>
+            );
+          })}
         </div>
 
-        <p className="calendar-hint">
+        <div className="calendar-legend">
+          <div className="legend-item">
+            <span className="legend-bar open" />
+            <span>Posti CENA disponibili</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-bar closed" />
+            <span>CENA non disponibile</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-bar past" />
+            <span>Passato / stato non verificato</span>
+          </div>
+        </div>
 
-          Seleziona un giorno per
-
-          aprire le prenotazioni.
-
-        </p>
-
-      </section>
-
+        <div className="calendar-day-summary">
+          <div className="day-summary-info">
+            <h3 className="day-summary-date">{dayLabel(selectedDay)}</h3>
+            <div className={`day-summary-state ${selectedUnavailable ? "closed" : selectedAvailable ? "open" : "unverified"}`}>
+              <span className="state-bar" />
+              <span>{selectedAvailabilityLabel}</span>
+            </div>
+            <div className="day-summary-covers">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <strong>{selectedCovers}</strong>
+              <span>coperti prenotati</span>
+            </div>
+          </div>
+          <div className="day-summary-action">
+            <button className="day-summary-btn" onClick={openBookings}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              <span>Vedi prenotazioni</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
-
   );
-
 }

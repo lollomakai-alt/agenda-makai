@@ -381,7 +381,6 @@
   .admin-header { min-height: 56px; padding: 8px 80px 8px 12px; gap: 10px; flex-wrap: nowrap; }
   .admin-brand { font-size: 1.05rem; gap: 5px; }
   .admin-brand span { font-size: .85rem; }
-  .admin-area-label { display: none; }
   .mobile-section { margin: 8px 0; }
   .mobile-section > summary { display: block; padding: 10px; min-height: 44px; box-sizing: border-box; cursor: pointer; border: 1px solid var(--admin-border); border-radius: 8px; font-weight: 600; }
   .mobile-section > summary::after { content: ' +'; }
@@ -492,9 +491,6 @@
   .booking-admin-form { gap: 12px; margin: 12px 0; padding: 12px; }
   .booking-admin-form label { gap: 6px; }
   .manual-booking-heading p { line-height: 1.45; }
-  .calendar-toolbar { gap: 12px; padding: 12px; }
-  .calendar-summary { gap: 4px; padding-bottom: 12px; }
-  .calendar-actions .admin-button { min-height: 44px; }
   .table-assignment-view .assignment-back {
     position: sticky; top: 68px; z-index: 10;
     margin: 0 0 12px; background: var(--admin-panel); box-shadow: var(--shadow-sm);
@@ -837,19 +833,42 @@
 
 /* Mappa a sale e turni: una sola pianta visibile per volta. */
 .table-floor-plan { padding: 10px 12px; }
-.table-floor-plan .table-map-heading { align-items: center; gap: 4px 12px; }
-.table-floor-plan .table-map-heading h2 { font-size: 18px; }
-.table-floor-plan .table-map-counts { margin: 0; font-size: 12px; }
-.table-floor-plan .floor-plan-legend { gap: 5px 12px; margin: 5px 0 7px; font-size: 10px; }
+.table-floor-plan {
+  padding: 20px; border: 1px solid #354457; border-radius: 24px;
+  background: linear-gradient(145deg, #151d26 0%, #10161d 100%);
+}
+.floor-plan-panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding-bottom: 14px; border-bottom: 1px solid #354457;
+}
+.table-floor-plan .table-map-heading { display: grid; align-items: start; gap: 4px; }
+.table-floor-plan .table-map-heading h2 { font-size: clamp(22px, 3.5vw, 34px); }
+.table-floor-plan .table-map-counts { margin: 0; font-size: clamp(14px, 1.8vw, 18px); }
+.table-floor-plan .floor-plan-legend { gap: 8px 16px; margin: 0; font-size: 13px; }
 .table-floor-plan .floor-plan-legend li { min-height: 20px; }
 .table-floor-plan .floor-plan-legend li > span { width: 9px; height: 9px; border: 0; border-radius: 50%; }
 .table-floor-plan .floor-plan-legend .is-free > span { background: var(--jade-9); }
 .table-floor-plan .floor-plan-legend .is-reserved > span { background: var(--amber-9); }
 .table-floor-plan .floor-plan-legend .is-occupied > span { background: var(--ruby-9); }
-.floor-plan-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.floor-plan-controls {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 12px 0; border-bottom: 1px solid #354457;
+}
+.floor-plan-control-group { display: flex; align-items: center; gap: 8px; }
+.floor-plan-control-group + .floor-plan-control-group { padding-left: 16px; border-left: 1px solid #354457; }
+.floor-plan-control-label { color: #b4c0d0; font-size: 13px; font-weight: 550; }
 .floor-plan-room-tabs, .floor-plan-shifts { display: flex; align-items: center; gap: 5px; }
-.floor-plan-room-tabs button, .floor-plan-shifts button { min-height: 44px; padding: 5px 12px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-panel); color: var(--admin-text); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; touch-action: manipulation; }
-.floor-plan-room-tabs button[aria-selected="true"], .floor-plan-shifts button[aria-pressed="true"] { border-color: var(--admin-accent); background: var(--admin-accent-soft); color: var(--admin-accent-hover); }
+.floor-plan-room-tabs button, .floor-plan-shifts button {
+  min-height: 32px; padding: 3px 8px; border: 1px solid #344657; border-radius: 7px;
+  background: #17212b; color: #aab8ca; font: inherit; font-size: 11px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+}
+.floor-plan-room-tabs button[aria-selected="true"], .floor-plan-shifts button[aria-pressed="true"] {
+  border: 2px solid #05d6e9; background: #082b31; color: #05d6e9;
+}
+.floor-plan-room-tabs button:focus-visible, .floor-plan-shifts button:focus-visible {
+  outline: 2px solid #05d6e9; outline-offset: 2px;
+}
 .floor-plan-shifts > span { margin-right: 2px; color: var(--admin-muted); font-size: 11px; font-weight: 600; }
 .table-floor-plan .table-map-rooms { margin-top: 4px; }
 .table-floor-plan .table-map-room { padding: 0; }
@@ -884,8 +903,15 @@
 .table-map-assignment .floor-plan-canvas .table-map-item.is-selected::after { content: "✓"; position: absolute; top: 2px; right: 3px; color: var(--admin-accent, #00e5ff); font-size: 12px; font-weight: 900; }
 @media screen and (max-width: 600px) {
   .table-floor-plan { padding: 8px; }
+  .floor-plan-panel-head { gap: 8px; }
+  .table-floor-plan .floor-plan-legend { flex-wrap: wrap; gap: 5px 10px; font-size: 11px; }
+  .floor-plan-controls { align-items: stretch; gap: 8px; }
+  .floor-plan-control-group { flex-wrap: wrap; gap: 5px; }
+  .floor-plan-control-group + .floor-plan-control-group { padding: 8px 0 0; border-top: 1px solid #354457; border-left: 0; }
+  .floor-plan-control-label { flex: 0 0 58px; font-size: 12px; }
+  .floor-plan-shifts { flex-wrap: wrap; }
   .table-floor-plan .floor-plan-room-tabs, .table-floor-plan .floor-plan-shifts { gap: 4px; }
-  .table-floor-plan .floor-plan-room-tabs button, .table-floor-plan .floor-plan-shifts button { min-height: 44px; padding-inline: 9px; }
+  .table-floor-plan .floor-plan-room-tabs button, .table-floor-plan .floor-plan-shifts button { min-height: 46px; padding-inline: 11px; border-radius: 10px; }
   .table-floor-plan .table-map-room .floor-plan-canvas { height: clamp(350px, 52vh, 410px); }
   .table-floor-plan .table-map-room .floor-plan-nami { height: 210px; }
   .table-floor-plan .table-map-number > strong { font-size: 17px; }
@@ -918,74 +944,6 @@
   .agenda-day-summary .agenda-online-toggle { padding-inline: 8px; }
 }
 
-/* =========================================================
-   Calendario · stato prenotazioni online chiuse
-   ========================================================= */
-
-.calendar-day.is-closed {
-  background:
-    linear-gradient(
-      180deg,
-      var(--admin-danger-bg) 0%,
-      var(--admin-panel) 100%
-    ),
-    var(--admin-panel);
-
-  color: var(--admin-text);
-}
-
-.calendar-day.is-closed .calendar-covers strong {
-  color: var(--admin-danger);
-}
-
-.calendar-closed-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  width: fit-content;
-  min-height: 22px;
-  padding: 2px 7px;
-
-  border: 1px solid var(--admin-danger-border);
-  border-radius: var(--radius-pill);
-
-  background: var(--admin-danger-bg);
-  color: var(--admin-danger);
-
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.calendar-day.is-closed.is-today::before {
-  border-color: var(--admin-accent);
-  border-width: 2px;
-}
-
-@media (hover: hover) {
-  .calendar-day.is-closed:hover {
-    background: var(--admin-danger-bg);
-    color: var(--admin-text);
-
-    box-shadow: var(--glow-ruby-active);
-  }
-}
-
-@media (max-width: 640px) {
-  .calendar-day.is-closed {
-    gap: 4px;
-  }
-
-  .calendar-closed-label {
-    min-height: 18px;
-    padding: 1px 5px;
-    font-size: 8px;
-    letter-spacing: 0.03em;
-  }
-}
 
 /* =========================================================
    Giornata operativa · testata sticky compatta
@@ -1458,51 +1416,62 @@
   }
 }
 
-@media screen and (max-width: 700px) {
-  .table-floor-plan.is-compact-map { min-width: 0; }
-  .table-floor-plan.is-compact-map .table-map-room .floor-plan-canvas,
-  .table-floor-plan.is-compact-map .table-map-room .floor-plan-nami {
-    display: flex; flex-direction: column; gap: 6px; width: 100%; height: auto; min-width: 0; margin: 0; padding: 0;
-    border: 0; background: transparent; container-type: normal;
+@media screen and (max-width: 1100px) {
+  .table-floor-plan { padding: clamp(12px, 2.4vw, 22px); }
+  .floor-plan-panel-head { align-items: flex-start; flex-wrap: wrap; }
+  .table-floor-plan .floor-plan-room-tabs button,
+  .table-floor-plan .floor-plan-shifts button {
+    min-height: 34px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 11px;
   }
-  .table-floor-plan.is-compact-map .floor-plan-canvas > .floor-plan-physical-heading {
-    display: block; min-height: 0; margin: 8px 0 0; padding: 3px 2px;
-    border-bottom: 1px solid var(--admin-border); color: var(--admin-muted);
-    font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  .table-floor-plan .floor-plan-legend { min-height: 36px; align-items: center; }
+  .floor-plan-controls { justify-content: flex-start; }
+  .floor-plan-room-tabs button, .floor-plan-shifts button { min-height: 32px; padding-inline: 7px; }
+  .table-floor-plan .floor-plan-room-tabs button,
+  .table-floor-plan .floor-plan-shifts button {
+    min-height: 34px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 11px;
   }
-  .table-floor-plan.is-compact-map .floor-plan-canvas > li {
-    position: static; display: block; width: 100%; height: auto; min-width: 0; transform: none;
+  .table-floor-plan.is-wide-map .table-map-room .floor-plan-canvas,
+  .table-floor-plan.is-wide-map .table-map-room .floor-plan-nami {
+    width: min(100%, 900px); height: auto; aspect-ratio: 1.07 / 1; container-type: inline-size;
   }
-  .table-floor-plan.is-compact-map .floor-plan-canvas .table-map-item {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "group status" "capacity status" "guests guests";
-    align-items: center; justify-items: start; gap: 2px 8px;
-    box-sizing: border-box; width: 100%; height: auto; min-height: 44px;
-    padding: 8px 10px; text-align: left; border-radius: 10px;
+  .table-floor-plan.is-wide-map .table-map-room .floor-plan-nami { aspect-ratio: 1.65 / 1; }
+  .table-floor-plan.is-wide-map .floor-plan-canvas > li {
+    left: var(--portrait-x); top: var(--portrait-y); width: max-content; height: auto;
+    transform: translate(-50%, -50%);
   }
-  .table-floor-plan.is-compact-map .floor-plan-unit-head { grid-area: group; justify-content: flex-start; }
-  .table-floor-plan.is-compact-map .table-map-number,
-  .table-floor-plan.is-compact-map .floor-plan-status-label,
-  .table-floor-plan.is-compact-map .floor-plan-booking-name,
-  .table-floor-plan.is-compact-map .floor-plan-party-size,
-  .table-floor-plan.is-compact-map .table-map-state { display: none; }
-  .table-floor-plan.is-compact-map .floor-plan-list-group { display: block; min-width: 0; font-size: 14px; }
-  .table-floor-plan.is-compact-map .floor-plan-unit.is-assigned-group .table-map-item { border-left-width: 5px; }
-  .table-floor-plan.is-compact-map .floor-plan-unit.is-assigned-group .floor-plan-list-group::after {
-    content: " · gruppo"; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  .table-floor-plan.is-wide-map .table-map-room .floor-plan-canvas {
+    overflow: hidden; border: 8px solid #47535f; border-radius: 5px;
+    outline: 1px solid #111820; outline-offset: -1px;
+    background: linear-gradient(180deg, #151b21 0%, #10151a 100%);
+    box-shadow: inset 0 0 0 3px #252d35, 0 8px 22px #0005;
   }
-  .table-floor-plan.is-compact-map .floor-plan-list-capacity { display: block; grid-area: capacity; font-size: 11px; opacity: .85; }
-  .table-floor-plan.is-compact-map .floor-plan-list-status { display: block; grid-area: status; font-size: 10px; font-weight: 700; white-space: nowrap; }
-  .table-floor-plan.is-compact-map .floor-plan-list-guests {
-    display: block; grid-area: guests; min-width: 0; max-width: 100%; font-size: 12px;
-    line-height: 1.25; white-space: normal; overflow-wrap: anywhere;
+  .table-floor-plan.is-wide-map .table-map-room .floor-plan-canvas::before {
+    position: absolute; inset: 7px; border: 2px solid #252d35; content: ""; pointer-events: none;
   }
-  .table-floor-plan.is-compact-map .table-map-item.is-recommended .table-map-recommended-label {
-    position: static; display: block; grid-area: guests; padding: 0;
-    color: var(--jade-11); font-size: 11px; font-weight: 800;
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item {
+    --table-square: clamp(58px, 17cqw, 120px);
+    width: var(--table-square); height: var(--table-square); min-width: 56px; min-height: 52px;
+    padding: 3px; gap: 2px; border-radius: 9px;
+    font-size: 9px; line-height: 1.1; box-shadow: 0 3px 8px #0007;
   }
-  .table-floor-plan.is-compact-map .floor-plan-selected-detail {
-    width: 100%; max-height: none; margin: 5px 0 7px; padding: 10px;
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item[data-physical-count="2"] {
+    width: calc(2 * var(--table-square));
   }
-  .table-floor-plan.is-compact-map .floor-plan-linked-booking { padding: 8px; }
+  .table-floor-plan.is-wide-map .floor-plan-canvas .table-map-item[data-physical-count="3"] {
+    width: calc(3 * var(--table-square));
+  }
+  .table-floor-plan.is-wide-map .table-map-number > strong { font-size: clamp(11px, 1.7cqw, 18px); }
+  .table-floor-plan.is-wide-map .floor-plan-booking-name { font-size: clamp(9px, 1.3cqw, 14px); font-weight: 650; }
+  .table-floor-plan.is-wide-map .floor-plan-party-size,
+  .table-floor-plan.is-wide-map .table-map-state,
+  .table-floor-plan.is-wide-map .floor-plan-status-label { display: none; }
+  .table-floor-plan.is-wide-map .table-map-room.has-detail > .floor-plan-selected-detail {
+    width: min(100%, 520px); max-height: none; margin: 8px auto 0;
+  }
 }

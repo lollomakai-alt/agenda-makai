@@ -35,18 +35,18 @@ export default function BookingCommunications({ booking, compact = false }) {
  const Container = compact ? "div" : "details";
  return <Container className={`booking-communications${compact ? " is-compact" : ""}`} onToggle={compact ? undefined : event=>setOpen(event.currentTarget.open)}>
   {!compact && <summary>Comunicazioni e log</summary>}
-  {!compact && <p>Le email si inviano dal pulsante. WhatsApp apre una chat pronta: invia il messaggio manualmente.</p>}
+  {!compact && <p>La ciurma risponde da qui: prepara l’email, poi usa il pulsante di invio. WhatsApp prepara una chat da inviare manualmente. Il log distingue preparazione, accettazione del provider e consegna verificata.</p>}
   {!compact && error && <p role="alert">{error}</p>}
   <div className="booking-communication-actions">
   <BookingConfirmationEmail key={`${booking.status}-${booking.email}-${booking.booking_date}-${booking.booking_time}-${booking.party_size}-${booking.tables}-${booking.name}-${resetRevision}`} booking={booking} rows={rows} ready={ready} busy={busy} onBusy={setEmailBusy} onSettled={()=>{setRetryAvailable(true);setRevision(n=>n+1);}} />
   {!compact && canSendConfirmationEmail(booking) && <button className="admin-button admin-button-secondary" disabled={busy||emailBusy||!ready} onClick={()=>action(async()=>{await prepareCommunication(supabase,booking.id,'email');})}>Prepara email</button>}{' '}
   {compact ? <BookingContacts booking={booking} busy={busy||emailBusy} onWhatsApp={()=>action(whatsapp)} /> :
-    <button className="admin-button booking-detail-primary" disabled={busy||emailBusy||!booking.phone} onClick={()=>action(whatsapp)}>WhatsApp ↗</button>}{' '}
+    <button className="admin-button booking-detail-primary" disabled={busy||emailBusy||!booking.phone} onClick={()=>action(whatsapp)}>Apri WhatsApp ↗</button>}{' '}
   {(!compact || rows.length>0 || error || retryAvailable) && <button className="admin-button admin-button-secondary" disabled={busy||emailBusy} onClick={()=>{setResetRevision(n=>n+1);setRevision(n=>n+1);}}>Aggiorna log</button>}
   </div>
   {!compact && <details><summary>Altre email operative</summary>
-   <label>Messaggio<select value={template} onChange={e=>setTemplate(e.target.value)}><option value="reconfirmation">Riconferma</option><option value="reminder">Reminder di domani</option><option value="delay">Ritardo</option><option value="alternative">Proposta alternativa</option><option value="cancelled">Cancellazione</option></select></label>
-   {template==='alternative' && <label>Alternativa<textarea maxLength={300} value={proposal} onChange={e=>setProposal(e.target.value)}/></label>}
+   <label>Messaggio<select value={template} onChange={e=>setTemplate(e.target.value)}><option value="reconfirmation">Richiesta di riconferma</option><option value="reminder">Promemoria prenotazione</option><option value="delay">Richiesta orario di arrivo</option><option value="alternative">Proposta alternativa</option><option value="cancelled">Cancellazione</option></select></label>
+   {template==='alternative' && <label>Alternativa da concordare<textarea maxLength={300} value={proposal} onChange={e=>setProposal(e.target.value)}/></label>}
    <button type="button" className="admin-button admin-button-secondary" disabled={busy||emailBusy||!ready} onClick={()=>action(()=>prepareEmailTemplate(supabase,booking.id,template,proposal))}>Prepara messaggio</button>
   </details>}
   <ul>{rows.filter(row=>!compact || row.channel==='email').map(row=><li key={row.id}>

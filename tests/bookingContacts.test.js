@@ -55,7 +55,7 @@ test('Contatti groups call and WhatsApp and hides unavailable actions', async ()
     const whatsapp = tree.find(
       node =>
         node.type === 'button'
-        && node.props['aria-label'] === 'WhatsApp'
+        && node.props['aria-label'] === 'Apri WhatsApp con messaggio precompilato: invio manuale'
     );
 
     assert.ok(tree.some(node => node.type === 'details'));
@@ -132,7 +132,7 @@ test('Contatti groups call and WhatsApp and hides unavailable actions', async ()
           node.type === 'button'
           && node.props[
             'aria-label'
-          ] === 'WhatsApp'
+          ] === 'Apri WhatsApp con messaggio precompilato: invio manuale'
       ).props.disabled,
       true
     );

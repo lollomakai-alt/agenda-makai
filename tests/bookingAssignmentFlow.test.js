@@ -141,8 +141,8 @@ test(
             node.type === 'button' &&
             node.props.className ===
               'booking-card-summary' &&
-            node.props['aria-label'] ===
-              'Prenotazione di Cliente'
+            node.props['aria-label']?.startsWith(
+              'Prenotazione di Cliente,')
         );
 
         assert.ok(
@@ -349,7 +349,7 @@ test(
         const mapButton = tree.find(
           node =>
             node.type === 'button' &&
-            node.props.children === 'MAPPA'
+            node.props['aria-controls'] === 'agenda-map'
         );
 
         assert.ok(mapButton);

@@ -1,290 +1,170 @@
-# Agenda Makai — Stato e attività
-_13 ottobre 2026; confrontati README e documenti Drive con decisioni successive._
+## Preparazione rilascio e riconferma — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** corretti i controlli della mappa che facevano riferimento alla vecchia disposizione; preparata `supabase/migrations/20261019132636_prepare_staff_reconfirmation.sql` per installare soltanto la funzione privata mancante. La richiesta manuale può essere ripetuta, mentre quella programmata ha una chiave unica per prenotazione e giorno; le email in coda con link superato vengono annullate.
+- **Evidenze:** suite Agenda 276/276 superata; build Vite 121 moduli e `git diff --check` superati. La migrazione è passata in un database SQL locale isolato. Nessuna nuova prova visuale desktop/iPhone in questo passaggio.
+- **DEPLOYATO:** dopo autorizzazione esplicita, applicata soltanto la migrazione mirata in Supabase Production, registrata dal servizio come `20261019132636_prepare_staff_reconfirmation`; il file locale è stato allineato a tale versione. Non applicate le altre migrazioni pendenti.
+- **VERIFICATO IN PRODUZIONE:** funzione privata installata, eseguibile da `service_role` e non da `authenticated`; sola verifica di metadati, senza leggere prenotazioni o dati cliente.
+- **DA FARE:** verificare i deploy applicativi e il percorso completo con un controllo concordato. `CRON_SECRET` è stato predisposto dall'utente sul progetto Vercel Backend e verificato come Secret Production. Il tentativo automatico di configurarlo era stato respinto dal controllo autorizzazioni e non è stato aggirato. Nessun invio email reale durante questa verifica.
 
-## Notifiche nuove prenotazioni online — 15 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** `admin_list_notifications()` ora include le prenotazioni online confermate future anche dopo l'assegnazione automatica del tavolo e usa un messaggio neutro. Il client mantiene visibili gli eventi online fino al giorno del servizio, anche se creati prima del giorno corrente. Le letture e archiviazioni restano personali per ADMIN; le prenotazioni future già esistenti ricompaiono nel feed. Lo storico resta fuori perimetro.
-- **File:** `src/utils/adminNotifications.js`, migrazione `supabase/migrations/20261015121705_online_booking_notification_visibility.sql` e rollback separato `supabase/online-booking-notification-visibility-rollback.sql`. Il nome locale è stato allineato alla versione UTC registrata da Supabase.
-- **Revisione locale successiva:** la migrazione modifica soltanto il predicato del tavolo e il messaggio nel corpo della funzione esistente; conserva integralmente gli altri tipi di notifica, i permessi e le registrazioni personali. Migrazione e rollback sono rieseguibili; entrambi rifiutano definizioni estranee a quella attesa. Il rollback ripristina la definizione originale esatta senza cancellare letture o archivi.
-- **Verifiche locali:** 13/13 test client/SQL mirati, inclusa applicazione e rollback su PGlite con la sola definizione della funzione letta da Production e dati sintetici. Coperti tavolo già assegnato o assegnato in seguito, prenotazioni future create in precedenza, permanenza dopo lettura, isolamento tra due ADMIN, archiviazione, RLS e rifiuto di modifiche successive. Build Vite 8.3.0 riuscita (115 moduli) con caricamento configurazione nativo e output temporaneo; il comando standard era stato bloccato dal sandbox scrivendo la cache Vite. Nessun browser o dispositivo aperto.
-- **Evidenza live e limiti:** riletta esclusivamente la definizione di `admin_list_notifications()` (MD5 `faff59599c266226f22b9e3609470a07`), senza prenotazioni o dati personali. Il Supabase CLI non è installato nel checkout; il file locale di migrazione era stato creato con timestamp corrente. Nessun SQL di scrittura live eseguito.
-- **DEPLOYATO database:** dopo autorizzazione esplicita dell'utente, applicata `20261015121705`. **VERIFICATO IN PRODUZIONE (database, sola lettura):** definizione nuova MD5 `6041b78168861a84cb251499bbf377c9`; inversione delle sole due sostituzioni restituisce l'hash originale `faff59599c266226f22b9e3609470a07`. `SECURITY INVOKER` e ACL invariati; conteggi prima/dopo: 218 prenotazioni, 50 letture, 0 archiviazioni. Il predicato corretto include 78 prenotazioni online confermate ancora future con tavolo. Nessun dato personale estratto, nessuna prenotazione o comunicazione creata.
-- **DEPLOYATO applicativo:** commit `66906d2232ca38a91f0e158cf7e03da7b929f327` pubblicato su `main`; Vercel ha riportato `success` per il relativo deploy. **VERIFICATO IN PRODUZIONE (HTTP e artefatto):** `/manutenzione` e `/assets/index-Q6BL9d5X.js` rispondono HTTP 200; il bundle servito contiene il filtro `online_booking` sulla data del servizio futura, coerente con la build locale. Advisor sicurezza prima/dopo invariati. Le modifiche preesistenti ad `AGENTS.md` e `package-lock.backup.json` sono escluse dal commit.
-- **DA FARE:** prova della campanella con account ADMIN reale a cura dell'utente. La UI autenticata non è stata aperta o verificata; le sole letture live non hanno marcato o archiviato notifiche. Lo storico delle notifiche resta una fase successiva.
-
-## Navigazione giornata e test UX — 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** `BookingsPage.jsx` mostra “Oggi” solo fuori dalla data corrente; il link conserva Elenco/Mappa e usa il blocco di navigazione attivo durante i salvataggi. Il target touch è 44×44 px tramite gli stili Agenda esistenti. In `agendaOperationalUx.test.js` il controllo filtro checkbox è stato sostituito dalla verifica del conteggio compatto e la query URL viene ripristinata con `try/finally`.
-- **Verifiche locali:** test Agenda UX 6/6; suite completa 225/229, con 4 fallimenti residui esclusivamente in `tests/tableFloorPlan.test.js`; build Vite 8.3.0 superata (111 moduli); `git diff --check` superato. Nessuna verifica browser/live svolta.
+## Fila tavoli 15–19 specchiata su iPhone — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** la fila orizzontale della Sala Principale è specchiata nella vista verticale: tavolo 15 a destra e 19 a sinistra. La posizione desktop landscape resta invariata; non cambia la disposizione fisica o l'assegnazione.
+- **File:** `src/utils/tableMapPresentation.js`, `tests/tableMapPresentation.test.js` e questo registro.
+- **Verifiche e limiti:** il test della sequenza specchiata passa. Nel file di test mirato resta un'asserzione preesistente fallita che si aspetta una vecchia forma di `TableMap.jsx` non modificata in questo intervento (3 test passati, 1 fallito). Build Vite e `git diff --check` superati; nessuna anteprima iPhone.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Registro — test logica piantina tavoli, 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** `src/utils/tableFloorPlan.js` aggrega nella visualizzazione le combinazioni fisiche realmente assegnate, incluse quelle associate a 2 e 3 coperti, e usa la capienza della configurazione del gruppo. `tests/tableFloorPlan.test.js` ora copre i 14 tavoli fisici, gruppi assegnati, configurazione valida 15–19 senza sovrapposizioni, rilascio esplicito tra CENA/DOPOCENA e nessun rilascio automatico col trascorrere del tempo. Rimosse da questo test le asserzioni geometriche obsolete sulle dimensioni touch; CSS e pulsanti non sono stati modificati.
-- **Verifiche al run precedente:** `node --test tests/tableFloorPlan.test.js` superato (4/4); build superata (111 moduli); `git diff --check` superato. `npm test` aveva riportato 223/229, con 6 errori nelle asserzioni UI di `tableFloorPlanUi.test.js`; corretti nel registro del 14 ottobre riportato in fondo.
-- **Limiti/perimetro:** nessuna modifica a disponibilità, assegnazioni automatiche, SQL o database. Nessuna verifica browser/dispositivo.
+## Altezza schede Giornata desktop — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** ripristinata la larghezza precedente della colonna; ridotta l'altezza della riga principale e degli indicatori NOTE/RITARDO/NO-SHOW. La griglia desktop tiene nome, dettagli tavolo/stato, coperti e freccia in colonne distinte; tavolo lungo con ellissi. La regola hover usa ora la stessa griglia desktop, evitando che torni al layout a tre colonne.
+- **File:** `src/styles/admin-light.css` e questo registro. Nessuna modifica alla logica o ai dati.
+- **Verifiche e limiti:** build Vite e `git diff --check` superati; nessuna anteprima desktop/iPhone in questo passaggio.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Verifica DOPOCENA — 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** `src/utils/afterDinnerBooking.js` ora accetta esclusivamente `22:30`, `23:00`, `23:30` e `00:00`; gli altri orari valorizzano `errors.time`. La creazione senza tavolo resta valida. Ripristinati anche i controlli di assegnazione configurata e capienza già attesi dal test (`99` rifiutato; tavolo 12 non compatibile con 3 coperti), senza interventi su SQL o database.
-- **Verifiche locali:** `node --test tests/afterDinnerBooking.test.js` 3/3; `npm test` 221/229, con 8 fallimenti preesistenti/estranei in test Agenda operativa e piantina; `npm run build` superata (Vite 8.3.0, 111 moduli). Nessun controllo live svolto.
+## Contrasto e accento temi — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** tema chiaro con accento terracotta profondo e tema scuro con terracotta più luminoso. Selettori, pulsanti principali e numero dei coperti nel riepilogo Giornata usano accenti coordinati. Il controllo online distingue aperto (verde) e chiuso (ambra). Nel Calendario le barrette sotto i coperti sono più larghe e spesse, con verde/rosa più saturi nei temi chiaro e scuro. Testo secondario e bordi restano ad alto contrasto; colori di stato dei tavoli invariati.
+- **File:** `src/styles/admin-appearance.css` e questo registro. Nessuna modifica alla logica o ai dati.
+- **Verifiche e limiti:** regole CSS ispezionate e `git diff --check` eseguito; nessun test, build o anteprima visuale desktop/iPhone in questo intervento.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Stato per livello di verifica (13 ottobre 2026)
-- **DA FARE:** verifiche elencate in questo documento, inclusi i bloccanti live e la verifica visuale su iPhone dei controlli compatti, delle righe, del drawer e della mappa a 320/375/390 px. Ultimo run suite completa registrato: 219/229; 10 fallimenti già presenti nel worktree modificato, ma non nel commit pulito, da risolvere separatamente.
-- **IMPLEMENTATO LOCALMENTE:** Step 1 della base grafica Minimal Cyberpunk, Step 4 della mappa e successiva ottimizzazione compatta mobile; build Vite completata. La geometria della mappa è coperta da test per viewport simulati, ma non è stata acquisita una verifica visuale browser.
-- **DEPLOYATO:** nessun deploy effettuato in questo intervento. Una Edge Function è indicata come distribuita in uno step precedente, non verificata nuovamente.
-- **VERIFICATO IN PRODUZIONE:** nessuna verifica di produzione svolta in questo intervento; la base grafica non è dichiarata verificata o pubblicata.
-
-## Migrazione incrementale booking — 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** preparato il solo file `supabase/migrations/20261013170000_booking_engine_incremental.sql`. Il preflight richiede le migrazioni live `separate_booking_turn_capacity_guard` e `table_group_13_14_3_and_22_23_4`, il catalogo 13+14=3/22+23=4, il guard 25 separato e i trigger di conflitto/lock. La migrazione aggiunge le funzioni di disponibilità mancanti, conserva le assegnazioni esistenti, consente gli override ADMIN e il cambio turno, e assegna DOPOCENA solo dopo liberazione esplicita con differenza di almeno 120 minuti. Le vecchie patch complete non devono essere eseguite in blocco.
-- **Evidenza live in sola lettura:** esportato il 13 ottobre lo schema `public`/`private` Supabase PostgreSQL 17.6 con policy e GRANT, senza dati; verificate presenti le due migrazioni e assenti `private.online_slot_status`, `private.online_table_candidates`, `private.service_capacity_for_type`, `private.dinner_physical_capacity` e le nuove RPC. `service_role` non ha ancora USAGE su `private`. Nessuna prenotazione live letta o modificata in questa prova.
-- **Verifica locale:** migrazione caricata su PostgreSQL 17 isolato dal dump live, con `auth.users`/`auth.jwt` simulati e privilegi `auth` replicati. Passano: preflight fallito con rollback integrale; ADMIN 23 persone su 22+23 e modifica oltre capienza; CENA 26 fisici/25 automatici; DOPOCENA 23+2, 00:00 e 27 manuali senza ulteriore online; handoff solo dopo RPC e non prima dei 120 minuti; cambio turno sullo stesso ID; `service_role` esegue `online_slot_status`; due connessioni PostgreSQL simultanee per CENA e DOPOCENA, un successo e un rifiuto `P0001` per turno; due assegnazioni ADMIN concorrenti sullo stesso tavolo, un successo e un conflitto `23505`. Test SQL mirati esistenti 6/6, build Agenda superata. Suite completa 219/229: i 10 fallimenti sono nei test DOPOCENA/UI/piantina già presenti nel worktree prima di questa migrazione; nessun codice frontend modificato qui. `git diff --check` senza errori sul tracciato; il file SQL nuovo non tracciato è controllato separatamente per whitespace.
-- **DA FARE:** prima dell'applicazione acquisire backup/punto di ripristino, ripetere il confronto schema e fermare i writer; applicare esclusivamente questa migrazione dopo autorizzazione separata, evitando `db push` che includerebbe vecchi file pendenti. Verificare dopo l'applicazione RPC, RLS/GRANT, API Sito, concorrenza e prenotazioni reali senza alterare record storici. I 10 test Agenda restano da risolvere separatamente. La copia locale contiene lo schema ma non i dati live: la prova non certifica il comportamento sui record reali.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** solo metadati/schema in lettura; le nuove funzioni e i flussi non sono sul live.
-
-## Allineamento catalogo Supabase — 13 ottobre 2026
-- **Regola corrente:** migration `table_group_13_14_3_and_22_23_4` (versione live letta in sola lettura `20261013141346`) definisce 13+14 come gruppo fisso indivisibile da 3; 22 e 23 restano unità separate da 2 oppure gruppo 22+23 da 4. Quest'ultimo è ammesso anche dal motore automatico se capienza, configurazione e conflitti fisici lo consentono.
-- La capienza fisica standard CENA ricalcolata dai gruppi fissi e da una configurazione valida 15–19 è **26**. È distinta dal limite automatico di **25 persone per servizio**: CENA e DOPOCENA contano separatamente. ADMIN può assegnare manualmente oltre capienza senza cambiare la capienza standard né liberare o spostare altre prenotazioni.
-- **IMPLEMENTATO LOCALMENTE:** catalogo React, planner SQL e mappa condividono i gruppi; il calcolo frontend distingue unità fisiche occupate da persone prenotate e ora riporta totale fisico 26 e quota residua automatica 25-per-servizio. `22+23` è un candidato automatico quando libero e compatibile. Le patch SQL locali aggiornate continuano a contare separatamente i turni.
-- **Verifiche di questo intervento (13 ottobre 2026):** suite mirata catalogo/capacità/mappa/RPC 43/43; `scripts/test-postgres-concurrency.py` superato su PostgreSQL 17 locale temporaneo, con due connessioni reali e nessuna tabella fisica condivisa; build Vite e `git diff --check` superati. Suite completa: 219/229, gli stessi 10 fallimenti già riportati nel registro precedente (test DOPOCENA e UI/piantina; nessun fallimento nei test mirati modificati). La suite genera anche un errore WebSocket `EPERM` nel test harness. Nessun SQL live, nessuna nuova migrazione duplicata, nessuna prenotazione modificata.
-- **DA FARE:** readiness completa dello schema live e della funzione `private.online_slot_status` per il Sito; prova aggiornata su PostgreSQL isolato/concorrenza e revisione ordinata delle patch prerequisito prima di ogni rilascio. La migrazione già applicata non va duplicata o sovrascritta.
-- **DEPLOYATO:** nessun rilascio effettuato in questo intervento. **VERIFICATO IN PRODUZIONE:** il catalogo della migrazione è stato letto in sola lettura nelle verifiche disponibili; flussi di disponibilità non verificati sul live in questo intervento.
-
-### DA FARE — assegnazione manuale ADMIN (aggiornamento documentale del 13 ottobre 2026)
-- **Stato distinto:** le modifiche frontend in `src/utils/tableMap.js` e `src/components/TableMap.jsx` sono **IMPLEMENTATE LOCALMENTE** secondo il registro sotto. La migrazione `supabase/admin-manual-booking-edits.sql` è preparata e provata solo in PGlite; il database non è ancora allineato. Le RPC live risultavano ancora non allineate all'ultima verifica documentata, non ripetuta in questo intervento.
-- **Readiness live DA FARE:** il Sito dipende da `private.online_slot_status`, assente nell'ultimo inventario live disponibile. Ripetere controllo read-only delle funzioni e verificare planner, trigger, RLS e grant dopo un rilascio autorizzato. Non duplicare né retrocedere la migrazione del catalogo già applicata.
-- **Verificato localmente:** oltre ai casi PGlite, lo script PostgreSQL 17 aggiornato a 13+14=3 è passato su un cluster temporaneo: due scritture concorrenti per l'ultimo posto CENA e per il 25º coperto DOPOCENA hanno avuto un vincitore ciascuna (`P0001` per l'altra), assegnazioni dello stesso tavolo un solo vincitore (`23505`), rilascio/nuova assegnazione serializzati, conteggi CENA 25 e DOPOCENA 25 indipendenti e zero conflitti fisici. Non è una prova sul database live.
-- **Regressione online e integrazione:** provare che inserimento e assegnazione automatica online conservino vincoli di capienza, slot e disponibilità e che l'eccezione del guard valga solo per l'operazione ADMIN. Ripetere i test pertinenti e la suite completa dopo l'allineamento, riesaminando i 21 fallimenti documentati; verificare poi il percorso UI→RPC e gli errori restituiti dal database in staging. Nessuna di queste verifiche è dichiarata completata da questo aggiornamento documentale.
-
-## Registro restyling — Step 1, 13 ottobre 2026
-- **Implementato localmente:** centralizzati in `src/styles/admin-foundations.css` i token neutrali, tipografici, di spaziatura, superfici, accenti, ombre e stampa. Palette principale: `#0B0F14`, `#151B23`, `#1C2530`, testo `#F1F5F9`/`#94A3B8`, cyan `#00E5FF`, viola `#9D4EDD` con variante testuale più chiara.
-- Riordinati gli import dei colori Radix una sola volta in `src/styles/admin.css`; rimossi gli import e la seconda definizione completa dei token da `admin-neon.css`.
-- Ridotti i glow a bordi/ombre leggere; focus cyan; primari cyan; accento viola limitato a gerarchia del brand; colori di stato jade/ruby/amber conservati. CENA resta verde scuro e DOPOCENA navy su card, badge e mappa.
-- Perimetro: solo `admin.css`, `admin-foundations.css`, `admin-neon.css` e questo documento. Nessun JSX, logica, package manifest, backend, database, Supabase o SQL modificati.
-- **Verifiche:** `npm run build` superata (Vite 8.3.0, 110 moduli); `git diff --check` superato. `npm test`: 171 passati, 37 falliti su 208. I fallimenti riportati riguardano regole booking/tavoli, flussi CENA/DOPOCENA e aspettative UI/map non allineate; non sono stati corretti in questo intervento CSS-only. La suite ha inoltre riportato un errore `EPERM` su WebSocket Vite durante test UI.
-- **Verifica visuale:** Vite è stato avviato localmente fuori dal sandbox, ma non era disponibile un browser controllabile per screenshot o prova iPhone. Nessuna resa visuale è quindi certificata. Il server locale è stato arrestato al termine.
-- **Non eseguiti:** commit, push, deploy e controlli di produzione.
-
-## Registro restyling mappa — Step 4, 13 ottobre 2026
-- **Implementato localmente:** `TableMap.jsx` mostra il numero fisico più basso, il nome cliente con ellissi CSS e i coperti prenotati. La capienza dell'unità non viene più mostrata come se fossero i coperti. Stato LIBERO resta visibile; prenotazioni in arrivo e tavoli occupati sono etichettati separatamente. I nomi e i coperti di tutte le prenotazioni collegate restano nell'etichetta accessibile.
-- La superficie di base ora è uguale per ogni unità nel viewport; le unità composte occupano esattamente 2× o 3× l'area, in base al numero di tavoli fisici e all'orientamento già espresso dalle coordinate (incluso 22+23 orizzontale). La misura non dipende dai coperti. Posizione e centro grafico continuano a derivare dalle coordinate correnti; tocchi e assegnazioni mantengono l'identificatore fisico completo.
-- Le unità occupate hanno bordo più marcato e focus visibile cyan; rimossi glow e ombre dalla mappa. CENA mantiene il verde scuro e DOPOCENA il navy per le unità prenotate/occupate. Aumentati a 44 px i controlli dei tab sala e turno.
-- **Perimetro:** `src/components/TableMap.jsx`, stili mappa in `src/styles/admin-operations.css` e `src/styles/admin-neon.css`, test UI/geometria in `tests/tableFloorPlanUi.test.js` e `tests/tableMapPresentation.test.js`, questo documento. Non sono stati modificati JSX non relativo alla mappa, coordinate/configurazioni fisiche, capienze, motore disponibilità, assegnazioni, backend, database, Supabase o SQL.
-- **Verifiche:** due test di presentazione superati e caso UI dei contenuti/numero della combinazione passato con filtro mirato. Il test geometrico verifica tutte e tre le configurazioni 15–19, le unità fisse 10+11, 12, 13+14, 20+21, 22 e 23 e la combinazione alternativa 22+23 a 320, 375 e 390 px: area proporzionale 1:2:3, nessuna sovrapposizione nel modello delle dimensioni CSS e target mappa almeno 44×44 px. `npm run build` superata (Vite 8.3.0, 110 moduli); `git diff --check` superato.
-- `npm test`: 175 passati e 35 falliti su 210. I fallimenti residui coprono test di flussi prenotazione/SQL/assegnazione e aspettative della piantina da riallineare; i test mirati di presentazione e geometria passano. Vedere il log temporaneo di esecuzione corrente, non versionato: `/private/tmp/agenda-map-full-test-final.log`.
-- **Verifica visuale:** server Vite locale avviato e poi arrestato. Nessuno screenshot: il sandbox ha inizialmente impedito il binding locale e il controllo UI non ha autorizzato Safari. Il controllo a 320/375/390 px è quindi una verifica geometrica automatizzata delle misure CSS, non una prova di rendering reale su iPhone/browser.
-- **Non eseguiti:** commit, push, deploy, modifiche live o verifiche di produzione.
-
-## Registro ottimizzazione compatta mobile — 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** rimossa la barra inferiore Agenda/Attività. Entrambe le destinazioni sono nel `Menu +` dell'header riservato, condiviso da Calendario, Giornata e Attività; il collegamento corrente è evidenziato. Ridotti i padding inferiori legati alla vecchia barra, riportato il pannello notifiche al margine inferiore sicuro e posto il drawer sopra gli altri pannelli fissi quando è aperto.
-- La testata della giornata usa navigazione data più compatta, ELENCO/MAPPA affiancati, filtri in una riga separata e `+` piccolo a destra. I controlli non usano grandi pillole; `white-space: nowrap` impedisce il ritorno a capo delle etichette. A 320 px l'ingombro è stato valutato tramite struttura CSS, senza misura browser.
-- Ogni prenotazione normale è resa su due righe visive: orario, nome troncabile e coperti; tavolo o «Senza tavolo» e stato. Rimossa l'intestazione oraria visibile ripetuta e la riga di azioni vuota; assegnazione, NOTE, RITARDO e avviso NO_SHOW restano accessibili quando presenti. L'apertura del dettaglio e le azioni operative restano collegate ai controlli preesistenti. CENA conserva il fondo verde scuro, DOPOCENA il navy.
-- La mappa ora rappresenta tutte le unità con base quadrata uniforme e gruppi sempre orizzontali di 2:1 e 3:1, anche quando le coordinate fisiche dei componenti sono disposte verticalmente. Il centro resta quello calcolato dalle coordinate esistenti; numero minimo, nome, coperti e stato sono mostrati con testo compatto e troncamento. Nessun cambio a combinazioni, capienze, coordinate o motore di disponibilità.
-- **Perimetro:** `src/App.jsx`, `src/pages/BookingsPage.jsx`, `src/components/TableMap.jsx`, `src/styles/admin-operations.css`, `src/styles/admin-neon.css`, test presentazionali in `tests/bookingsPageRender.test.js`, `tests/tableFloorPlanUi.test.js` e `tests/tableMapPresentation.test.js`, questo documento. Preservate le altre modifiche locali già presenti nel repository.
-- **Verifiche:** test geometrico mirato della mappa superato (2/2). Copre le tre configurazioni valide 15–19, le unità fisse e 22+23 a 320, 375, 390 e 1280 px nel modello delle misure CSS: rapporti 1:1, 2:1 e 3:1, aree proporzionali, nessuna sovrapposizione calcolata e target tavoli almeno 44×44 px. Il caso UI mirato di identificazione e contenuto tavoli è passato. `npm test`: 175 passati, 35 falliti su 210, stesso totale riportato prima di questo intervento; fra i fallimenti restano aspettative di assegnazione/SQL e il test aggregato di rendering che attende una raccomandazione tavolo assente nei dati correnti. Log temporaneo non versionato: `/private/tmp/agenda-compact-mobile-test-final.log`. `npm run build` e `git diff --check` superati.
-- **Limiti:** nessuno screenshot o controllo visivo reale su iPhone/browser: l'accesso dello strumento a Safari è stato negato. La disposizione dei controlli a 320/375/390 px, il troncamento dei nomi lunghi, l'assenza di scorrimento orizzontale e l'assenza di sovrapposizioni con drawer/notifiche richiedono ancora una verifica browser/dispositivo. Nessun commit, push, deploy o controllo di produzione eseguito.
-
-## Registro intervento documentale — 13 ottobre 2026
-- Aggiunto `AGENTS.md` con letture obbligatorie e collegamenti relativi ai documenti Agenda ed ecosistema.
-- Verificata la presenza dei documenti e delle istruzioni; codice, database e produzione non toccati.
-
-## Registro assegnazione manuale ADMIN — 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** preparata `supabase/admin-manual-booking-edits.sql` per aggiornare soltanto `public.admin_assign_booking_tables`, `public.admin_update_booking` e il guard delle prenotazioni online pendenti usato da questi due RPC. Il guard viene saltato solo durante l'aggiornamento ADMIN marcato; il percorso di inserimento online non imposta il flag e il motore online non è stato modificato.
-- Gli RPC richiedono claim `app_metadata.role=admin`, lock transazionale `734512`, blocco `FOR UPDATE`, snapshot `expected`, gruppi del catalogo, identificativi fisici univoci e assenza di altre prenotazioni attive sugli stessi tavoli nella stessa data. Il controllo fisico esplicito resta nel percorso RPC anche se un trigger successivo salta l'ottimizzazione manuale. Lo storico e gli errori trigger restano transazionali; nessun'altra prenotazione viene riassegnata.
-- Nota storica, superata dalla migrazione `table_group_13_14_3_and_22_23_4`: le capienze non sono un veto alle assegnazioni/modifiche manuali ADMIN. `party_size` resta un intero positivo rappresentabile dalla colonna SQL `integer`; il gruppo `22+23=4` ora è anche candidato automatico compatibile.
-- Aggiunto un selettore esplicito delle combinazioni in `TableMap.jsx` per i casi in cui il tocco sulla mappa corrisponde a più unità valide. Il selettore usa le stesse opzioni fisiche già filtrate dai conflitti e mostra l'avviso di sovracapienza senza bloccare conferma.
-- Aggiornati i test SQL/UI che presumevano un veto automatico di capienza; aggiunto `tests/adminManualBookingEditsSql.test.js` con sovracapienza, modifica coperti sopra 6, `13+14`, `22+23`, unità 22/23 distinte, combinazione non configurata, conflitto fisico, ruolo ADMIN e invariabilità delle altre prenotazioni.
-- **Verifiche locali isolate:** PGlite, nessun database live o prenotazione reale: test mirati finali 4/4 superati (`adminManualBookingEditsSql`, `manualAssignmentCapacitySql`, `tableMapSql`, `tableMapAssignment`). `npm run build` superata (Vite 8.3.0, 110 moduli); `git diff --check` superato.
-- **Suite completa:** 190 passati e 21 falliti su 211; l'ultima baseline documentata prima di questo intervento era 175 passati e 35 falliti su 210. Restano errori preesistenti fuori dalla migrazione (tra cui rendering/controlli Agenda, integrazione optimizer, mappa responsive e verifica di capacità locale); i log contengono inoltre `EPERM` del websocket Vite nel sandbox. Dettaglio corrente in `/private/tmp/agenda-admin-manual-suite-final.log`.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. La migrazione è preparata e verificata solo nel database PGlite isolato; non è stata applicata al database locale persistente o live. Nessuna prenotazione reale è stata modificata; nessun commit, push o deploy.
-
-## Architettura / UX
-- React/Vite autonoma; Supabase condiviso, frontend separato dal Sito.
-- **Realizzato localmente e testato in step precedenti:** vista elenco/mappa alternativa, data evidente, controllo online compatto, piantina touch e NO_SHOW rapido; test di alcune versioni 155/155 e 171/171. Non certifica deploy.
-- **Da verificare:** coordinate reali della mappa, resa iPhone fisico, responsive e facilità touch; drawer rapido, notifiche realtime e stampa/esportazione lista.
-
-## Tavoli e prenotazioni
-- Unità fisse aggiornate: 10+11 = 3; 12 = 2; **13+14 = 3 (gruppo fisso)**; 20+21 = 4; 22 = 2; 23 = 2. 22+23 = 4 è unità valida sia per ADMIN sia per l'automatico compatibile.
-- **Nota storica:** le righe successive redatte prima del 13 ottobre 2026 che descrivono 13+14=2, CENA=25 fisici o 22+23 solo manuale sono superate dalla migrazione `table_group_13_14_3_and_22_23_4`. La capienza fisica standard ora è 26; la quota automatica resta 25 per ciascun servizio.
-- Fila 15–19: A) 15+16+17=6 e 18+19=4; B) 15+16=4, 17=2, 18+19=4; C) 15+16=4, 17=2, 18=2, 19=2.
-- Online CENA 19:00–22:30 ogni 30 minuti; autoassegna per capienza: 1/2→2, 3→3 o 4, 4→4 (compreso 22+23), 5/6→6. DOPOCENA 22:30–00:00, quota automatica distinta di 25, inizialmente senza tavolo. Capienza fisica standard CENA 26; limite automatico 25 in entrambi i servizi.
-- CENA/DOPOCENA nella stessa lista/mappa, colori distinti (verde scuro/navy). Trasferimento tavolo DOPOCENA solo dopo liberazione esplicita, può essere prenotato prima delle 22:30 ma il cliente arriva non prima del proprio slot.
-- ADMIN manuale bypassa slot/chiusure/quota/capienza e può usare date passate; nessun ricalcolo delle altre prenotazioni. Test backend ADMIN 135/135 dichiarati il 13 ottobre.
-- **Conflitto documentale da decidere/testare:** precedente requisito di ottimizzazione multipla event-driven vs documento 12/10 che vieta spostamenti di altre prenotazioni in inserimenti/manuali e nuovi online. Priorità al contratto più recente fino a decisione esplicita.
-- **Da verificare:** vincolo unità indivisibili per 2 persone in assegnazione manuale (diverso dalle regole automatiche); cancellazioni/NO_SHOW e sblocco fisico.
-
-## Clienti e comunicazioni
-- Avviso ritardo dopo 15 minuti; NO_SHOW manuale dopo 30; storico cliente e avviso recidivi.
-- Richieste cliente tokenizzate: modifiche/cancellazioni proposte ma non applicate senza staff; riconferma tramite token; alternative.
-- Email: Edge `send-booking-email` già distribuita in uno step precedente; nuovo flusso completo accodamenti/reminder documentato solo localmente. WhatsApp precompilato, invio manuale.
-- **Da implementare/verificare:** scheduler reminder del giorno precedente, stati di riconferma, template per contesto in stile Makai, account staff con inviti/QR a token, recupero password, audit del ciclo vita token.
-- Notifiche: distinguere nuove/viste/gestite, ordinate nuove→vecchie, centro giornaliero con storico permanente; evitare notifiche per semplici modifiche amministrative. Nuovo documento segnala anche richieste pendenti da giorni precedenti: chiarire distinzione operativo corrente vs backlog.
-
-## Bloccanti prima del live
-- `complete-booking-system.sql` non applicato secondo documentazione 12/10.
-- Audit readiness NON PRONTA: ripetere verifiche su dati live, staging e concorrenza reale.
-- Validare RLS, GRANT/DELETE, `rls_auto_enable`, segreti, accesso ADMIN/MFA, realtime e test iPhone.
-- Non applicare indiscriminatamente vecchi SQL, né fare deploy impliciti.
-
-## Fonti
-- https://drive.google.com/file/d/1lPhqJkr1zC3_htfo_tgnjfBBd3n147X-/view
-- https://drive.google.com/file/d/1MWnObx2jP8p1AZkeO5z91o88INUISu4k/view
-- https://drive.google.com/file/d/1DDj0uXMYCfZthNpML1Hsg7Uv5OhWqIL3/view
-
-## Registro — card prenotazioni senza tavolo, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** in `src/pages/BookingsPage.jsx` il contatore dinamico usa `da assegnare`; le card senza tavolo non mostrano più `!` né il pulsante grande `DA ASSEGNARE` e riportano `Tavolo da assegnare`. Riepilogo card ancora cliccabile; il dettaglio conserva `BookingTableControls` e l'apertura della mappa di assegnazione. Nome, coperti, stato, avvisi ritardo e precedenti NO_SHOW restano accessibili.
-- **Stile:** `src/styles/admin-neon.css` rende l'etichetta di assegnazione giallo tenue, senza maiuscole forzate; le card mantengono raggio 14 px e l'altezza compatta delle card ordinarie senza avvisi. Restano colori CENA verde e DOPOCENA navy.
-- **Perimetro:** presentazione elenco, stili, test di rendering e questo documento. Nessuna modifica al motore/regole di assegnazione, alle prenotazioni, backend, Supabase o SQL.
-- **Verifiche locali:** `node --test tests/bookingsPageRender.test.js` superato (1/1); `npm run build` superata (Vite 8.3.0, 110 moduli); `git diff --check` superato.
-- **Verifica visuale locale:** browser integrato VS Code condiviso, pagina Agenda su localhost, emulazione mobile a 320, 375 e 390 px. Card assegnate e non assegnate leggibili, testi contenuti entro i bordi e nessuno scorrimento orizzontale visibile. Controllo limitato al rendering locale/emulato, non a un iPhone fisico né alla produzione.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy eseguito.
-
-## Registro — assegnazione manuale dalla mappa, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** `src/components/TableMap.jsx` ora permette di comporre e deselezionare unità toccando i tavoli; mostra la selezione corrente e un solo pulsante `CONFERMA`, disabilitato finché non è selezionato un gruppo completo disponibile. Rimosse le dropdown e le scorciatoie di scelta gruppo sia dalla vista di assegnazione sia dal dettaglio ordinario della mappa. Per una prenotazione già assegnata, la piantina espone le unità fisiche separate durante il cambio tavolo.
-- Le opzioni restano quelle fisiche restituite dai controlli frontend ADMIN esistenti: niente filtro di capienza automatica; le combinazioni non catalogate e i conflitti fisici vengono esclusi. Il salvataggio usa i coperti già registrati, non sposta altre prenotazioni e continua a mostrare gli errori restituiti dalla RPC. Nessun cambiamento al motore automatico online, alle RPC, SQL o Supabase.
-- **Test mirati:** `node --test tests/tableMapAssignment.test.js tests/tableFloorPlanUi.test.js tests/bookingsPageRender.test.js` superato: 8/8. Coprono selezione, deselezione, conferma, unità 22+23 anche componibile dai due tavoli singoli, 15+16+17, invalidità dei gruppi misti e conflitti prima/durante il salvataggio.
-- **Verifica visuale:** non completata: Computer Use non ha mostrato browser condivisi disponibili e l'accesso a Safari è stato negato dalla sessione. I test/rendering locali non sono prova visiva su browser o iPhone.
-- **DA FARE:** verificare la resa mobile nel browser condiviso/iPhone quando Computer Use è autorizzato. La migrazione SQL di assegnazione manuale già elencata sopra resta DA FARE; nessuna RPC è stata modificata o applicata in questo intervento.
+## Registro nuove prenotazioni online — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** pannello diviso in due blocchi: avvisi da gestire sopra e registro delle nuove prenotazioni online sotto. Registro limitato alle ultime 48 ore dalla creazione, ordinato dalla più recente; include i cambi di stato della prenotazione e non duplica sotto quelle collegate a un avviso ancora aperto. Nessun tasto di lettura/archiviazione nel registro.
+- **Accesso:** lettura dei soli campi necessari da public.bookings con sessione ADMIN e policy RLS esistente; nessuna nuova funzione SQL o modifica ai dati. Gli aggiornamenti arrivano dal realtime prenotazioni e dal rinnovo automatico ogni 30 secondi.
+- **File:** src/components/AdminNotifications.jsx, src/utils/adminNotifications.js, src/styles/admin-appearance.css e questo registro.
+- **Verifiche e limiti:** codice e policy locali ispezionati; nessuna query su dati reali, build, test o anteprima browser eseguiti. La prova visuale desktop/iPhone resta da fare.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Registro — barra Elenco/Mappa/Nuova prenotazione, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** in `src/pages/BookingsPage.jsx` il CTA mostra `+ Nuova prenotazione` mantenendo lo stesso handler che apre/chiude il modulo. In `src/styles/admin-neon.css` ELENCO/MAPPA restano affiancati a sinistra e il CTA è allineato a destra; la label non viene più nascosta su mobile, con testo/padding compatti e senza wrapping.
-- **Verifiche:** `node --test tests/bookingsPageRender.test.js` superato (1/1); `npm run build` superata (Vite 8.3.0, 110 moduli); `git diff --check` superato. I breakpoint 320/375/390 sono stati trattati nelle regole responsive CSS, ma non misurati nel browser in questo intervento.
-- **DA FARE:** controllo visivo nel browser condiviso a 320/375/390 px appena la superficie browser sarà disponibile. Computer Use ha restituito `browsers: []`; la verifica visiva non è stata eseguita.
+## Selettore Aspetto con icone — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** le tre scelte automatico, chiaro e scuro sono rappresentate da icona orologio/aggiornamento, sole e luna. La scelta corrente è evidenziata; i nomi restano disponibili a voce e al passaggio del puntatore.
+- **File:** src/components/AppearanceControl.jsx, src/styles/admin-appearance.css e questo registro.
+- **Verifiche e limiti:** codice e stili ispezionati; nessun test, build o controllo browser eseguito.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Registro — data minimal senza riquadro, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** solo `src/styles/admin-neon.css`: neutralizzati lo sfondo, il bordo e le ombre permanenti del selettore data; conservati dimensioni esterne, spaziatura e allineamento compensando il bordo rimosso. La data resta semibold e leggibile; l'etichetta OGGI viene nascosta mantenendo il suo spazio, così la data e gli elementi adiacenti non si spostano. Hover cyan con alone tenue è limitato a mouse/trackpad; il focus da tastiera mantiene un contorno visibile solo durante il focus. Frecce, link calendario e logica non sono stati modificati.
-- **Verifiche:** `npm run build` superata (Vite 8.3.0, 110 moduli); `git diff --check` superato. Il browser condiviso non è visibile nella sessione Computer Use (`browsers: []`); controllo visivo DA FARE.
+## Notifiche operative e telefono cliente — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** la campanella conta soltanto avvisi che richiedono attenzione: richieste in sospeso, ritardi, tavolo DOPOCENA mancante, riconferme da ricevere, comunicazioni non confermate e conferme online che richiedono invio/verifica. Aggiornamenti informativi del cliente e prenotazioni online la cui conferma è già gestita non entrano nella coda. Preparata la migrazione 20261019190000_auto_resolve_communication_notifications.sql: una comunicazione fallita sparisce dalla coda quando un successivo invio corrispondente risulta accettato/consegnato per lo stesso destinatario e snapshot.
+- **Interfaccia:** rimossi filtro “Solo non lette”, pulsante Aggiorna, “Segna come letta” e “Gestita · Archivia”. La coda si aggiorna con i cambi di prenotazione/comunicazioni e conserva il collegamento all'elemento da gestire. Il telefono nella scheda cliente appare subito sotto il nome anche su desktop ed è un collegamento per chiamare.
+- **File:** src/components/AdminNotifications.jsx, src/utils/adminNotifications.js, src/components/CustomerCard.jsx, src/styles/admin-appearance.css, supabase/complete-booking-system.sql, nuova migrazione locale e questo registro. Nessuna modifica ai dati o invii.
+- **Verifiche e limiti:** modifiche ispezionate localmente; git diff --check superato. Nessun test, build, anteprima browser o prova su iPhone eseguiti in questo passaggio. La migrazione SQL è soltanto preparata localmente e non applicata.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessuna migrazione applicata, commit, push o deploy.
+
+/* Colori ad alto contrasto. L'ora automatica è Europe/Rome: giorno 07–19. */
+@media screen {
+  :root {
+    --ui-color-scheme: light;
+    --ui-bg: #faf7f0;
+    --ui-surface: #ffffff;
+    --ui-surface-soft: #f3f0e8;
+    --ui-hover: #eae8df;
+    --ui-text: #222b2c;
+    --ui-muted: #505f61;
+    --ui-disabled: #687778;
+    --ui-border: #c9cfca;
+    --ui-border-strong: #829393;
+    --ui-primary: #245d65;
+    --ui-primary-hover: #174b53;
+    --ui-on-primary: #ffffff;
+    --ui-selected-bg: #e4eff0;
+    --ui-selected-text: #234f56;
+    --ui-success-bg: #edf4ec;
+    --ui-success-text: #355d3e;
+    --ui-success-border: #82a68b;
+    --ui-warning-bg: #fcf3df;
+    --ui-warning-text: #775516;
+    --ui-warning-border: #bc9a55;
+    --ui-danger-bg: #fbefef;
+    --ui-danger-text: #943f49;
+    --ui-danger-border: #c88e96;
+    --ui-overlay: rgb(30 40 42 / 32%);
+    --jade-9: var(--ui-success-border); --jade-11: var(--ui-success-text); --jade-a2: var(--ui-success-bg); --jade-a3: var(--ui-success-bg);
+    --ruby-9: var(--ui-danger-border); --ruby-11: var(--ui-danger-text); --ruby-a2: var(--ui-danger-bg); --ruby-a3: var(--ui-danger-bg);
+    --amber-9: var(--ui-warning-border); --amber-11: var(--ui-warning-text); --amber-a2: var(--ui-warning-bg); --amber-a3: var(--ui-warning-bg);
+  }
+  :root[data-agenda-theme="dark"] {
+    --ui-color-scheme: dark;
+    --ui-bg: #1d2326;
+    --ui-surface: #282f32;
+    --ui-surface-soft: #30393c;
+    --ui-hover: #3b474a;
+    --ui-text: #f5f0e5;
+    --ui-muted: #c2ccca;
+    --ui-disabled: #a7b4b2;
+    --ui-border: #566365;
+    --ui-border-strong: #94aaa9;
+    --ui-primary: #9cc8cb;
+    --ui-primary-hover: #bddadd;
+    --ui-on-primary: #18383d;
+    --ui-selected-bg: #354e52;
+    --ui-selected-text: #d4eceb;
+    --ui-success-bg: #2a3b30;
+    --ui-success-text: #c1ddc4;
+    --ui-success-border: #73947a;
+    --ui-warning-bg: #423a29;
+    --ui-warning-text: #efdaa5;
+    --ui-warning-border: #b49b62;
+    --ui-danger-bg: #463135;
+    --ui-danger-text: #f0c1c7;
+    --ui-danger-border: #b9838a;
+    --ui-overlay: rgb(6 12 14 / 56%);
+  }
+  html, body, .admin-shell { background: var(--ui-bg); color: var(--ui-text); }
+  .admin-shell { --day-bg: var(--ui-bg); --day-surface: var(--ui-surface-soft); }
+  .admin-shell-day .booking-detail-drawer { --admin-panel: var(--ui-surface); --admin-panel-2: var(--ui-surface-soft); }
+  .admin-shell-day .agenda-create-compact,
+  .admin-shell-day .agenda-create-compact:not(:disabled):hover,
+  .admin-shell-private .notification-badge { color: var(--ui-on-primary); }
+  .admin-shell-private .notification-badge { background: var(--ui-primary); }
+  .appearance-control { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 13px; }
+  .admin-shell .appearance-control select { min-height: 36px; width: 120px; padding: 6px 8px; border: 1px solid var(--ui-border-strong); border-radius: 8px; background: var(--ui-surface); color: var(--ui-text); font-size: 13px; }
+  .admin-shell .admin-header-actions .appearance-control { padding: 0 6px; }
+  .admin-shell-day .booking-card-compact .booking-card-name { font-size: 16px; }
+  .admin-shell-day .agenda-view-switch button { font-size: 11px; font-weight: 700; }
+  .admin-shell-day .agenda-create-text { font-size: 11px; }
+  .admin-shell-day .booking-reconfirmation-summary { font-size: 12px; }
+  .admin-shell-day .booking-detail-stat { font-size: 13px; }
+  .admin-shell-day .booking-detail-stat:first-child { font-size: 12px; }
+  .admin-shell-day .booking-detail-stat:first-child > span { white-space: nowrap; }
+  .admin-shell-day .booking-detail-stat small { font-size: 11px; }
+  @media (min-width: 1101px) {
+    .admin-shell-day .booking-card-compact .booking-card-name { font-size: 15px; }
+    .admin-shell-private .admin-header-actions { gap: 4px; }
+  }
+  @media (max-width: 1100px) {
+    .admin-shell .admin-header-actions .appearance-control { justify-content: space-between; min-height: 44px; padding: 6px 12px; border-top: 1px solid var(--ui-border); }
+  }
+}
+
+/* Scheda cliente: il recapito segue il nome ed è subito chiamabile. */
+@media screen {
+  .admin-shell-day .customer-card-contact { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell-day .customer-card-phone a { color: var(--ui-primary); font-weight: 700; text-underline-offset: 2px; }
+  .admin-shell-day .notification-panel-help { color: var(--ui-muted); font-size: 13px; }
+  .admin-shell-day .notification-item a { color: var(--ui-primary); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+}
+
+## Scheda prenotazione senza comando manuale di congelamento — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** rimossi dalla scheda i comandi “Congela assegnazione” e “Sblocca assegnazione automatica”; la scheda mantiene il riepilogo di riconferma e l’avviso DOPOCENA pertinente. Il pannello non invoca più la RPC manuale.
+- **Perimetro:** motore, regole di assegnazione, comportamento dei tavoli modificati manualmente e dati non cambiati. La gestione automatica continua a rispettare `operational_frozen` nei casi previsti dal motore; nessuna modifica o applicazione SQL.
+- **File:** `src/components/BookingOperationalControls.jsx`, `src/pages/BookingsPage.jsx`, `src/styles/admin-day-reference.css`, `src/styles/admin-light.css` e questo registro.
+- **Verifiche locali:** build Vite superata (120 moduli) usando output temporaneo; `git diff --check` superato; ricerca nel codice UI non trova più i due comandi né chiamate alla RPC. I due test mirati non si sono avviati perché Vite ha ricevuto `EPERM` scrivendo `node_modules/.vite-temp` nell'area non scrivibile dal sandbox. Nessuna verifica browser/iPhone.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Registro — pulizia visiva piantina, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** rimosse da `src/components/TableMap.jsx` le etichette decorative Ingresso, Bar, Bagni e Finestre e la nota permanente sotto la piantina. Rimossi gli stili divenuti inutilizzati per landmarks e nota da `src/styles/admin-operations.css`, `src/styles/admin-bookings.css` e `src/styles/admin-neon.css`; il layout delle unità tavolo conserva la stessa regola di posizionamento.
-- Contatori dei tavoli, contatore Da assegnare, selettore CENA/DOPOCENA/LIVE, tab Principale/Nami e assegnazione manuale sono conservati. Nessuna variazione a coordinate, dimensioni, combinazioni o logica operativa.
-- **Verifiche:** `node --test tests/tableFloorPlanUi.test.js tests/tableMapPresentation.test.js` superato (9/9); `npm run build` superata (Vite 8.3.0, 110 moduli trasformati); `git diff --check` superato. La ricerca d'uso non trova più markup o regole CSS runtime per landmarks e nota; rimangono solo asserzioni negative nel test.
-- **Verifica browser:** non eseguita; Computer Use segnala `browsers: []`, quindi nessuna scheda condivisa accessibile.
+## Conteggio separato richieste DOPOCENA — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** aggiunto un badge autonomo accanto a “Richieste DOPOCENA” nel menu desktop e mobile. Conta soltanto le richieste `pending`, si aggiorna dopo una decisione, al ritorno sulla scheda e ogni 30 secondi; in caso di errore mostra un trattino, senza fingere un conteggio aggiornato. Le richieste DOPOCENA non entrano più nella coda o nel numero della campanella generale.
+- **File:** `src/components/AfterDinnerRequestsNavLink.jsx`, `src/App.jsx`, `src/components/OnlineDopocenaRequests.jsx`, `src/utils/onlineDopocenaRequests.js`, `src/utils/adminNotifications.js`, stili, test e questo registro. Nessuna modifica SQL o ai dati.
+- **Verifiche locali:** test richieste DOPOCENA e notifiche 17/17; build Vite superata (121 moduli, output temporaneo); `git diff --check` superato. Nessuna verifica browser/iPhone né Production.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Registro — stampa ed esportazione prenotazioni, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** in `src/pages/BookingsPage.jsx` aggiunto il menu secondario `Esporta` solo nella vista ELENCO, con `Stampa` e `Scarica CSV`. I dati arrivano dagli appuntamenti già caricati e vengono filtrati per la data di servizio; entrambi i turni e le prenotazioni senza tavolo sono inclusi, `cancelled` è escluso come nell'elenco operativo e gli altri stati sono etichettati. Gli orari sono ordinati con `00:00` dopo gli orari serali.
-- La stampa usa un blocco dedicato A4 con intestazione `Makai — Prenotazioni`, data e colonne Ora/Turno/Cliente/Persone/Tavolo/Stato; le regole print nascondono il resto dell'interfaccia. Il CSV usa UTF-8 con BOM, separatore `;`, escaping tra virgolette e prefisso protettivo contro formule nei campi testuali. Telefono, email e dati di consenso non vengono esportati. Durante caricamento o errore i comandi sono disabilitati con messaggio esplicito.
-- **File:** `src/pages/BookingsPage.jsx`, `src/utils/bookingExport.js`, `src/styles/admin-operations.css`, `tests/bookingsPageRender.test.js` e questo documento. Nessuna chiamata dati aggiuntiva; nessuna modifica a logica prenotazioni, backend, Supabase o SQL.
-- **Verifiche:** `node --test tests/bookingsPageRender.test.js` superato (2/2), inclusi ordinamento mezzanotte, CENA/DOPOCENA, cancellate, no-show, tavolo vuoto, formula CSV, escaping, data e contenuto stampabile; build superata (Vite 8.3.0, 111 moduli); `git diff --check` superato.
-- **Verifica browser:** non eseguita; Computer Use ha restituito `browsers: []`. Di conseguenza non è stato aperto il dialogo di stampa reale né verificato il layout A4 in un browser.
+## Tavoli uniti rappresentati con dimensione proporzionale — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** la mappa ritrae i gruppi assegnati come un’unica forma: due tavoli occupano due quadrati affiancati, tre occupano tre; anche l’altezza dell’unità base su iPhone ora è quadrata. Disposizioni, stati, disponibilità e assegnazioni restano invariate.
+- **File:** `src/styles/admin-operations.css`, `tests/tableMapResponsive.test.js` e questo registro.
+- **Verifiche locali:** test responsive mirati 7/7, test piantina 4/4, build Vite superata (121 moduli, output temporaneo) e `git diff --check` superato. Il test responsive completo conserva un’asserzione preesistente sui breakpoint CSS non più presenti nella versione locale; la verifica del nuovo layout è passata. Nessuna anteprima visuale browser/iPhone.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-## Registro — Esporta discreto e cambio turno in modifica, 13 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE — interfaccia:** `Esporta / Stampa` è un link testuale sottolineato di 11 px in fondo alla vista ELENCO; conserva le azioni Stampa/Scarica CSV e il blocco durante caricamento o errore. Nell'editor compare il selettore CENA/DOPOCENA. Cambiando turno si propone 19:00 o 22:30; per CENA lo staff sceglie un'unità tavolo, per DOPOCENA il tavolo si svuota. Tornando al turno originale si ripristinano orario e tavolo precedenti. Il dettaglio resta su una colonna nelle larghezze iPhone già previste dal CSS.
-- **IMPLEMENTATO LOCALMENTE — salvataggio:** `src/utils/bookingEdit.js` valida slot e persone del turno di destinazione e usa la nuova RPC `admin_change_booking_type` soltanto per il cambio turno. La normale modifica ADMIN conserva la RPC e le regole preesistenti. La prenotazione mantiene il proprio ID; il risultato aggiorna subito la lista tramite `applyUpdate` già esistente.
-- **IMPLEMENTATO LOCALMENTE — SQL preparato, non applicato:** `supabase/migrations/20261013150000_admin_booking_type_change.sql` crea una RPC ADMIN con lock condiviso `734512`, controllo di versione della riga, stato `confirmed`, slot CENA 19:00–22:30 e DOPOCENA 22:30–00:00 e quota DOPOCENA 25. Prima dell'UPDATE verifica che il tavolo CENA scelto dallo staff sia un'unità fisica valida, libera e compatibile con la configurazione della sala, senza applicare un limite automatico ai coperti ADMIN; oppure verifica la quota DOPOCENA e azzera il tavolo. La sovracapienza CENA viene segnalata nell'editor ma resta scelta manuale dello staff. L'UPDATE è atomico sulla stessa riga e non sposta altre prenotazioni. Le altre modifiche manuali e il motore online non sono cambiati. La migrazione dipende dalle funzioni di `complete-booking-system.sql` e dalla migrazione ADMIN manuale già preparata.
-- **Verifiche:** `node --test tests/adminBookingTypeChangeSql.test.js tests/bookingEdit.test.js tests/bookingEditorUx.test.js tests/bookingsPageRender.test.js` superato (10/10), inclusa la RPC su PostgreSQL isolato PGlite con disponibilità, quota 25, conflitti, versioni concorrenti e autorizzazione. `npm run build` superata (Vite 8.3.0, 111 moduli) e `git diff --check` superato. Queste sono verifiche locali; nessuna prenotazione reale è stata modificata.
-- **DA FARE:** riesaminare la migrazione complessiva indicata come non pronta nella readiness, applicare in ordine le dipendenze SQL e questa RPC solo con processo di rilascio autorizzato, poi verificare su database destinazione permessi/RLS, concorrenza reale e disponibilità. Senza la nuova RPC sul database live il cambio turno mostra un errore esplicito e non salva. Misurare la resa iPhone e la stampa nel browser: Computer Use ha restituito `browsers: []`, quindi nessuna verifica visiva è dichiarata.
+## Larghezza gruppi uniti nella mappa desktop — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** corrette le regole grafiche desktop/tablet che riportavano i tavoli uniti alla larghezza di un singolo quadrato. I gruppi da due e tre tavoli ora mantengono rispettivamente due e tre unità affiancate anche con il tema di riferimento della Giornata.
+- **File:** `src/styles/admin-day-reference.css`, `tests/tableMapResponsive.test.js` e questo registro.
+- **Verifiche locali:** test mirati sulla larghezza mobile e desktop 2/2; build Vite superata (121 moduli, output temporaneo); `git diff --check` superato. Screenshot allegato mostrava il problema prima della correzione; nessuna nuova verifica visuale browser/dispositivo.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
 
-### Turni CENA / DOPOCENA / LIVE (verifica locale e schema live, 13 ottobre 2026)
-
-- **IMPLEMENTATO LOCALMENTE:** `src/components/TableMap.jsx` sostituisce i tre filtri orari con `Turno: CENA | DOPOCENA | LIVE`. CENA e DOPOCENA mostrano le assegnazioni del rispettivo servizio; LIVE mostra tutte le assegnazioni salvate e conserva gli stati `IN ARRIVO`/`OCCUPATO`. I selettori sala e l'assegnazione manuale tramite mappa restano invariati. Il cambio modalità aggiorna solo la presentazione e non libera o riassegna tavoli.
-- **Verifiche frontend:** il test UI mirato di CENA/DOPOCENA/LIVE e i test di assegnazione mappa passano; `npm run build` e `git diff --check` passano. Verifica browser condiviso non disponibile in questa sessione (`browsers: []`), quindi nessun controllo visivo dichiarato.
-- **CENA → DOPOCENA — codice locale:** `supabase/complete-booking-system.sql` contiene la RPC `public.admin_release_booking_table(bigint)` e il trigger `zzz_rebalance_booking_event` su `private.rebalance_booking_event()`. La liberazione è esplicita: l'RPC porta la prenotazione CENA a `completed` e svuota `tables`; il trigger considera quindi i tavoli liberati e può assegnarli a DOPOCENA idonee. Non c'è rilascio basato sul tempo. L'ordine locale privilegia prima la minore eccedenza di capienza e poi `booking_date`/`booking_time`/`id`: priorità strettamente cronologica DA FARE se richiesta come regola inderogabile.
-- **Database live — lettura sola:** al 13 ottobre non risultano `public.admin_release_booking_table(bigint)`, `private.rebalance_booking_event()` né il trigger `zzz_rebalance_booking_event`; non è quindi possibile il passaggio automatico live e non va simulato dal frontend. La migrazione complessiva non è stata applicata. Nessun dato prenotazione letto o modificato.
-- **DA FARE:** installare e verificare la migrazione CENA/DOPOCENA solo dopo processo autorizzato; aggiungere/eseguire un test isolato che dimostri l'handoff automatico (il test esistente `completeBookingSystemSql.test.js` fallisce prima dell'handoff con `Disponibilità cambiata` durante l'inserimento fixture, quindi non prova il passaggio); decidere se l'ordinamento debba essere strettamente cronologico oppure best-fit seguito da ordine cronologico. I vecchi test di logica piantina sono stati riallineati il 14 ottobre; il run della suite completo rileva ora 6 errori nei test UI annidati `tests/tableFloorPlanUi.test.js`, separati da questo aggiornamento.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. La sola ispezione live è stata di metadati schema/trigger in lettura; interfaccia, trigger e handoff non sono stati verificati su prenotazioni live.
-
-## Registro — allineamento test UI piantina, 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** solo `tests/tableFloorPlanUi.test.js`. I selettori per assegnazioni attive usano i gruppi resi (`10+11`, `13+14`); la verifica della Sala Principale attesa è passata da 8 a 6 unità in entrambe le asserzioni. In DOPOCENA il test conserva il selettore fisico singolo `10`, perché la prenotazione CENA è filtrata e le due unità risultano libere in quella vista.
-- Aggiunti tre casi parametrizzati per le configurazioni ammesse della fila 15–19. Ciascun caso controlla che la mappa mostri i gruppi previsti, copra i cinque tavoli fisici una sola volta e non presenti sovrapposizioni tra gruppi. Restano attive le verifiche di apertura dettaglio, stati CENA/DOPOCENA/LIVE, NO_SHOW e salvataggio assegnazione.
-- **Verifiche locali:** `node --test tests/tableFloorPlanUi.test.js` superato (10/10); `npm test` superato (232/232); `npm run build` superata (Vite 8.3.0, 111 moduli); `git diff --check` superato. Nessuna verifica browser/dispositivo.
-- **Perimetro:** nessuna modifica a codice applicativo, CSS, controlli touch, SQL o database. **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
-
-## Registro — MAPPA responsive e dettaglio espandibile, 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** la MAPPA usa su iPhone una lista verticale numerica dei tavoli configurati 10–23; `tables.json` non contiene il 24. Le unità fisse e le tre configurazioni valide 15–19 vengono presentate senza duplicare tavoli. Ogni riga mostra gruppo, capienza, stato e, quando presente, cliente e orario. Principale/Nami e CENA/DOPOCENA/LIVE restano selezionabili.
-- **IMPLEMENTATO LOCALMENTE:** toccando un tavolo occupato o prenotato si apre/chiude un dettaglio subito sotto la riga su iPhone. La MAPPA richiama lo stesso contenuto operativo usato dalla scheda ELENCO, comprese modifica, cambio tavolo, contatti, stati e NO_SHOW secondo le regole già esistenti. Su iPad/desktop la piantina sfrutta una disposizione orizzontale e il dettaglio è compatto; il breakpoint è 700/701 px. Le prenotazioni senza tavolo restano nell'ELENCO e non sono unità della mappa. I pulsanti conservano l'area touch minima di 44 px.
-- **Perimetro:** `src/components/TableMap.jsx`, `src/pages/BookingsPage.jsx`, `src/styles/admin-operations.css`, nuovo `src/utils/tableMapPresentation.js`, `tests/tableFloorPlanUi.test.js`, nuovo `tests/tableMapResponsive.test.js` e questo documento. Nessuna modifica al motore di disponibilità, alle assegnazioni automatiche, alle configurazioni fisiche, alle regole operative, a SQL o al database.
-- **Verifiche locali:** test mirati MAPPA 17/17; `npm test` 238/238; `npm run build` superata (Vite 8.3.0, 112 moduli); `git diff --check` superato. I test coprono ordinamento, gruppi, assenza di sovrapposizioni, apertura/chiusura, stati e selezione/NO_SHOW esistenti.
-- **DA FARE:** controllo visivo su iPhone/iPad/desktop autenticati. Il browser locale ha mostrato solo la schermata di accesso, quindi non è stato possibile ispezionare la MAPPA su un dispositivo o in emulazione autenticata. **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
-
-## Registro — MAPPA mobile per file fisiche e scelta tavolo, 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** su iPhone la MAPPA separa esplicitamente le file 10–14, 15–19, 20–21 e 22–23 (24 solo se configurato), ordinate dalla Sala Principale a Nami. I gruppi assegnati sono marcati visivamente; la fila 15–19 usa una sola delle tre configurazioni ammesse, adattata alla soluzione selezionata, e 22+23 viene mostrato come unità quando scelto. Ogni tavolo fisico compare una sola volta.
-- **IMPLEMENTATO LOCALMENTE:** durante assegnazione o cambio tavolo un tocco su una nuova soluzione sostituisce la precedente; tocchi adiacenti possono comporre un gruppo valido. Le scelte disponibili provengono da `rankedMapAssignments`, con il controllo di configurazione già esistente. Il frontend ordina quelle scelte per proporre una soluzione con capienza sufficiente e minimo scarto, segnala «Consigliato» e mostra tutte le alternative, incluse unità più capienti e override manuali consentiti. Il tocco aggiorna solo lo stato locale; la RPC resta collegata a «CONFERMA» e ricontrolla la disponibilità al salvataggio.
-- **IMPLEMENTATO LOCALMENTE:** in consultazione anche un tavolo libero apre il dettaglio espandibile; da lì resta disponibile «Nuova prenotazione». Nessun cambiamento a motore di disponibilità, assegnazione automatica, configurazioni dei tavoli, regole CENA/DOPOCENA, SQL o database. Le dimensioni touch esistenti restano invariate; i nuovi pulsanti delle alternative hanno altezza minima 44 px.
-- **File:** `src/components/TableMap.jsx`, `src/utils/tableMapPresentation.js`, `src/styles/admin-operations.css`, `tests/tableMapAssignment.test.js`, `tests/tableFloorPlanUi.test.js`, `tests/tableMapResponsive.test.js` e questo documento.
-- **Verifiche locali:** test MAPPA mirati 20/20; `npm test` 241/241 (precedente riferimento 238/238); `npm run build` superata (Vite 8.3.0, 112 moduli); `git diff --check` superato. Test aggiunti per sostituzione della scelta, suggerimento, alternative, capienza manuale, configurazioni e assenza di scritture prima della conferma.
-- **DA FARE:** verifica visiva con accesso autenticato su iPhone; nessun controllo live o su dispositivo reale in questo intervento. **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
-
-## Registro — preparazione commit e push, 14 ottobre 2026
-- **Perimetro:** inventario delle modifiche locali, controllo dei file candidati per segreti e dei meccanismi di pubblicazione, verifiche locali. Il codice applicativo, SQL e database non sono stati modificati in questo intervento.
-- **IMPLEMENTATO LOCALMENTE:** il checkout contiene le modifiche elencate nelle sezioni precedenti; il presente intervento ne prepara il versionamento su un branch dedicato. `package-lock.backup.json` resta escluso perché è una copia di backup non usata dalla build. La migrazione SQL incrementale rimane una proposta locale non applicata.
-- **Verifiche del 14 ottobre:** `npm test` superato (241/241), `npm run build` superata (Vite 8.3.0, 112 moduli), `git diff --check` superato. Scansione dei file modificati senza credenziali individuate; il valore `access_token` in un test è una fixture. Nessun controllo browser, staging o database in questo intervento.
-- **DA FARE:** chiarire il collegamento Git/Vercel prima di inviare il branch remoto: in assenza di una disabilitazione verificata, il push potrebbe creare automaticamente un deploy Preview. Coordinare qualsiasi futura pubblicazione con la migrazione SQL ancora non applicata.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun push o deploy in questo intervento.
-
-## Registro — controllo manutenzione Sito da Agenda, 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** aggiunta la pagina riservata `/manutenzione`, raggiungibile dal menu Agenda. Legge dal backend Sito lo stato globale e lo storico, permette all'admin di attivare o disattivare solo tramite conferma del pulsante e rilegge il valore dal server dopo il salvataggio. Se lo stato è incerto il comando resta disabilitato. Il gateway accetta esclusivamente i nuovi percorsi GET/POST previsti e continua a verificare il ruolo `admin`.
-- **Verifiche locali:** `npm test` 243/243, build Vite (113 moduli) superata. Test del gateway e della pagina aggiunti; nessuna prova con sessione reale o database. L'API e lo stato sono implementati nel repository Sito; lo SQL proposto `../sito-makai/supabase/site-maintenance.sql` non è stato applicato.
-- **DA FARE:** applicazione autorizzata dello SQL e rilascio coordinato Sito/Agenda; prova end-to-end dell'interruttore, dello storico e del blocco online prima dell'uso operativo.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push, deploy o intervento sul database live in questo intervento.
-
-## Verifica collegamento gateway manutenzione, 14 ottobre 2026
-- **Verifica locale:** allowlist Agenda espone solo GET/POST `site-maintenance`; il gateway continua a verificare il ruolo `admin` da `app_metadata` e inoltra la richiesta al backend con il secret server-side. Test gateway e UI 9/9 superati; `git diff --check` superato.
-- **Limite:** prova del gateway con Auth/backend simulati, non con sessione Supabase reale. Nessuna modifica al database live o deploy.
-
-## Ripristino accesso al pannello manutenzione, 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** aggiunta a `vercel.json` la rewrite `/manutenzione` → `/index.html`; il percorso diretto restituiva Vercel 404 benché il route React e il link fossero presenti. Aggiunta un'asserzione di regressione in `tests/maintenanceSettings.test.js`.
-- **Verifiche locali:** `npm test` 243/243, `npm run build` superata e `git diff --check` superato.
-- **DEPLOYATO:** commit `ae795ee2b91c8c9ecb708bc0eb9b132234b054f5` su `main`; Vercel ha mostrato il deployment Production come pronto con il dominio Agenda assegnato.
-- **VERIFICATO IN PRODUZIONE:** aperto `/manutenzione` con sessione amministrativa; il pannello ha letto lo stato server `Attiva` e lo storico ha registrato l'attivazione del 14 ottobre 2026. L'interruttore è stato attivato dall'Agenda. Nessuna migrazione SQL è stata applicata; l'aggiornamento dello stato e la riga di audit sono le sole scritture live effettuate in questa operazione.
-- **DA FARE:** risolvere e verificare la funzione SQL planner mancante `private.online_slot_status` prima di disattivare la manutenzione e riaprire le prenotazioni online.
-
-## Verifica produzione e attivazione manutenzione, 14 ottobre 2026
-- **VERIFICATO IN PRODUZIONE:** il percorso diretto `/manutenzione` è servito dall'Agenda dopo la correzione; pannello autenticato, stato globale attivo e voce nello storico confermati visivamente.
-- **VERIFICATO IN PRODUZIONE:** il Sito pubblico mostra la pagina «La ciurma Makai è ai lavori!» dopo l'attivazione. Le prenotazioni online risultano quindi intenzionalmente sospese.
-- **Problema residuo:** la precedente verifica live in sola lettura ha rilevato che `private.online_slot_status` non esiste nello schema attuale; l'API disponibilità restituiva HTTP 503 prima dell'attivazione. Perciò il guasto di disponibilità non è risolto dall'interruttore manutenzione. La migrazione resta da revisionare e autorizzare; non è stata applicata.
-
-## Analisi motore coordinato v2 — 14 ottobre 2026
-- **DA FARE:** finalizzazione della migrazione unica e rollback. L’analisi corrente ha verificato in sola lettura lo schema live (`public.bookings`: 213 righe; RLS attiva) e trovato incompatibilità nel flusso DOPOCENA in attesa, email di rifiuto, riorganizzazione sicura e rollback autonomo. La migrazione locale 20261013170000 non corrisponde alle regole aggiornate (mantiene 25 e handoff automatico) e non è stata riutilizzata o applicata.
-- **IMPLEMENTATO LOCALMENTE:** solo rapporto di verifica nel workspace Codex; nessuna modifica al codice Agenda o ai file SQL del repository.
-- **Verifiche/limiti:** test preesistenti PGlite 12/12, non riferiti a v2. La prova PostgreSQL isolata non è partita per limitazione shared-memory del sandbox. Nessuna scrittura live.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** solo schema/metadati in sola lettura, nessuna funzione nuova verificata.
-
-
-## Migrazione DB booking engine v2 — 14 ottobre 2026
-- **DEPLOYATO:** migrazione `20261014002635` applicata a Supabase Production dopo prova PostgreSQL isolata; nessuna modifica alle 213 prenotazioni esistenti. RLS bookings conservata, manutenzione lasciata attiva. Capienza fisica CENA verificata a 26; DOPOCENA restituisce `manual_review` e non assegna tavoli automaticamente.
-- **DA FARE:** collegare la UI Agenda alla nuova coda e alle RPC admin, poi testare con sessione ADMIN reale. Nessuna modifica applicativa Agenda in questo intervento; non disattivare la manutenzione prima dell’integrazione e dello smoke test.
-- Rollback autonomo disponibile nel workspace di consegna; non applicato. Nessun commit/push/deploy applicativo.
-
-
-## Coda richieste DOPOCENA v2 — 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** aggiunta alla vista giornaliera Agenda la coda protetta DOPOCENA con azioni di accettazione e rifiuto via RPC admin. Accettazione crea una prenotazione `confirmed` senza tavolo; rifiuto registra l'esito. Non parte alcuna email/WhatsApp in questa fase. La capacità visualizzata è allineata al tetto fisico CENA di 26.
-- **Verifiche locali:** `npm test` 246/246, build Vite superata; prova SQL/API isolata dell'accettazione senza tavolo e senza email; `git diff --check` superato.
-- **DA FARE:** pubblicare insieme al Sito e provare la coda con account ADMIN reale in Production prima di disattivare la manutenzione.
-- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** database v2 verificato nel registro precedente; UI/RPC da sessione ADMIN non verificate live. Nessun commit, push o deploy.
-
-## Push coda DOPOCENA v2 — 14 ottobre 2026
-- **DEPLOYATO:** commit `1ade749cbe8d0509937d028f275fd3144fccf137` inviato a `origin/main`; stato Vercel del commit `success` con descrizione «Deployment has completed».
-- **VERIFICATO IN PRODUZIONE:** il percorso pubblico `/manutenzione` su `agenda-makai.vercel.app` ha risposto HTTP 200 dopo il push. La coda e le RPC non sono state provate con una sessione ADMIN live in questo intervento.
-- **DA FARE:** prova amministrativa delle richieste DOPOCENA e controllo coordinato con il Sito prima della riapertura. `package-lock.backup.json` preesistente escluso dal commit.
-
-## Campanella richieste DOPOCENA — 14 ottobre 2026
-- **DEPLOYATO database:** migrazione Supabase `20261014005655` aggiunge alla funzione esistente `admin_list_notifications` le richieste DOPOCENA `pending`, tramite helper ADMIN che legge la coda privata. Backup della definizione precedente e rollback separato nel repository; nessuna prenotazione modificata.
-- **DEPLOYATO applicativo:** commit Agenda `4f277e8` su `main`; Vercel ha riportato `Deployment has completed`. La campanella mantiene visibile una richiesta in attesa anche nei giorni successivi, apre la giornata della richiesta e si aggiorna dopo accettazione/rifiuto. Per questo tipo di notifica è disponibile «Segna come letta»; il comando di archiviazione non è esposto perché la relativa RPC live non è installata.
-- **VERIFICATO IN PRODUZIONE:** una richiesta DOPOCENA `pending` compare nel risultato della funzione notifiche dopo la migrazione; il conteggio `public.bookings` è 213. **Verifiche locali:** PostgreSQL isolato con permessi ADMIN/anon, lettura, risoluzione e rollback; suite Agenda 247/247, build e diff check superati.
-- **DA FARE:** controllo visivo della campanella con sessione ADMIN reale e prova della navigazione alla coda. L'accesso automatico a Safari è stato rifiutato, quindi il controllo UI live non è dichiarato. La manutenzione Sito resta attiva.
-
-## WhatsApp manuale DOPOCENA e cancellazioni — 14 ottobre 2026
-- **IMPLEMENTATO LOCALMENTE:** dopo l'esito positivo della RPC attuale di revisione DOPOCENA viene aperta una chat WhatsApp precompilata sul telefono normalizzato della richiesta: conferma Makai esistente per accettazione e nuovo messaggio pirata con nome, data e ora per rifiuto. Se il popup viene bloccato, la UI mostra un collegamento manuale. Non viene inviato alcun messaggio automaticamente.
-- **IMPLEMENTATO LOCALMENTE:** dopo il salvataggio dello stato `cancelled`, la UI propone un pulsante WhatsApp separato; nel layout compatto usa la preparazione autenticata della comunicazione e il template esistente di cancellazione. La prenotazione rimane conservata e nessun invio è automatico.
-- **Evidenze locali:** test mirati 14/14, suite Agenda 250/250, build Vite superata e `git diff --check` pulito. La suite ha stampato un errore WebSocket Vite `EPERM` su `0.0.0.0`, senza fallimenti; il test relativo e la suite sono terminati con esito positivo.
-- **Limiti:** nessuna prova browser/dispositivo o sessione ADMIN live in questo intervento. Nessun SQL/database, RPC, motore disponibilità, tavoli o capienze modificati. Nessun commit, push o deploy. **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no.
-
-## Richieste clienti, notifiche e schema Production — 15 ottobre 2026
-- **Perimetro:** migrazione versionata `20261015012424_customer_booking_management.sql` con rollback separato, componente Richieste clienti, notifiche e testo email. Preservate le modifiche locali preesistenti all'Agenda.
-- **IMPLEMENTATO LOCALMENTE:** la sezione Richieste clienti mostra i dati della prenotazione originale, il valore richiesto e alternative CENA compatibili proposte dalla RPC protetta; restano approvazione, rifiuto e proposta staff. Le notifiche informative delle modifiche/cancellazioni automatiche rimangono visibili e ordinate per data. Lo storico distingue modifiche e cancellazioni automatiche, richieste cliente e alternative proposte dallo staff. Il template email di aggiornamento non attribuisce più la modifica a un'approvazione obbligatoria.
-- **Verifiche locali:** migrazione applicata e rieseguita sullo schema Production senza dati in PostgreSQL isolato; prove con rollback per CENA, DOPOCENA, token, modifiche, richieste pendenti, cancellazione, RLS/GRANT e alternative; rollback SQL ripristina gli hash delle due funzioni precedenti. Test Agenda mirati 19/19, suite completa 253/253 e build Vite riusciti. Nessuna UI autenticata live o prova email reale.
-- **DEPLOYATO:** Supabase Production migration `20261015012424` applicata; la UI Agenda e l'Edge email di questo intervento non sono stati pubblicati.
-- **VERIFICATO IN PRODUZIONE:** 213 prenotazioni, 86 ricevute online, nessuna richiesta cliente pendente; manutenzione attiva e RLS `public.bookings`/token attiva. Tabella token e nuove funzioni presenti. Nessuna prenotazione esistente modificata dalla migrazione.
-- **DA FARE:** pubblicare Sito e Agenda insieme al template Edge, controllare la sezione con ADMIN reale, notifiche, storico, invii e aggiornamento elenco/mappa; poi test controllato del flusso e decisione separata sulla manutenzione.
-
-## Preparazione rilascio richieste clienti — 15 ottobre 2026
-- **Perimetro:** confronto del checkout Mac con `origin/main` (`a1d89c9`), revisione dei file Agenda, migrazione/rollback e funzione email effettivamente usata. Nessuna migrazione rieseguita o prenotazione esistente modificata.
-- **IMPLEMENTATO LOCALMENTE:** file applicativi, test e SQL versionato preparati nell'indice Git senza commit; `npm test` 253/253, build Vite e diff staged superati. La funzione email operativa è `send-booking-email`, che importa `agenda-communications/messages.js`; la versione Edge live 17 usa ancora il testo precedente e limita i tipi supportati.
-- **VERIFICATO IN PRODUZIONE:** Supabase registra `20261015012424`, 213 prenotazioni, 86 ricevute, manutenzione attiva; pagina pubblica Agenda `/manutenzione` HTTP 200. UI autenticata, email e flussi aggiornati non collaudati live.
-- **DEPLOYATO:** nessun nuovo codice Agenda o template Edge. Il commit è sospeso dopo il blocco della revisione automatica sul commit Sito; nessun push/deploy tentato per Agenda o Edge.
-- **DA FARE:** autorizzazione separata esplicita per commit, push e deploy, poi collaudo ADMIN, notifiche, storico e comunicazioni. La manutenzione resta attiva.
+## Header, stato online e invio manuale della riconferma — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** stato “Aperte” verde e “Chiuse” rosso nei temi chiaro/scuro; etichetta “Area riservata” spostata fuori dal menu accanto al marchio; l’apertura delle notifiche chiude il menu e viceversa. La scheda prenotazione include “Invia richiesta di riconferma”, che prepara e invia l’email dal Backend e mostra l’esito del provider.
+- **File Agenda:** `src/App.jsx`, `src/components/AdminNotifications.jsx`, `src/components/BookingOperationalControls.jsx`, `src/components/MobileSection.jsx`, `src/styles/admin-appearance.css`, `src/styles/admin-day-reference.css`, `src/styles/admin-light.css`, `src/styles/admin-mobile.css`, `src/styles/admin-operations.css`, `tests/headerAndReconfirmation.test.js`.
+- **Verifiche:** test mirati UI/notifiche/comunicazioni 18/18; build Vite 121 moduli; `git diff --check`. Anteprima locale desktop osservata: etichetta accanto al marchio, stato online verde. Nessuna prova su viewport iPhone, invio email o Production.
+- **Limite riconferma:** non è stato aggiunto o applicato SQL. Il pulsante usa il gateway template del Backend e dipende dalla disponibilità di `private.prepare_staff_email`; il helper è presente nello script schema locale, ma la sua presenza nell’ambiente live non è verificata.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.

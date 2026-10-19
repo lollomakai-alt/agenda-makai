@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadOnlineDopocenaRequests, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../src/utils/onlineDopocenaRequests.js';
+import { loadOnlineDopocenaRequests, loadPendingOnlineDopocenaCount, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../src/utils/onlineDopocenaRequests.js';
 
 test('loads the private DOPOCENA queue through its admin RPC', async () => {
   const rows=[{request_id:'r1',status:'pending'}];
@@ -8,6 +8,14 @@ test('loads the private DOPOCENA queue through its admin RPC', async () => {
   const result=await loadOnlineDopocenaRequests({rpc:async name=>{calls.push(name);return {data:rows};}});
   assert.deepEqual(result,rows);
   assert.deepEqual(calls,['admin_list_online_dopocena_requests']);
+});
+
+test('dedicated DOPOCENA badge counts only requests waiting for staff', async () => {
+  const count = await loadPendingOnlineDopocenaCount({rpc:async name=>{
+    assert.equal(name,'admin_list_online_dopocena_requests');
+    return {data:[{status:'pending'},{status:'accepted'},{status:'pending'},{status:'rejected'}]};
+  }});
+  assert.equal(count,2);
 });
 
 test('accept and reject use the admin review RPC with the exact request ID', async () => {
@@ -39,7 +47,7 @@ test('prepares confirmation and pirate rejection WhatsApp links for the request 
   const request = { name: 'Luca Rossi', phone: '333 1234567', booking_date: '2026-10-15', booking_time: '23:00:00', party_size: 2 };
   const accepted = new URL(onlineDopocenaWhatsAppUrl(request, 'accepted', 73));
   assert.equal(accepted.pathname, '/393331234567');
-  assert.match(accepted.searchParams.get('text'), /rotta verso Makai Pigneto è confermata/);
+  assert.match(accepted.searchParams.get('text'), /richiesta DOPOCENA è stata accettata/);
   const rejected = new URL(onlineDopocenaWhatsAppUrl(request, 'rejected'));
   assert.equal(rejected.pathname, '/393331234567');
   const text = rejected.searchParams.get('text');

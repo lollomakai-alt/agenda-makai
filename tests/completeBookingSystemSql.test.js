@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { bookingDatabase } from './helpers/bookingDatabase.js';
 
+test('targeted staff email migration installs the missing private function', async () => {
+ const db=await bookingDatabase();
+ try {
+  await db.exec('drop function private.prepare_staff_email(bigint,text,text,text,text)');
+  assert.equal((await db.query("select to_regprocedure('private.prepare_staff_email(bigint,text,text,text,text)') as fn")).rows[0].fn,null);
+  await db.exec(await readFile(new URL('../supabase/migrations/20261019132636_prepare_staff_reconfirmation.sql',import.meta.url),'utf8'));
+  assert.ok((await db.query("select to_regprocedure('private.prepare_staff_email(bigint,text,text,text,text)') as fn")).rows[0].fn);
+ } finally { await db.close(); }
+});
+
 test('complete system SQL: physical dinner, midnight, independent quota, explicit release and protected arrival',async()=>{
  const db=await bookingDatabase();
  try {
@@ -96,6 +106,24 @@ test('customer token hashes, requests, approval, alternatives, reconfirmation an
  }finally{await db.close();}
 });
 
+test('online confirmation with a management token can be claimed for sending',async()=>{
+ const db=await bookingDatabase();
+ try{
+  const migration=await readFile(new URL('../supabase/migrations/20261017125249_booking_email_management_link_claim.sql',import.meta.url),'utf8');
+  await db.exec(migration);
+  const day=(await db.query(`select to_char(d,'YYYY-MM-DD') as booking_day from generate_series((now() at time zone 'Europe/Rome')::date+1,(now() at time zone 'Europe/Rome')::date+7,'1 day') d where extract(isodow from d)<>1 limit 1`)).rows[0].booking_day;
+  const booking=(await db.query(`insert into bookings(name,phone,email,booking_date,booking_time,party_size,source,booking_type,privacy_accepted_at,privacy_version) values('Cliente Test','+393331234567','guest@example.invalid',$1,'20:00',2,'booking','normale',now(),'2026-10-12-online-v2') returning *`,[day])).rows[0];
+  const url='https://www.makaipigneto.it/prenotazioni/gestisci#token='+'a'.repeat(43);
+  await db.query("update booking_communications set snapshot=jsonb_set(snapshot,'{management_url}',to_jsonb($1::text)) where booking_id=$2 and kind='confirmation'",[url,booking.id]);
+  const claimed=(await db.query('select public.claim_new_online_booking_email($1) r',[booking.id])).rows[0].r;
+  assert.equal(claimed.kind,'confirmation');
+  assert.equal(claimed.status,'sending');
+  assert.equal(claimed.snapshot.management_url,url);
+  assert.equal((await db.query('select attempts from booking_communications where id=$1',[claimed.id])).rows[0].attempts,1);
+  assert.equal((await db.query('select public.claim_new_online_booking_email($1) r',[booking.id])).rows[0].r,null);
+ }finally{await db.close();}
+});
+
 test('reminder queue is idempotent, archive is personal and midnight delay uses the service day',async()=>{
  const db=await bookingDatabase();
  try{
@@ -107,7 +135,16 @@ test('reminder queue is idempotent, archive is personal and midnight delay uses 
  const url='https://www.makaipigneto.it/prenotazioni/gestisci#token='+'a'.repeat(43);
  const manual=(await db.query("select private.prepare_staff_email($1,'reconfirmation',$2,'') r",[b.id,url])).rows[0].r;
  assert.equal(manual.kind,'reconfirmation');
- assert.equal((await db.query("select private.prepare_staff_email($1,'reconfirmation',$2,'') r",[b.id,url])).rows[0].r.id,manual.id);
+ assert.equal(manual.snapshot.management_url,url);
+ const repeatedManual=(await db.query("select private.prepare_staff_email($1,'reconfirmation',$2,'') r",[b.id,url])).rows[0].r;
+ assert.notEqual(repeatedManual.id,manual.id,'lo staff può richiedere di nuovo la riconferma');
+ assert.equal((await db.query('select status from booking_communications where id=$1',[manual.id])).rows[0].status,'superseded');
+ const scheduled=(await db.query("select private.prepare_staff_email($1,'reconfirmation',$2,'','scheduled') r",[b.id,url])).rows[0].r;
+ assert.match(scheduled.event_key,/^scheduled:reconfirmation:/);
+ assert.equal((await db.query('select status from booking_communications where id=$1',[repeatedManual.id])).rows[0].status,'superseded');
+ assert.equal((await db.query("select private.prepare_staff_email($1,'reconfirmation',$2,'','scheduled') r",[b.id,url])).rows[0].r.id,scheduled.id);
+ await db.query("update bookings set reconfirmation_status='reconfirmed',reconfirmed_at=now() where id=$1",[b.id]);
+ await assert.rejects(db.query("select private.prepare_staff_email($1,'reconfirmation',$2,'','scheduled')",[b.id,url]),/Riconferma automatica non prevista/);
  await assert.rejects(db.query("select private.prepare_staff_email($1,'delay',$2,'')",[b.id,url]),/Ritardo non ancora/);
  const first=(await db.query('select private.prepare_booking_reminder($1,$2) r',[b.id,url])).rows[0].r;
  assert.equal(first.kind,'reminder');assert.equal(first.status,'queued');

@@ -45,8 +45,8 @@ export default function BookingContacts({
         type="button"
         className="admin-button admin-button-secondary"
         disabled={busy}
-        aria-label="WhatsApp"
-        title="WhatsApp"
+        aria-label="Apri WhatsApp con messaggio precompilato: invio manuale"
+        title="Prepara la chat WhatsApp: invio manuale"
         onClick={onWhatsApp}
       >
         <svg

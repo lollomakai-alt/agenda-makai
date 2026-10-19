@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/admin/:path*",
-      "destination": "/api/agenda-gateway?__agenda_route=:path*"
+      "destination": "/api/agenda-gateway?__agenda_route=:path"
     },
     {
       "source": "/reimposta-password",

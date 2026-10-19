@@ -60,10 +60,6 @@
     font-size: 12px;
   }
 
-  .admin-area-label {
-    display: none;
-  }
-
   .admin-header-actions {
     gap: 8px;
   }
@@ -105,86 +101,6 @@
     width: 100%;
   }
 
-  .calendar-toolbar {
-    gap: 14px;
-
-    padding: 16px 12px;
-  }
-
-  .calendar-month-nav {
-    width: 100%;
-
-    justify-content: space-between;
-
-    gap: 8px;
-  }
-
-  .calendar-month-nav h2 {
-    font-size: 20px;
-  }
-
-  .calendar-actions {
-    width: 100%;
-  }
-
-  .calendar-actions .admin-button {
-    flex: 1;
-  }
-
-  .calendar-summary {
-    padding: 0 12px 14px;
-
-    font-size: 12px;
-  }
-
-  .calendar-weekdays span {
-    padding: 10px 0;
-
-    font-size: 11px;
-
-    letter-spacing: 0;
-  }
-
-  .calendar-day,
-  .calendar-blank {
-    min-height: 68px;
-  }
-
-  .calendar-day {
-    align-items: center;
-
-    gap: 6px;
-
-    padding: 8px 4px;
-  }
-
-  .calendar-day.is-today::before {
-    inset: 3px;
-  }
-
-  .calendar-day-number {
-    font-size: 14px;
-  }
-
-  .calendar-day-number small {
-    display: none;
-  }
-
-  .calendar-covers span {
-    display: none;
-  }
-
-  .calendar-covers strong {
-    font-size: 22px;
-  }
-
-  .calendar-error {
-    margin-inline: 12px;
-  }
-
-  .booking-admin .calendar-hint {
-    padding: 12px;
-  }
 
   .day-summary {
     flex-wrap: wrap;

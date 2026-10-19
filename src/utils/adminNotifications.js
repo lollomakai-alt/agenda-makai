@@ -15,6 +15,12 @@ export function unreadNotificationCount(notifications) {
   return notifications.filter(notification => !notification.read_at).length;
 }
 
+export function isActionableNotification(notification) {
+  if (['customer_request', 'delay', 'waiting_table', 'reconfirmation', 'communication_failed', 'online_unassigned'].includes(notification.kind)) return true;
+  if (notification.kind === 'online_booking') return /conferma cliente da inviare o verificare/i.test(notification.message || '');
+  return false;
+}
+
 const romeDayFormat = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit',
 });
@@ -53,7 +59,22 @@ export async function loadAdminNotifications(client, now = new Date()) {
   const { data, error } = await client.rpc('admin_list_notifications');
   if (error) fail(error);
   if (!Array.isArray(data)) throw new Error('Lettura notifiche non confermata.');
-  return sortNotifications(currentDayNotifications(data, now));
+  return sortNotifications(currentDayNotifications(data, now).filter(isActionableNotification));
+}
+
+export async function loadRecentOnlineBookings(client, now = new Date()) {
+  const end = new Date(now);
+  const start = new Date(end.getTime() - 48 * 60 * 60 * 1000);
+  const { data, error } = await client.from('bookings')
+    .select('id,booking_date,booking_time,name,party_size,booking_type,status,created_at')
+    .eq('source', 'booking')
+    .gte('created_at', start.toISOString())
+    .lte('created_at', end.toISOString())
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
+  if (error) throw new Error('Registro delle nuove prenotazioni non disponibile.');
+  if (!Array.isArray(data)) throw new Error('Lettura del registro non confermata.');
+  return data;
 }
 
 export async function markNotificationRead(client, id) {

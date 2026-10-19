@@ -40,7 +40,7 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
   async function decide(request, decision) {
     if (decisionPending.current || busyId || disabled) return;
     const question = decision === 'accepted'
-      ? `Accettare la richiesta di ${request.name} e creare la prenotazione DOPOCENA senza tavolo?`
+      ? `Accettare la richiesta DOPOCENA di ${request.name}? La prenotazione sarà registrata senza tavolo: l’accettazione non assegna un tavolo.`
       : `Rifiutare la richiesta DOPOCENA di ${request.name}?`;
     if (!window.confirm(question)) return;
     decisionPending.current = true;
@@ -55,14 +55,15 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
       const result = await reviewOnlineDopocenaRequest(supabase, request, decision);
       const url = onlineDopocenaWhatsAppUrl(request, decision, result.booking_id);
       if (url && chat) chat.location.href = url;
-      else if (url) setWhatsAppOffer({ url, label: decision === 'accepted' ? 'Apri WhatsApp con la conferma' : 'Apri WhatsApp con il rifiuto' });
+      else if (url) setWhatsAppOffer({ url, label: decision === 'accepted' ? 'Apri WhatsApp con l’accettazione' : 'Apri WhatsApp con il rifiuto' });
       else if (chat) chat.close();
-      if (!url) setWhatsAppError('Operazione salvata, ma il numero della richiesta non è valido per WhatsApp.');
+      if (!url) setWhatsAppError('Decisione salvata. Messaggio WhatsApp non preparato: verifica il numero del cliente.');
       setFeedback(decision === 'accepted'
-        ? `Richiesta accettata. Prenotazione #${result.booking_id} creata senza tavolo.`
-        : 'Richiesta rifiutata.');
+        ? `Richiesta DOPOCENA accettata. Prenotazione #${result.booking_id} registrata senza tavolo assegnato. WhatsApp richiede l’invio manuale.`
+        : 'Richiesta DOPOCENA rifiutata. WhatsApp richiede l’invio manuale.');
       await refresh();
       onChanged?.();
+      window.dispatchEvent(new Event('after-dinner-requests-changed'));
       window.dispatchEvent(new Event('admin-notifications-changed'));
     } catch (failure) {
       chat?.close();
@@ -73,12 +74,35 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
     }
   }
 
-  const pending = requests.filter(request => request.status === 'pending').length;
+  const pendingRequests = requests.filter(request => request.status === 'pending');
+  const archivedRequests = requests.filter(request => request.status !== 'pending');
+  function renderRequest(request) {
+    return <li className={`online-dopocena-item is-${request.status}`} key={request.request_id}>
+      <div className="online-dopocena-customer">
+        <strong>{request.name}</strong>
+        <span>{displayDate(request.booking_date)} · {request.booking_time} · {request.party_size} {request.party_size === 1 ? 'persona' : 'persone'}</span>
+        <a href={`tel:${request.phone}`}>{request.phone}</a>
+        {request.email && <a href={`mailto:${request.email}`}>{request.email}</a>}
+        {request.notes && <p>Note: {request.notes}</p>}
+      </div>
+      <div className="online-dopocena-status">
+        <span>{request.status === 'pending' ? 'Ricevuta · in attesa dello staff' : request.status === 'accepted' ? `Richiesta accettata · tavolo da verificare in Agenda${request.booking_id ? ` · pren. #${request.booking_id}` : ''}` : 'Rifiutata'}</span>
+        {request.status === 'pending' && <div className="online-dopocena-actions">
+          <button type="button" className="admin-button" disabled={disabled || busyId !== null} onClick={() => decide(request, 'accepted')}>
+            {busyId === request.request_id ? 'Salvataggio…' : 'Accetta'}
+          </button>
+          <button type="button" className="admin-button admin-button-secondary" disabled={disabled || busyId !== null} onClick={() => decide(request, 'rejected')}>
+            Rifiuta
+          </button>
+        </div>}
+      </div>
+    </li>;
+  }
   return <section className="online-dopocena-requests" aria-labelledby="online-dopocena-title">
     <div className="online-dopocena-heading">
       <div>
         <h2 id="online-dopocena-title">Richieste DOPOCENA</h2>
-        <p>In attesa: {pending}. Accettare crea una prenotazione senza assegnare un tavolo; l’invio della risposta al cliente verrà collegato separatamente.</p>
+        <p>In attesa dello staff: {pendingRequests.length}. La richiesta ricevuta non conferma la prenotazione. Accettarla registra una prenotazione senza tavolo assegnato. Le decisioni concluse restano in archivio.</p>
       </div>
       <button className="admin-button admin-button-secondary" type="button" disabled={busyId !== null} onClick={() => setRevision(value => value + 1)}>
         Ricarica richieste
@@ -89,26 +113,14 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
     {feedback && <p role="status">{feedback}</p>}
     {whatsAppOffer && <p><a className="admin-button" href={whatsAppOffer.url} target="_blank" rel="noopener noreferrer">{whatsAppOffer.label}</a></p>}
     {whatsAppError && <p role="alert">{whatsAppError}</p>}
-    {!loading && !error && requests.length === 0 && <p role="status">Nessuna richiesta DOPOCENA ricevuta.</p>}
-    {requests.length > 0 && <ul className="online-dopocena-list">{requests.map(request => <li className={`online-dopocena-item is-${request.status}`} key={request.request_id}>
-      <div className="online-dopocena-customer">
-        <strong>{request.name}</strong>
-        <span>{displayDate(request.booking_date)} · {request.booking_time} · {request.party_size} {request.party_size === 1 ? 'persona' : 'persone'}</span>
-        <a href={`tel:${request.phone}`}>{request.phone}</a>
-        {request.email && <a href={`mailto:${request.email}`}>{request.email}</a>}
-        {request.notes && <p>Note: {request.notes}</p>}
-      </div>
-      <div className="online-dopocena-status">
-        <span>{request.status === 'pending' ? 'In attesa' : request.status === 'accepted' ? `Accettata${request.booking_id ? ` · pren. #${request.booking_id}` : ''}` : 'Rifiutata'}</span>
-        {request.status === 'pending' && <div className="online-dopocena-actions">
-          <button type="button" className="admin-button" disabled={disabled || busyId !== null} onClick={() => decide(request, 'accepted')}>
-            {busyId === request.request_id ? 'Salvataggio…' : 'Accetta'}
-          </button>
-          <button type="button" className="admin-button admin-button-secondary" disabled={disabled || busyId !== null} onClick={() => decide(request, 'rejected')}>
-            Rifiuta
-          </button>
-        </div>}
-      </div>
-    </li>)}</ul>}
+    {!loading && !error && requests.length === 0 && <p role="status">Nessuna richiesta DOPOCENA in questa coda.</p>}
+    {pendingRequests.length > 0 && <section aria-labelledby="dopocena-pending-title">
+      <h3 id="dopocena-pending-title">Da gestire ({pendingRequests.length})</h3>
+      <ul className="online-dopocena-list">{pendingRequests.map(renderRequest)}</ul>
+    </section>}
+    {archivedRequests.length > 0 && <details className="online-dopocena-archive">
+      <summary>Archiviate ({archivedRequests.length})</summary>
+      <ul className="online-dopocena-list">{archivedRequests.map(renderRequest)}</ul>
+    </details>}
   </section>;
 }

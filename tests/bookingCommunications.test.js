@@ -12,7 +12,7 @@ test('communication templates: confirmed, automatic update and cancellation; man
  assert.match(communicationMessage(snapshot,'updated').text,/aggiornata/);
  assert.match(communicationMessage(snapshot,'cancelled').text,/cancellata/);
  const rejection=communicationMessage(snapshot,'rejected').text;
- assert.match(rejection,/Ahoy Mario Rossi! 🏴‍☠️/);assert.match(rejection,/15\/10\/2026/);assert.match(rejection,/20:00/);assert.match(rejection,/non possiamo accoglierti/);
+ assert.match(rejection,/Ciao Mario Rossi,/);assert.match(rejection,/15\/10\/2026/);assert.match(rejection,/20:00/);assert.match(rejection,/non possiamo accoglierti/);
  const url=whatsappCommunicationUrl({channel:'whatsapp',status:'opened',recipient:'+393331234567',kind:'cancelled',snapshot});
  assert.match(url,/^https:\/\/wa.me\/393331234567\?text=/);assert.match(decodeURIComponent(url),/cancellata/);
  assert.throws(()=>whatsappCommunicationUrl({channel:'whatsapp',status:'accepted'}));
@@ -43,7 +43,7 @@ test('communications use only session-authenticated gateway routes and validate 
  await assert.rejects(sendCommunication(client,42,request),/già gestita/);
  status=200;payload={communication:{booking_id:43,channel:'email'}};
  await assert.rejects(prepareCommunication(client,42,'email',request),/non confermata/);
- payload={communications:[{booking_id:43}]};await assert.rejects(loadCommunications(client,42,request),/non confermate/);
+ payload={communications:[{booking_id:43}]};await assert.rejects(loadCommunications(client,42,request),/Elenco comunicazioni non confermato/);
  payload={bookingId:43,communicationId:7,type:'booking_confirmation',status:'accepted'};
  await assert.rejects(sendCommunication(client,42,request),/Esito non confermato/);
  await assert.rejects(sendCommunication({auth:{getSession:async()=>({data:{session:null}})}},42,()=>assert.fail('No anonymous fetch')),/Accedi/);

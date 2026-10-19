@@ -1,43 +1,57 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { loadAdminNotifications, markNotificationRead, archiveNotification, notificationBookingUrl, NOTIFICATION_PRIORITIES, unreadNotificationCount, sortNotifications } from '../utils/adminNotifications';
+import { loadAdminNotifications, loadRecentOnlineBookings, notificationBookingUrl, NOTIFICATION_PRIORITIES } from '../utils/adminNotifications';
+
+const bookingStatusLabels = {
+  confirmed: 'Confermata',
+  arrived: 'Arrivata',
+  completed: 'Conclusa',
+  cancelled: 'Annullata',
+  no_show: 'Non arrivata',
+};
+
+function createdAtLabel(value) {
+  return new Date(value).toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
+}
 
 export default function AdminNotifications() {
   const [open, setOpen] = useState(false);
-  const [onlyUnread, setOnlyUnread] = useState(false);
-  const [state, setState] = useState({ entries: [], loading: true, error: '' });
-  const [actionError, setActionError] = useState('');
-  const [saving, setSaving] = useState(null);
+  const [state, setState] = useState({
+    entries: [], recentOnline: [], loading: true, recentLoading: true, error: '', recentError: '',
+  });
   const active = useRef(false);
   const generation = useRef(0);
-  const mutation = useRef(false);
-  const sessionRevision = useRef(0);
   const load = useCallback(async () => {
-    if (mutation.current) return;
     const current = ++generation.current;
-    try {
-      const entries = await loadAdminNotifications(supabase);
-      if (active.current && current === generation.current) setState({ entries, loading: false, error: '' });
-    } catch (error) {
-      if (active.current && current === generation.current) setState(previous => ({ ...previous, loading: false, error: error.message }));
-    }
+    const [actionResult, recentResult] = await Promise.allSettled([
+      loadAdminNotifications(supabase),
+      loadRecentOnlineBookings(supabase),
+    ]);
+    if (!active.current || current !== generation.current) return;
+    setState(previous => ({
+      entries: actionResult.status === 'fulfilled' ? actionResult.value : previous.entries,
+      recentOnline: recentResult.status === 'fulfilled' ? recentResult.value : previous.recentOnline,
+      loading: false,
+      recentLoading: false,
+      error: actionResult.status === 'rejected' ? actionResult.reason.message : '',
+      recentError: recentResult.status === 'rejected' ? recentResult.reason.message : '',
+    }));
   }, []);
   useEffect(() => {
     active.current = true;
     void load();
     const timer = window.setInterval(load, 30000);
-    const channel = supabase.channel(`online-notifications-${crypto.randomUUID()}`)
+    const channel = supabase.channel('online-notifications-' + crypto.randomUUID())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_notification_reads' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_notification_archives' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_communications' }, load)
       .subscribe(status => { if (status === 'SUBSCRIBED') void load(); });
     function visible() { if (document.visibilityState === 'visible') void load(); }
     document.addEventListener('visibilitychange', visible);
     window.addEventListener('admin-notifications-changed', load);
     const { data } = supabase.auth.onAuthStateChange(() => {
-      generation.current++; sessionRevision.current++; setActionError('');
-      setState({ entries: [], loading: true, error: '' });
+      generation.current++;
+      setState({ entries: [], recentOnline: [], loading: true, recentLoading: true, error: '', recentError: '' });
       setTimeout(() => { if (active.current) void load(); }, 0);
     });
     return () => {
@@ -47,49 +61,58 @@ export default function AdminNotifications() {
       window.removeEventListener('admin-notifications-changed', load);
     };
   }, [load]);
-  async function read(id, archive = false) {
-    if (mutation.current) return;
-    const session = sessionRevision.current;
-    mutation.current = true; generation.current++; setSaving(id); setActionError('');
-    try {
-      const result = await (archive ? archiveNotification : markNotificationRead)(supabase, id);
-      if (active.current && session === sessionRevision.current) setState(previous => ({ ...previous, error: '', entries: sortNotifications((archive ? previous.entries.filter(entry => entry.id !== id) : previous.entries).map(entry => entry.id === id ? { ...entry, read_at: result.read_at } : entry)) }));
-    } catch (error) {
-      if (active.current && session === sessionRevision.current) setActionError(error.message);
-    } finally {
-      mutation.current = false;
-      if (active.current) { setSaving(null); void load(); }
-    }
-  }
-  const unread = unreadNotificationCount(state.entries);
-  const entries = onlyUnread ? state.entries.filter(entry => !entry.read_at) : state.entries;
-  return <section className="admin-notifications" aria-label="Centro notifiche ADMIN">
-    <button type="button" className="admin-button admin-button-secondary" aria-expanded={open} aria-controls="admin-notification-panel"
-      onClick={() => { setOpen(value => !value); void load(); }}>
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener('admin-header-menu-open', close);
+    return () => window.removeEventListener('admin-header-menu-open', close);
+  }, []);
+  const count = state.entries.length;
+  const openBookingIds = new Set(state.entries.filter(entry => entry.booking_id).map(entry => String(entry.booking_id)));
+  const recentOnline = state.recentOnline.filter(booking => !openBookingIds.has(String(booking.id)));
+  return <section className="admin-notifications" aria-label="Avvisi da gestire e nuove prenotazioni">
+    <button type="button" className="admin-button admin-button-secondary" aria-label={'Notifiche: ' + count + ' da gestire'} aria-expanded={open} aria-controls="admin-notification-panel"
+      onClick={() => {
+        const next = !open;
+        if (next) window.dispatchEvent(new Event('admin-header-notifications-open'));
+        setOpen(next);
+        if (next) void load();
+      }}>
       <svg className="notification-bell" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
-      <span className="notification-button-label">Notifiche</span> <span className="notification-badge" aria-live="polite">{state.loading || state.error ? '—' : unread}</span>
-      <span className="notification-count-label"> non lette</span>
+      <span className="notification-button-label">Notifiche</span>
+      <span className="notification-badge" aria-live="polite">{state.loading || state.error ? '—' : count}</span>
+      <span className="notification-count-label"> da gestire</span>
     </button>
     {open && <div id="admin-notification-panel" className="notification-panel">
-      <h2>Centro notifiche</h2>
-      <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={load}>Aggiorna notifiche</button>
-      <label className="notification-filter"><input type="checkbox" checked={onlyUnread} onChange={event => setOnlyUnread(event.target.checked)} /> Solo non lette</label>
-      {state.loading && <p role="status">Caricamento notifiche…</p>}
-      {state.error && <p role="alert">{state.error}</p>}
-      {actionError && <p role="alert">{actionError}</p>}
-      {!state.loading && !state.error && !entries.length && <p>{onlyUnread ? 'Nessuna notifica non letta.' : 'Nessuna notifica attiva.'}</p>}
-      <ul>{entries.map(entry => {
-        const href = notificationBookingUrl(entry);
-        return <li key={entry.id} className={`notification-item ${entry.read_at ? 'is-read' : 'is-unread'}`}>
-          <p><strong>{NOTIFICATION_PRIORITIES[entry.priority] || entry.priority}</strong> · {entry.read_at ? 'Vista' : 'Nuova'}</p>
-          <p>{href ? <a href={href} onClick={() => setOpen(false)}>{entry.message}{entry.booking_id ? ` · Prenotazione #${entry.booking_id}` : ''}</a> : entry.message}</p>
-          <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</time>
-          {entry.kind !== 'dopocena_request' && <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id, true)}>Gestita · Archivia</button>}
-          {!entry.read_at && <button type="button" className="admin-button admin-button-secondary" disabled={saving !== null} onClick={() => read(entry.id)}>
-            {saving === entry.id ? 'Salvataggio…' : 'Segna come letta'}
-          </button>}
-        </li>;
-      })}</ul>
+      <section aria-labelledby="notification-actions-title">
+        <h2 id="notification-actions-title">Da gestire</h2>
+        <p className="notification-panel-help">Gli avvisi si aggiornano quando cambia lo stato della prenotazione.</p>
+        {state.loading && <p role="status">Caricamento avvisi…</p>}
+        {state.error && <p role="alert">{state.error}</p>}
+        {!state.loading && !state.error && !count && <p>Nessun avviso da gestire.</p>}
+        {!!state.entries.length && <ul>{state.entries.map(entry => {
+          const href = notificationBookingUrl(entry);
+          return <li key={entry.id} className="notification-item">
+            <p><strong>{NOTIFICATION_PRIORITIES[entry.priority] || entry.priority}</strong></p>
+            <p>{href ? <a href={href} onClick={() => setOpen(false)}>{entry.message}{entry.booking_id ? ' · Prenotazione #' + entry.booking_id : ''}</a> : entry.message}</p>
+            <time dateTime={entry.created_at}>{createdAtLabel(entry.created_at)}</time>
+          </li>;
+        })}</ul>}
+      </section>
+      <section className="notification-history" aria-labelledby="notification-history-title">
+        <h2 id="notification-history-title">Nuove prenotazioni online</h2>
+        <p className="notification-panel-help">Registro degli ultimi due giorni, dalla più recente.</p>
+        {state.recentLoading && <p role="status">Caricamento registro…</p>}
+        {state.recentError && <p role="alert">{state.recentError}</p>}
+        {!state.recentLoading && !state.recentError && !recentOnline.length && <p>Nessuna nuova prenotazione online nelle ultime 48 ore.</p>}
+        {!!recentOnline.length && <ul>{recentOnline.map(booking => {
+          const href = notificationBookingUrl({ kind: 'online_booking', booking_id: booking.id, booking_date: booking.booking_date });
+          return <li key={booking.id} className="notification-item">
+            <p>{href ? <a href={href} onClick={() => setOpen(false)}><strong>{booking.name}</strong> · Prenotazione #{booking.id}</a> : <strong>{booking.name} · Prenotazione #{booking.id}</strong>}</p>
+            <p>{booking.booking_date} · {booking.booking_time} · {booking.party_size} persone{booking.booking_type === 'dopocena' ? ' · DOPOCENA' : ''} · {bookingStatusLabels[booking.status] || booking.status}</p>
+            <time dateTime={booking.created_at}>Ricevuta il {createdAtLabel(booking.created_at)}</time>
+          </li>;
+        })}</ul>}
+      </section>
     </div>}
   </section>;
 }

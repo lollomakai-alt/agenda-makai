@@ -9,7 +9,7 @@ test('confirmed booking WhatsApp link opens with a prefilled message and never s
   };
   const url = confirmationWhatsAppUrl(booking);
   assert.match(url, /^https:\/\/wa\.me\/393331234567\?text=/);
-  assert.match(decodeURIComponent(url), /PRENOTAZIONE CONFERMATA/);
-  assert.match(decodeURIComponent(url), /Persone: 3/);
+  assert.match(decodeURIComponent(url), /La prenotazione al Makai è confermata/);
+  assert.match(decodeURIComponent(url), /👥 3 persone/);
   assert.equal(confirmationWhatsAppUrl({ ...booking, status: 'cancelled' }), null);
 });
