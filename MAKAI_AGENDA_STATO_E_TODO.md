@@ -4,6 +4,10 @@
 - **Evidenze locali:** suite Agenda 276/276, build Vite 121 moduli, test SQL della migrazione in database isolato 7/7 e controlli diff superati prima del push.
 - **DA FARE:** verifica autenticata dell'interfaccia su desktop e iPhone, e controllo concordato del ciclo di riconferma senza presumere la consegna email. Nessuna prenotazione reale creata, email reale inviata o UI autenticata osservata in questo rilascio. `AGENTS.md` modificato prima dell'intervento e `package-lock.backup.json` restano esclusi dal commit.
 
+## Apertura diretta pagina DOPOCENA — 19 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** aggiunta la regola Vercel `/richieste-dopocena` → `/index.html`. La route React e il link nel menu erano presenti; mancava il fallback SPA richiesto quando si apre o ricarica direttamente l'indirizzo.
+- **DA FARE:** pubblicazione e controllo della route live dopo il deploy. Nessuna modifica alla logica delle richieste.
+
 ## Preparazione rilascio e riconferma — 19 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** corretti i controlli della mappa che facevano riferimento alla vecchia disposizione; preparata `supabase/migrations/20261019132636_prepare_staff_reconfirmation.sql` per installare soltanto la funzione privata mancante. La richiesta manuale può essere ripetuta, mentre quella programmata ha una chiave unica per prenotazione e giorno; le email in coda con link superato vengono annullate.
 - **Evidenze:** suite Agenda 276/276 superata; build Vite 121 moduli e `git diff --check` superati. La migrazione è passata in un database SQL locale isolato. Nessuna nuova prova visuale desktop/iPhone in questo passaggio.
