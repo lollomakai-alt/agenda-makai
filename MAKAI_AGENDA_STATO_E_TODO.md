@@ -6,7 +6,9 @@
 
 ## Apertura diretta pagina DOPOCENA — 19 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** aggiunta la regola Vercel `/richieste-dopocena` → `/index.html`. La route React e il link nel menu erano presenti; mancava il fallback SPA richiesto quando si apre o ricarica direttamente l'indirizzo.
-- **DA FARE:** pubblicazione e controllo della route live dopo il deploy. Nessuna modifica alla logica delle richieste.
+- **DEPLOYATO:** commit `121aa65da1a7b256551fbc10951779a1f98432a6` su `origin/main`; Vercel Production `dpl_5QgZb1ndj3iexubHqCaFdf3C5ig4` READY.
+- **VERIFICATO IN PRODUZIONE:** Vercel associa il deployment al commit corretto e lo segna READY. Il recupero HTTP diretto da questa sessione non è riuscito (DNS/accesso Vercel), quindi l'apertura della pagina autenticata resta da verificare con l'account dell'utente.
+- **DA FARE:** aprire `https://agenda-makai.vercel.app/richieste-dopocena` dopo il login e confermare la visualizzazione. Nessuna modifica alla logica delle richieste.
 
 ## Preparazione rilascio e riconferma — 19 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** corretti i controlli della mappa che facevano riferimento alla vecchia disposizione; preparata `supabase/migrations/20261019132636_prepare_staff_reconfirmation.sql` per installare soltanto la funzione privata mancante. La richiesta manuale può essere ripetuta, mentre quella programmata ha una chiave unica per prenotazione e giorno; le email in coda con link superato vengono annullate.
