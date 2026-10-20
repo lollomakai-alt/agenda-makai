@@ -3,7 +3,7 @@ import { bookingsOverlap } from './bookingTime.js';
 import { assignedUnitCapacity, physicalTableIds } from './tableConflicts.js';
 import { bookingStatus } from './bookingStatus.js';
 
-export const DAILY_COVER_LIMIT = 26; // Physical maximum per service, enforced separately.
+export const DAILY_COVER_LIMIT = 26; // Physical maximum for CENA.
 export function physicalDinnerCapacity() {
   const flexible = new Set(TABLE_15_19_CONFIGURATIONS.flat());
   const fixed = Object.entries(TABLE_ASSIGNMENTS).filter(([id]) => !flexible.has(id) && id !== '22+23').reduce((n,[,cap])=>n+cap,0);
@@ -13,7 +13,7 @@ export function physicalDinnerCapacity() {
 export function canAcceptBooking(bookings, date, partySize, time = null, tables = '', type = 'normale') {
   if (!Number.isSafeInteger(Number(partySize)) || Number(partySize) < 1) return false;
   const active = bookings.filter(b => b.booking_date === date && (b.booking_type || 'normale') === type && !['cancelled','no_show'].includes(bookingStatus(b.status)));
-  if (type === 'dopocena') return !tables && active.reduce((n,b) => n+Number(b.party_size),0)+Number(partySize)<=26;
+  if (type === 'dopocena') return !tables && active.reduce((n,b) => n+Number(b.party_size),0)+Number(partySize)<=25;
   const capacity = serviceCapacity(active, { booking_date:date, booking_time:time, booking_type:type });
   const required = tables ? assignedUnitCapacity(tables) : Number(partySize);
   return capacity.verified && required !== null
@@ -47,7 +47,8 @@ export function serviceCapacity(bookings, reference) {
   }
   const total = physicalDinnerCapacity();
   const physicalRemaining = Math.max(0, total - occupied);
-  const peopleRemaining = Math.max(0, DAILY_COVER_LIMIT - peopleReserved);
+  const dailyLimit = reference.booking_type === 'dopocena' ? 25 : DAILY_COVER_LIMIT;
+  const peopleRemaining = Math.max(0, dailyLimit - peopleReserved);
   return { total, occupied, peopleReserved, unused, physicalRemaining, peopleRemaining,
     remaining: Math.min(physicalRemaining, peopleRemaining), verified: true };
 }

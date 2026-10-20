@@ -93,17 +93,19 @@ test('DOPOCENA 25 quota includes manual edits, excludes inactive rows, and seria
   } finally { await db.close(); }
 });
 
-test('ADMIN DOPOCENA creation accepts over-quota group but rejects duplicate or occupied tables', async () => {
+test('ADMIN DOPOCENA creation rejects over-quota covers and duplicate or occupied tables', async () => {
   const { db, day } = await setup();
   try {
     await db.exec('set role authenticated');
     const create = (people, tables) => db.query(`select public.admin_create_after_dinner_booking(
       'Cliente Manuale','+393331234567','',$1,'22:30',$2,'',$3) result`,[day,people,tables]);
-    const saved = (await create(27,'22+23')).rows[0].result;
-    assert.equal(saved.party_size,27);
+    const saved = (await create(4,'22+23')).rows[0].result;
+    assert.equal(saved.party_size,4);
     assert.equal(saved.tables,'22+23');
     await assert.rejects(create(2,'22'),/Tavolo già assegnato/);
     await assert.rejects(create(2,'22+23,22'),/non configurata o duplicata/);
+    assert.equal((await create(21,'')).rows[0].result.party_size,21);
+    await assert.rejects(create(1,''),/Limite DOPOCENA di 25 persone raggiunto/);
     await db.exec('reset role');
     assert.equal((await db.query("select private.online_slot_status($1,'22:30',1,'dopocena') status",[day])).rows[0].status,'full');
   } finally { await db.close(); }

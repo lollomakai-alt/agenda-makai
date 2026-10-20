@@ -26,6 +26,8 @@ test('complete system SQL: physical dinner, midnight, independent quota, explici
  const dinner=await insert(3);assert.equal(dinner.tables,'10+11');
  for(const people of [1,2,4,5]) {const row=await insert(people);assert.equal((await db.query('select capacity from private.online_table_groups() where group_id=$1',[row.tables])).rows[0].capacity,people===1?2:people===5?6:people);}
  assert.equal((await db.query("select private.online_slot_status($1,'00:00',6,'dopocena') status",[day])).rows[0].status,'available');
+ assert.equal((await db.query("select private.valid_service_slot('dopocena','22:47') valid")).rows[0].valid,true);
+ assert.equal((await db.query("select private.online_slot_status($1,'22:47',3,'dopocena') status",[day])).rows[0].status,'available');
  const midnight=await insert(6,'00:00','dopocena');assert.equal(midnight.tables,'');
  assert.equal((await db.query("select (private.booking_scheduled_at($1,'00:00') at time zone 'Europe/Rome')::date=$1::date+1 ok",[day])).rows[0].ok,true);
  await assert.rejects(db.query("update bookings set status='arrived' where id=$1",[midnight.id]),/Arrivo DOPOCENA/);
@@ -33,7 +35,8 @@ test('complete system SQL: physical dinner, midnight, independent quota, explici
  await assert.rejects(insert(2,'22:30','dopocena'),/25 persone/);
  assert.equal((await db.query("select private.online_slot_status($1,'20:00',1,'normale') status",[day])).rows[0].status,'available');
  await db.exec('delete from bookings;delete from booking_history;');
- const late=await insert(2,'23:30','dopocena');const early=await insert(2,'22:30','dopocena');const occupied=await insert(2,'20:30','normale','agenda','12');
+ const late=await insert(2,'23:30','dopocena');const minute=await insert(3,'22:47','dopocena');const early=await insert(2,'22:30','dopocena');const occupied=await insert(2,'20:30','normale','agenda','12');
+ assert.equal(minute.booking_time,'22:47');
  await db.query("update bookings set status='arrived' where id=$1",[occupied.id]);
  await assert.rejects(db.query("update bookings set status='cancelled' where id=$1",[occupied.id]),/Tavolo ancora occupato/);
  await db.query("update bookings set status='completed' where id=$1",[occupied.id]);

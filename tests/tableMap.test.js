@@ -46,6 +46,17 @@ test('inactive, other-date and unassigned dopocena rows stay outside the map',()
   assert.deepEqual(unverifiedTableBookings(rows,date).map(b=>b.id),[4,5]);
   assert.equal(tableMapForDate([{booking_date:date,tables:'23'}],date).find(t=>t.id==='23').status,'reserved');
 });
+test('unassigned DOPOCENA stays off the map and appears there after manual assignment',()=>{
+  const unassigned={id:91,booking_date:date,booking_time:'22:47',party_size:3,tables:'',status:'confirmed',booking_type:'dopocena'};
+  const before=tableMapForDate([unassigned],date,'dopocena');
+  assert.ok(before.every(table=>table.status==='free'));
+  assert.deepEqual(unverifiedTableBookings([unassigned],date,'dopocena'),[]);
+  const assigned={...unassigned,tables:'10+11'};
+  const after=tableMapForDate([assigned],date,'dopocena');
+  assert.deepEqual(after.find(table=>table.id==='10').bookings,[assigned]);
+  assert.deepEqual(after.find(table=>table.id==='11').bookings,[assigned]);
+  assert.equal(after.find(table=>table.id==='10').status,'reserved');
+});
 test('rooms and configured group capacities follow the real layout, not sums of physical capacities',()=>{
   assert.deepEqual(tableRooms(tableMapForDate([],date)).map(room=>[room.name,room.tables.map(t=>t.id)]),[
     ['Sala Principale',['10','11','12','13','14','15','16','17','18','19']],['Sala Nami',['20','21','22','23']],

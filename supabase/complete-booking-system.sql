@@ -31,7 +31,7 @@ $$;
 create or replace function private.valid_service_slot(service text, slot text)
 returns boolean language sql immutable security invoker set search_path='' as $$
  select coalesce(case service when 'normale' then slot ~ '^(19|20|21|22):(00|30)(:00)?$'
- when 'dopocena' then slot ~ '^(22:30|23:(00|30)|00:00)(:00)?$' else false end,false);
+ when 'dopocena' then slot ~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)(:00)?$' else false end,false);
 $$;
 create or replace function private.dinner_after_dinner_compatible(first_day text, first_time text, first_type text, second_day text, second_time text, second_type text)
 returns boolean language sql stable security invoker set search_path='' as $$
@@ -1017,7 +1017,7 @@ returns jsonb language plpgsql security definer set search_path = '' as $$
 declare saved public.bookings%rowtype;
   selected_date date;
   selected_table text := btrim(coalesce(p_table_id, ''));
-  selected_groups text[]; selected_ids text[];
+  selected_groups text[]; selected_ids text[]; covers integer;
 begin
   if coalesce(auth.jwt()->'app_metadata'->>'role', '') <> 'admin' then
     raise exception 'Accesso riservato all’amministratore' using errcode = '42501';
@@ -1043,10 +1043,10 @@ begin
   if to_char(selected_date, 'YYYY-MM-DD') <> p_booking_date then
     raise exception 'Data non valida' using errcode = '22023';
   end if;
-  if p_booking_time is null or p_booking_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
+  if p_booking_time is null or p_booking_time !~ '^(22:(3[0-9]|[4-5][0-9])|23:[0-5][0-9]|00:00)$' then
     raise exception 'Orario non valido' using errcode = '22023';
   end if;
-  if p_party_size is null or p_party_size < 1 then
+  if p_party_size is null or p_party_size not between 1 and 25 then
     raise exception 'Numero persone non valido' using errcode = '22023';
   end if;
   if selected_table <> '' and selected_table !~ '^[1-9][0-9]*(\+[1-9][0-9]*)*(,[1-9][0-9]*(\+[1-9][0-9]*)*)*$' then
@@ -1057,6 +1057,12 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(734512);
+  select coalesce(sum(b.party_size), 0) into covers
+  from public.bookings b where b.booking_date=p_booking_date
+    and b.booking_type='dopocena' and b.status not in ('cancelled','no_show');
+  if covers + p_party_size > 25 then
+    raise exception 'Limite DOPOCENA di 25 persone raggiunto' using errcode='P0001';
+  end if;
   if selected_table<>'' then
     selected_groups:=string_to_array(selected_table,',');
     selected_ids:=private.physical_ids(selected_table);

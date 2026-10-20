@@ -37,9 +37,8 @@ export function isValidBookingTimeForType(booking) {
   const startAt = bookingScheduledAt({ ...booking, booking_time: start });
   const endAt = bookingScheduledAt({ ...booking, booking_time: end });
   const slotDuration = 30 * 60 * 1000;
-  return scheduledAt >= startAt
-    && scheduledAt <= endAt
-    && scheduledAt % slotDuration === 0;
+  if (scheduledAt < startAt || scheduledAt > endAt) return false;
+  return booking.booking_type === 'dopocena' || scheduledAt % slotDuration === 0;
 }
 
 

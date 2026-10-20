@@ -85,10 +85,10 @@ test(
                     phone: '',
                     email: '',
                     booking_date: '2026-10-04',
-                    booking_time: '20:00',
+                    booking_time: '22:47',
                     booking_type: 'dopocena',
                     party_size: 3,
-                    tables: '',
+                    tables: globalThis.__agendaAssignedAfterDinnerFixture ? '10+11' : '',
                     status: 'confirmed',
                     source: 'agenda'
                   });
@@ -201,10 +201,19 @@ test(
 
       assert.doesNotMatch(firstCard, /booking-card-time|20:00/);
 
-      assert.match(normalizedHtml, /<h2 id="time-20:00" class="booking-time-heading">[\s\S]*?<time>20:00<\/time>[\s\S]*?<span class="booking-time-count">· 2 prenotazioni/);
+      assert.match(normalizedHtml, /<h2 id="time-20:00" class="booking-time-heading">[\s\S]*?<time>20:00<\/time>[\s\S]*?<span class="booking-time-count">· 1 prenotazione/);
       assert.match(normalizedHtml, /<h2 id="time-20:30" class="booking-time-heading">[\s\S]*?<time>20:30<\/time>[\s\S]*?<span class="booking-time-count">· 1 prenotazione/);
+      assert.match(normalizedHtml, /<h2 id="time-22:47" class="booking-time-heading">[\s\S]*?<time>22:47<\/time>[\s\S]*?<span class="booking-time-count">· 1 prenotazione/);
       assert.ok(normalizedHtml.indexOf('id="time-20:00"') < normalizedHtml.indexOf('id="time-20:30"'));
       assert.match(normalizedHtml, /class="booking-row booking-card-compact service-dopocena/);
+      assert.match(normalizedHtml, /Tavolo da assegnare/);
+      globalThis.__agendaGroupFixture = true;
+      globalThis.__agendaAssignedAfterDinnerFixture = true;
+      const assignedAfterDinnerHtml = renderToString(React.createElement(Page));
+      assert.match(assignedAfterDinnerHtml, /Cliente DOPOCENA/);
+      assert.match(assignedAfterDinnerHtml, /Tavolo 10\+11/);
+      delete globalThis.__agendaAssignedAfterDinnerFixture;
+      globalThis.__agendaGroupFixture = false;
       const printStart = html.indexOf('class="booking-export-print"');
       const printEnd = html.indexOf('</section>', printStart);
       const printMarkup = html.slice(printStart, printEnd);
