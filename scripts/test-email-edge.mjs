@@ -11,7 +11,7 @@ const env=new Map(),cases=[];
 globalThis.Deno={env:{get:key=>env.get(key),set:(key,value)=>env.set(key,value),delete:key=>env.delete(key)},test:(name,run)=>cases.push({name,run}),serve:()=>{throw new Error('No server starts in tests');}};
 try {
  const modulePath=pathToFileURL(createRequire(import.meta.url).resolve('@supabase/supabase-js')).href;
- const sources=[['supabase/functions/send-booking-email/index.ts','index.mjs'],['supabase/functions/agenda-communications/index.ts','legacy.mjs'],['supabase/functions/send-booking-email/index.test.ts','test.mjs']];
+ const sources=[['supabase/functions/send-booking-email/index.ts','index.mjs'],['supabase/functions/send-booking-email/dopocena.js','dopocena.js'],['supabase/functions/agenda-communications/index.ts','legacy.mjs'],['supabase/functions/send-booking-email/index.test.ts','test.mjs']];
  for(const [source,target] of sources){
   let code=stripTypeScriptTypes(await readFile(new URL(source,root),'utf8'),{mode:'strip'});
   code=code.replace("'npm:@supabase/supabase-js@2.117.2'",JSON.stringify(modulePath)).replace("'../agenda-communications/messages.js'","'./messages.mjs'").replace("'./index.ts'","'./index.mjs'").replace("'../agenda-communications/index.ts'","'./legacy.mjs'");

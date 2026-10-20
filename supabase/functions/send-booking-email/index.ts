@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
+import { sendDecisionEmail } from './dopocena.js';
 import { communicationMessage } from '../agenda-communications/messages.js';
 
 const FROM = 'Makai Pigneto <prenotazioni@makaipigneto.it>';
@@ -94,6 +95,13 @@ export async function handler(request: Request): Promise<Response> {
     raw += decoder.decode();
     let body;
     try { body = JSON.parse(raw); } catch { return respond({ error: 'JSON non valido' }, 400); }
+    if (body?.type === 'dopocena_decision') {
+      if (Object.keys(body).some(key => !['requestId','type'].includes(key))
+        || typeof body.requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(body.requestId)) {
+        return respond({ error: 'Richiesta non valida' }, 400);
+      }
+      return respond(await sendDecisionEmail(client, body.requestId, apiKey));
+    }
     if (!body || typeof body !== 'object' || Array.isArray(body)
       || Object.keys(body).some(key => !['bookingId', 'type', 'communicationId'].includes(key))
       || !Number.isSafeInteger(body.bookingId) || body.bookingId < 1

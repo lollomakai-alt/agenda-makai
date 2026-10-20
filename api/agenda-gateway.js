@@ -1,6 +1,6 @@
 const routes = {
   GET: /^\/api\/admin\/(?:session|site-maintenance|bookings(?:\/month|\/[1-9][0-9]*\/communications)?)$/,
-  POST: /^\/api\/admin\/(?:site-maintenance|bookings(?:\/[1-9][0-9]*\/(?:arrived|cancel|marketing-consent(?:\/revoke)?|communications\/(?:prepare|prepare-template)|send-confirmation-email|send-template-email))?)$/,
+  POST: /^\/api\/admin\/(?:site-maintenance|bookings(?:\/dopocena-requests\/[0-9a-f-]{36}\/decision|\/[1-9][0-9]*\/(?:arrived|cancel|marketing-consent(?:\/revoke)?|communications\/(?:prepare|prepare-template)|send-confirmation-email|send-template-email))?)$/,
 };
 
 // Server-only gateway: authenticated staff + a credential shared with FastAPI.

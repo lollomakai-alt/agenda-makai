@@ -23,7 +23,7 @@ test('exact 120-minute program permits a future service, never timed release wit
 test('separate templates share clear facts and accept only secure possession links',()=>{
  const booking={name:'Cliente',booking_date:'2026-10-15',booking_time:'00:00',party_size:2,tables:'12',management_url:'https://www.makaipigneto.it/prenotazioni/gestisci#token='+'a'.repeat(43),proposal:'Alle 23:30'};
  for(const kind of ['confirmation','updated','cancelled','reminder','reconfirmation','delay','alternative']) {
-  const message=communicationMessage(booking,kind);assert.match(message.text,/15\/10\/2026/);assert.match(message.text,/2/);assert.match(message.text,/Tavolo: 12/);assert.ok(message.subject);
+  const message=communicationMessage(booking,kind);assert.match(message.text,/15\/10\/2026/);assert.match(message.text,/2/);assert.doesNotMatch(message.text,/Tavolo:|assegnazion/i);assert.ok(message.subject);
  }
  assert.match(communicationMessage(booking,'reminder').text,/mancata riconferma non annulla/);
  assert.ok(!communicationMessage({...booking,management_url:'javascript:alert(1)'},'confirmation').text.includes('javascript:'));
