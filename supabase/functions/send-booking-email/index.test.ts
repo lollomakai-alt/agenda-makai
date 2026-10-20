@@ -180,3 +180,60 @@ Deno.test('claimed email transport: server auth, immutable content and provider 
     keys.forEach((key, index) => originalEnv[index] === undefined ? Deno.env.delete(key) : Deno.env.set(key, originalEnv[index]!));
   }
 });
+
+Deno.test('DOPOCENA Edge route accepts only server callers and stored decision content', async t => {
+  const previousFetch = globalThis.fetch;
+  const keys = ['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','RESEND_API_KEY'];
+  const old = keys.map(key => Deno.env.get(key));
+  const rid = '11111111-1111-4111-8111-111111111111';
+  let sends = 0;
+  let decision = 'rejected';
+  let status = 'sending';
+  const call = (body: unknown = {requestId:rid,type:'dopocena_decision'}, token = 'test-service-secret') => handler(new Request('https://edge.invalid', {
+    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body),
+  }));
+  const check = (value: unknown) => { if (!value) throw Error('DOPOCENA assertion failed'); };
+  try {
+    Deno.env.set(keys[0],'https://example.supabase.co');
+    Deno.env.set(keys[1],'test-service-secret');
+    Deno.env.set(keys[2],'test-resend-secret');
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/rpc/dopocena_email_operation')) {
+        check(new Headers(init?.headers).get('Authorization') === 'Bearer test-service-secret');
+        return Response.json({request_id:rid,decision,status,attempted_at:new Date().toISOString(),
+          recipient:'test@example.com',booking_id:decision === 'accepted' ? 7 : null,
+          snapshot:{name:'Ada',booking_date:'2026-10-25',booking_time:'23:00',party_size:2,tables:'',booking_type:'dopocena',status:decision,...(decision === 'accepted' ? {management_url:`https://www.makaipigneto.it/prenotazioni/gestisci#token=${'a'.repeat(43)}`} : {rejection_reason:'Siamo al completo.'})}});
+      }
+      check(url === 'https://api.resend.com/emails');
+      sends++;
+      check(new Headers(init?.headers).get('Idempotency-Key') === `dopocena-decision-${rid}`);
+      const payload = JSON.parse(String(init?.body));
+      check(payload.text.includes(decision === 'accepted' ? 'richiesta DOPOCENA è stata accettata' : 'non possiamo accoglierti'));
+      if (decision === 'accepted') check(payload.text.includes('/prenotazioni/gestisci#token='));
+      else check(!payload.text.includes('/prenotazioni/gestisci#token='));
+      return Response.json({id:'provider-id'});
+    };
+    await t.step('admin JWT cannot send, and caller cannot override recipient or text', async () => {
+      check((await call(undefined,'admin-jwt')).status === 401);
+      check((await call({requestId:rid,type:'dopocena_decision',to:'other@example.com'})).status === 400);
+      check(sends === 0);
+    });
+    await t.step('refusal without booking and acceptance use existing Resend transport', async () => {
+      for (const choice of ['rejected','accepted']) {
+        decision = choice;
+        const result = await (await call()).json();
+        check(result.status === 'accepted' && result.emailId === 'provider-id' && result.requestId === rid);
+      }
+      check(sends === 2);
+    });
+    await t.step('a terminal decision email cannot be sent again', async () => {
+      status = 'accepted';
+      check((await (await call()).json()).status === 'failed');
+      check(sends === 2);
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+    keys.forEach((key,index) => old[index] === undefined ? Deno.env.delete(key) : Deno.env.set(key,old[index]!));
+  }
+});

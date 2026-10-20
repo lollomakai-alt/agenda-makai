@@ -7,13 +7,13 @@ function confirmationCopy(snapshot) {
   if (status === 'pending') return { title: 'Richiesta in attesa', text: 'Abbiamo ricevuto la tua richiesta. È in attesa della decisione dell’equipaggio.' };
   if (status === 'rejected') return { title: 'Richiesta non accolta', text: 'Ci dispiace, non possiamo accogliere la tua richiesta per questa data e questo orario.' };
   if (status === 'cancelled') return { title: 'Prenotazione cancellata', text: 'La tua prenotazione è stata cancellata.' };
-  if (status === 'arrived') return { title: 'Arrivo registrato', text: 'Il tuo arrivo al Makai è registrato. Benvenuti a bordo!' };
-  if (status === 'completed') return { title: 'Visita conclusa', text: 'La tua visita al Makai risulta conclusa. Grazie per essere salpati con noi!' };
-  if (status === 'no_show') return { title: 'Mancato arrivo registrato', text: 'Per questa prenotazione risulta registrato un mancato arrivo. Se qualcosa non torna, contatta l’equipaggio.' };
+  if (status === 'arrived') return { title: 'Benvenuti a bordo', text: 'Siete arrivati al Makai: benvenuti a bordo!' };
+  if (status === 'completed') return { title: 'Visita conclusa', text: 'Grazie per essere salpati con noi al Makai!' };
+  if (status === 'no_show') return { title: 'Non vi abbiamo visti a bordo', text: 'Non vi abbiamo visti al Makai per questa prenotazione. Se qualcosa non torna, contatta l’equipaggio.' };
   if (snapshot.booking_type === 'dopocena' || status === 'accepted') {
-    return { title: 'Richiesta DOPOCENA accettata', text: 'La tua richiesta DOPOCENA è stata accettata e la prenotazione è registrata. L’accettazione della richiesta è distinta dall’assegnazione del tavolo.' };
+    return { title: 'Richiesta DOPOCENA accettata', text: 'La tua richiesta DOPOCENA è stata accettata. La ciurma del Makai ti aspetta a bordo!' };
   }
-  return { title: 'La tua prenotazione al Makai è confermata', text: 'La prenotazione al Makai è confermata.' };
+  return { title: 'La tua prenotazione al Makai è confermata', text: 'La prenotazione al Makai è confermata. Preparati a salpare con la ciurma!' };
 }
 
 export function communicationMessage(snapshot, kind, channel = 'email') {
@@ -27,34 +27,35 @@ export function communicationMessage(snapshot, kind, channel = 'email') {
   const title = kind === 'confirmation' ? confirmation.title : KINDS[kind];
   const bodies = {
     confirmation: confirmation.text,
-    updated: 'La tua prenotazione è stata aggiornata. Ecco i dati registrati per la tua rotta al Makai.',
+    updated: 'La tua prenotazione è stata aggiornata. Ecco i dettagli della tua rotta al Makai.',
     cancelled: 'La tua prenotazione è stata cancellata. Speriamo di averti di nuovo a bordo in un’altra occasione.',
     rejected: 'Ci dispiace, questa volta non possiamo accoglierti per il DOPOCENA nella data e nell’orario richiesti. Speriamo di averti a bordo un’altra volta.',
     reminder: 'Un promemoria dalla ciurma: ecco i dati della tua prenotazione al Makai.',
     reconfirmation: 'La ciurma ti chiede di riconfermare la tua prenotazione al Makai.',
-    delay: 'Non risulta ancora registrato il tuo arrivo al Makai. Facci sapere il tuo orario di arrivo.',
+    delay: 'La ciurma ti aspetta al Makai! Se sei in ritardo, facci sapere il tuo orario di arrivo.',
     alternative: 'La ciurma ha una rotta alternativa da proporti. È una proposta da concordare: non modifica la prenotazione.',
   };
-  const table = String(snapshot.tables || '').trim();
-  const tableLine = table ? `\n${whatsapp ? '🪑 ' : ''}Tavolo: ${table}` : '';
-  const noTableNote = !table && ['confirmation', 'updated', 'reminder', 'reconfirmation', 'delay', 'alternative'].includes(kind)
-    ? '\n\nNessun tavolo assegnato. Per il DOPOCENA, l’accettazione della richiesta non conferma un tavolo.' : '';
   const reconfirmation = ['reminder', 'reconfirmation'].includes(kind)
     ? '\n\nLa mancata riconferma non annulla la prenotazione.' : '';
   const proposal = kind === 'alternative' && snapshot.proposal ? `\n\nAlternativa proposta: ${snapshot.proposal}` : '';
   const managementLabel = kind === 'reconfirmation' && !whatsapp
     ? 'Per riconfermare la presenza, modificare o annullare la prenotazione, apri il tuo link personale:'
     : 'Gestisci o riconferma la prenotazione:';
-  const management = typeof snapshot.management_url === 'string' && /^https:\/\/[^\s]+\/prenotazioni\/gestisci#token=[A-Za-z0-9_-]{43}$/.test(snapshot.management_url)
+  const rejected = kind === 'rejected' || (kind === 'confirmation' && String(snapshot.status || '').toLowerCase() === 'rejected');
+  const inactive = kind === 'cancelled' || ['pending','rejected','cancelled','arrived','completed','no_show'].includes(String(snapshot.status || '').toLowerCase());
+  const management = !rejected && !inactive && typeof snapshot.management_url === 'string' && /^https:\/\/[^\s]+\/prenotazioni\/gestisci#token=[A-Za-z0-9_-]{43}$/.test(snapshot.management_url)
     && (!whatsapp || kind !== 'confirmation')
     ? `\n\n${managementLabel}\n${snapshot.management_url}` : '';
-  const details = whatsapp ? `📅 ${date} · ⏰ ${time} · 👥 ${party_size} persone` : `Data: ${date}\nOra: ${time}\nPersone: ${party_size}`;
-  const greeting = whatsapp ? `Ahoy ${name}! 🏴‍☠️` : `Ciao ${name},`;
+  const rejectionReason = rejected && typeof snapshot.rejection_reason === 'string' && snapshot.rejection_reason.trim()
+    ? `\n\nMotivazione: ${snapshot.rejection_reason.trim()}` : '';
+  const rebooking = rejected ? '\n\n🏴‍☠️ Scegli un’altra data:\nhttps://www.makaipigneto.it/prenotazioni' : '';
+  const details = whatsapp ? `📅 ${date} · ⏰ ${time} · 👥 ${party_size} persone` : `📅 Data: ${date}\n⏰ Ora: ${time}\n👥 Persone: ${party_size}`;
+  const greeting = `Ahoy ${name}! 🏴‍☠️`;
   const farewell = ['cancelled', 'rejected'].includes(kind) || (kind === 'confirmation' && ['pending', 'rejected', 'cancelled', 'completed', 'no_show'].includes(String(snapshot.status || '').toLowerCase()));
   const closing = whatsapp ? 'A presto a bordo! 🌴' : `${farewell ? 'Un saluto dall’equipaggio Makai.' : 'L’equipaggio Makai ti aspetta.'}\nA presto,\nMakai Grand Line Pigneto 🏴‍☠️`;
   return {
     subject: `${title}${kind === 'confirmation' ? '' : ' Makai'} · ${date}`,
-    text: `${greeting}${whatsapp ? ' ' : '\n\n'}${bodies[kind]}\n\n${details}${tableLine}${noTableNote}${reconfirmation}${proposal}${management}\n\n${closing}`,
+    text: `${greeting}${whatsapp ? ' ' : '\n\n'}${bodies[kind]}\n\n${details}${reconfirmation}${proposal}${management}${rejectionReason}${rebooking}\n\n${closing}`,
   };
 }
 

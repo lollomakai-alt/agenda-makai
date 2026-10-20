@@ -1475,3 +1475,8 @@
     width: min(100%, 520px); max-height: none; margin: 8px auto 0;
   }
 }
+
+.online-dopocena-rejection { display: grid; gap: .6rem; flex-basis: 100%; min-width: 0; padding-top: .8rem; border-top: 1px solid var(--admin-border); }
+.online-dopocena-rejection label { font-weight: 700; }
+.online-dopocena-rejection p { margin: 0; }
+.online-dopocena-rejection textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: .7rem; border: 1px solid var(--admin-border); border-radius: 8px; color: inherit; background: var(--admin-panel); font: inherit; resize: vertical; }

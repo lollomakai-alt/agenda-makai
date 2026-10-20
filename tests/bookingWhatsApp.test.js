@@ -13,7 +13,7 @@ test('Italian mobile, international prefixes and landline normalize for WhatsApp
  assert.equal(new URL(bookingWhatsAppConfirmationUrl({ ...booking, phone: '+44 7911 123456' })).pathname, '/447911123456');
  assert.equal(new URL(bookingWhatsAppConfirmationUrl({ ...booking, phone: '0044 7911 123456' })).pathname, '/447911123456');
 });
-test('prefilled confirmation is URL encoded, with assigned table only when present', () => {
+test('prefilled confirmation preserves emoji and omits all internal table information', () => {
  for (const tables of [undefined, '', '   ', '10+11', ' 10+11 ']) {
   const raw = bookingWhatsAppConfirmationUrl({ ...booking, tables });
   assert.ok(raw.includes('%F0%9F')); // Emoji encoded, including the pirate flag.
@@ -25,8 +25,7 @@ test('prefilled confirmation is URL encoded, with assigned table only when prese
   assert.match(text, /La prenotazione al Makai è confermata/);
   assert.match(text, /15\/10\/2026/);assert.match(text, /20:30/);assert.match(text, /3 persone/);
   assert.match(text, /A presto a bordo! 🌴/);
-  if (String(tables || '').trim() === '10+11') assert.match(text, /🪑 Tavolo: 10\+11/);
-  else assert.doesNotMatch(text, /🪑|Tavolo:/);
+  assert.doesNotMatch(text, /🪑|tavol|assegnazion|10\+11/i);
  }
 });
 test('missing or invalid number never opens a window or writes a log', async () => {

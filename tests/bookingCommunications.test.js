@@ -12,7 +12,7 @@ test('communication templates: confirmed, automatic update and cancellation; man
  assert.match(communicationMessage(snapshot,'updated').text,/aggiornata/);
  assert.match(communicationMessage(snapshot,'cancelled').text,/cancellata/);
  const rejection=communicationMessage(snapshot,'rejected').text;
- assert.match(rejection,/Ciao Mario Rossi,/);assert.match(rejection,/15\/10\/2026/);assert.match(rejection,/20:00/);assert.match(rejection,/non possiamo accoglierti/);
+ assert.match(rejection,/Ahoy Mario Rossi! 🏴‍☠️/);assert.match(rejection,/15\/10\/2026/);assert.match(rejection,/20:00/);assert.match(rejection,/non possiamo accoglierti/);
  const url=whatsappCommunicationUrl({channel:'whatsapp',status:'opened',recipient:'+393331234567',kind:'cancelled',snapshot});
  assert.match(url,/^https:\/\/wa.me\/393331234567\?text=/);assert.match(decodeURIComponent(url),/cancellata/);
  assert.throws(()=>whatsappCommunicationUrl({channel:'whatsapp',status:'accepted'}));

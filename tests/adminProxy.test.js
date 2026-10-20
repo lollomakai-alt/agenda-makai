@@ -143,3 +143,20 @@ test('rewritten nested communication routes retain allowlist, auth and original 
   const denied=response();await handler(request({url:'/api/agenda-gateway',query:{__agenda_route:'bookings/42/communications'},headers:{}}),denied);
   assert.equal(denied.code,401);
 }));
+
+test('DOPOCENA decision is forwarded only through the authenticated staff gateway', () => isolated(async () => {
+  const route='/api/admin/bookings/dopocena-requests/11111111-1111-4111-8111-111111111111/decision';
+  let calls=0;
+  globalThis.fetch=async (url,options)=>{
+    calls++;
+    if(calls===1) return Response.json({id:'admin',app_metadata:{role:'admin'}});
+    assert.equal(url.href,'https://backend.invalid'+route);
+    assert.equal(options.headers['x-agenda-backend-key'],secret);
+    assert.equal(options.headers.authorization,'Bearer test-session');
+    assert.equal(options.body,JSON.stringify({decision:'rejected'}));
+    return Response.json({status:'rejected',email_status:'failed'});
+  };
+  const res=response();
+  await handler(request({url:route,method:'POST',body:{decision:'rejected'}}),res);
+  assert.equal(res.code,200);assert.equal(calls,2);
+}));

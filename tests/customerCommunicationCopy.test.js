@@ -13,8 +13,10 @@ test('all existing kinds preserve facts, secure functional links and literal alt
   const original = structuredClone(snapshot);
   for (const kind of Object.keys(KINDS)) {
     const message = communicationMessage(snapshot, kind);
-    assert.match(message.text, /^Ciao Anna & Luca,/);
-    for (const fact of ['15/10/2026', '23:00', 'Persone: 2', 'Tavolo: 10+11', management_url]) assert.ok(message.text.includes(fact));
+    assert.match(message.text, /^Ahoy Anna & Luca! 🏴‍☠️/);
+    for (const fact of ['15/10/2026', '23:00', 'Persone: 2']) assert.ok(message.text.includes(fact));
+    assert.equal(message.text.includes(management_url), !['rejected','cancelled'].includes(kind));
+    assert.doesNotMatch(message.text, /tavol|assegnazion|10\+11/i);
     assert.doesNotMatch(message.text, /offerte|sconti|compleanno|rispondi.*Sì|invio automatico/i);
     assert.equal(communicationMessage({ ...snapshot, management_url: 'javascript:alert(1)' }, kind).text.includes('javascript:'), false);
   }
@@ -32,7 +34,7 @@ test('DOPOCENA acceptance never implies an assigned table; pending has no outgoi
   assert.equal(accepted.pathname, '/393331234567');
   const text = accepted.searchParams.get('text');
   assert.match(text, /richiesta DOPOCENA è stata accettata/);
-  assert.match(text, /Nessun tavolo assegnato/);
+  assert.doesNotMatch(text, /tavol|assegnazion/i);
   assert.doesNotMatch(text, /🪑|Tavolo:|ti aggiorneremo|appena disponibile/i);
   const rejected = new URL(onlineDopocenaWhatsAppUrl(request, 'rejected')).searchParams.get('text');
   assert.match(rejected, /non possiamo accoglierti/);
@@ -40,9 +42,8 @@ test('DOPOCENA acceptance never implies an assigned table; pending has no outgoi
   for (const tables of ['', '   ', '10+11']) {
     const snapshot = { ...booking, booking_type: 'dopocena', tables };
     for (const text of [communicationMessage(snapshot, 'confirmation').text, whatsappConfirmationMessage(snapshot)]) {
-      assert.match(text, /accettazione della richiesta.*distinta/);
-      assert.equal(text.includes('Tavolo: 10+11'), Boolean(tables.trim()));
-      assert.equal(text.includes('Nessun tavolo assegnato'), !tables.trim());
+      assert.match(text, /richiesta DOPOCENA è stata accettata/);
+      assert.doesNotMatch(text, /tavol|assegnazion|10\+11/i);
     }
   }
 });
@@ -94,4 +95,56 @@ test('prepared, provider-accepted and delivered statuses retain distinct meaning
     assert.ok(COMMUNICATION_STATUSES[status]);
     assert.doesNotMatch(COMMUNICATION_STATUSES[status], /^Consegna confermata/);
   }
+});
+
+test('all customer templates retain visible emoji in both channels and after WhatsApp encoding', () => {
+  for (const kind of Object.keys(KINDS)) {
+    for (const channel of ['email','whatsapp']) {
+      const message = communicationMessage({ ...booking, tables:'12' }, kind, channel);
+      for (const emoji of ['🏴‍☠️','📅','⏰','👥']) assert.ok(message.text.includes(emoji));
+      assert.doesNotMatch(message.text,/tavol|assegnazion|registrat|service_role|Resend/i);
+      if (channel === 'whatsapp') {
+        const url = whatsappCommunicationUrl({ channel, status:'opened', kind, recipient:booking.phone, snapshot:booking });
+        assert.equal(new URL(url).searchParams.get('text'), message.text);
+      }
+    }
+  }
+});
+
+test('refusal email and WhatsApp offer the site calendar, never a booking management token', () => {
+  const calendar = 'https://www.makaipigneto.it/prenotazioni';
+  for (const kind of ['rejected','confirmation']) {
+    for (const channel of ['email','whatsapp']) {
+      const snapshot = { ...booking, booking_type:'dopocena', status:'rejected', management_url };
+      const message = communicationMessage(snapshot, kind, channel);
+      assert.match(message.text,/🏴‍☠️ Scegli un’altra data:/);
+      assert.ok(message.text.includes(calendar));
+      assert.doesNotMatch(message.text,/Gestisci|riconferma|gestisci#token|link personale/i);
+      assert.equal(message.text.includes(management_url),false);
+      if (channel === 'whatsapp') {
+        const url = whatsappCommunicationUrl({channel,status:'opened',kind,recipient:booking.phone,snapshot});
+        assert.equal(new URL(url).searchParams.get('text'),message.text);
+      }
+    }
+  }
+  const withoutBooking = new URL(onlineDopocenaWhatsAppUrl({ ...booking, status:'pending', management_url },'rejected')).searchParams.get('text');
+  assert.ok(withoutBooking.includes(calendar));
+  assert.doesNotMatch(withoutBooking,/gestisci#token|Gestisci o riconferma/);
+  assert.doesNotMatch(communicationMessage(booking,'confirmation').text,/Scegli un’altra data/);
+});
+
+test('management links appear only for actionable bookings and never on cancellations or pending/closed states', () => {
+  for (const channel of ['email','whatsapp']) {
+    for (const status of ['pending','cancelled','arrived','completed','no_show']) {
+      const text = communicationMessage({...booking,status,management_url},'confirmation',channel).text;
+      assert.doesNotMatch(text,/Gestisci o riconferma|gestisci#token|link personale/);
+    }
+    assert.doesNotMatch(communicationMessage({...booking,management_url},'cancelled',channel).text,/Gestisci o riconferma|gestisci#token/);
+    for (const kind of ['updated','reminder','reconfirmation','delay','alternative']) {
+      const text = communicationMessage({...booking,management_url},kind,channel).text;
+      assert.ok(text.includes(management_url));
+      assert.equal(new URL(management_url).pathname,'/prenotazioni/gestisci');
+    }
+  }
+  assert.ok(communicationMessage({...booking,management_url},'confirmation','email').text.includes(management_url));
 });
