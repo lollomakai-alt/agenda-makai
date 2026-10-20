@@ -24,7 +24,12 @@ export async function loadOnlineDopocenaRequests(client, includeEmailOutcomes = 
   if (error) failure(error);
   if (!Array.isArray(data)) throw new Error('Elenco richieste DOPOCENA non confermato.');
   if (!includeEmailOutcomes) return data;
-  const outcomes = await client.rpc('admin_dopocena_email_outcomes').catch(() => ({ error: true }));
+  let outcomes;
+  try {
+    outcomes = await client.rpc('admin_dopocena_email_outcomes');
+  } catch {
+    outcomes = { error: true };
+  }
   const statuses = !outcomes.error && Array.isArray(outcomes.data) ? outcomes.data : [];
   return data.map(row => {
     const outcome = statuses.find(outcome => outcome.request_id === row.request_id);

@@ -1,3 +1,9 @@
+## Correzione caricamento coda DOPOCENA — 20 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** corretto l’errore in produzione `client.rpc(...).catch is not a function`: il builder Supabase non espone `.catch`. La lettura degli esiti email ora usa `try/catch`; se la RPC degli esiti non è disponibile la coda resta visibile con stato `unknown`. Aggiunti due test di regressione (thenable senza `.catch` e RPC in errore).
+- **File:** `src/utils/onlineDopocenaRequests.js`, `tests/onlineDopocenaRequests.test.js` e questo registro. Nessuna modifica a database, Edge, Backend o template.
+- **Verifiche locali:** test DOPOCENA 7/7, suite Agenda completa riuscita, build Vite riuscita.
+- **DEPLOYATO:** in corso con il push su `main`; deploy Vercel da confermare. **VERIFICATO IN PRODUZIONE:** da rifare dopo il deploy (ricaricare la pagina Richieste DOPOCENA).
+
 ## Email prima, WhatsApp solo come ripiego DOPOCENA — 20 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** dopo Accetta/Rifiuta il canale principale è l’email. Il collegamento WhatsApp non viene più proposto come scelta ordinaria: compare solo se l’email non ha raggiunto un indirizzo valido (`skipped`: email assente/non valida) o se il provider l’ha rifiutata (`failed`). Con esito `queued`, `sending`, `accepted` o `unknown` non viene mostrato alcun invito WhatsApp. Stessa regola in archivio; etichetta aggiornata in “Apri WhatsApp (email non disponibile)” e testo del pannello di rifiuto corretto (motivazione nell’email; WhatsApp solo alternativo). Nessuna apertura automatica di finestre.
 - **File:** `src/utils/onlineDopocenaRequests.js` (nuovo `dopocenaWhatsAppFallbackAllowed`), `src/components/OnlineDopocenaRequests.jsx`, `tests/{onlineDopocenaRequests,dopocenaDecisionEmail,dopocenaRejectionPanel}.test.js` e questo registro. Backend, Edge, SQL e template invariati.

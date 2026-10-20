@@ -10,6 +10,27 @@ test('loads the private DOPOCENA queue through its admin RPC', async () => {
   assert.deepEqual(calls,['admin_list_online_dopocena_requests']);
 });
 
+test('loads the queue when the email-outcome RPC is a thenable without catch', async () => {
+  const rows=[{request_id:'r1',status:'pending'},{request_id:'r2',status:'accepted'}];
+  const thenable=value=>({then(resolve){resolve(value);}});
+  const client={rpc:name=>name==='admin_list_online_dopocena_requests'
+    ? Promise.resolve({data:rows})
+    : thenable({data:[{request_id:'r2',status:'accepted'}]})};
+  const result=await loadOnlineDopocenaRequests(client);
+  assert.deepEqual(result,[
+    {request_id:'r1',status:'pending',email_status:'unknown',rejection_reason:''},
+    {request_id:'r2',status:'accepted',email_status:'accepted',rejection_reason:''},
+  ]);
+});
+
+test('loads the queue when the email-outcome RPC fails', async () => {
+  const rows=[{request_id:'r1',status:'pending'}];
+  const client={rpc:async name=>name==='admin_list_online_dopocena_requests'
+    ? {data:rows} : {data:null,error:{message:'non disponibile'}}};
+  const result=await loadOnlineDopocenaRequests(client);
+  assert.deepEqual(result,[{request_id:'r1',status:'pending',email_status:'unknown',rejection_reason:''}]);
+});
+
 test('dedicated DOPOCENA badge counts only requests waiting for staff', async () => {
   const count = await loadPendingOnlineDopocenaCount({rpc:async name=>{
     assert.equal(name,'admin_list_online_dopocena_requests');
