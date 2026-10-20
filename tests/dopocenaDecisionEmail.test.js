@@ -56,7 +56,8 @@ test('client keeps saved decision on failed email and displays only confirmed pr
 test('decision component never opens or navigates a window automatically',async()=>{
  const source=await readFile(new URL('../src/components/OnlineDopocenaRequests.jsx',import.meta.url),'utf8');
  assert.doesNotMatch(source,/window\.open|\.location\s*[.=]|about:blank/);
- assert.match(source,/Apri WhatsApp \(facoltativo\)/);
+ assert.match(source,/Apri WhatsApp \(email non disponibile\)/);
+ assert.match(source,/dopocenaWhatsAppFallbackAllowed/);
  assert.match(source,/target="_blank" rel="noopener noreferrer"/);
 });
 

@@ -71,6 +71,13 @@ export async function reviewOnlineDopocenaRequest(client, request, decision, tra
   return data;
 }
 
+// Email is the primary channel. WhatsApp is offered only when the email could
+// not be delivered to a valid address; an uncertain outcome may already have
+// reached the customer, so it is not treated as a fallback.
+export function dopocenaWhatsAppFallbackAllowed(emailStatus) {
+  return emailStatus === 'skipped' || emailStatus === 'failed';
+}
+
 export const DOPOCENA_EMAIL_LABELS = Object.freeze({
   queued: 'Email preparata · invio non confermato',
   sending: 'Invio email in corso o esito da verificare',

@@ -29,6 +29,6 @@ test('rejection panel requires explicit confirmation, cancels without sending an
   find(tree,'Rifiuta').props.onClick();tree=render();textarea=nodes(tree).find(node=>node.type==='textarea');textarea.props.onChange({target:{value:'Siamo al completo.'}});
   tree=render();assert.equal(find(tree,'Conferma rifiuto e invia email').props.disabled,false);form=nodes(tree).find(node=>node.type==='form');await form.props.onSubmit({preventDefault(){}});
   tree=render();assert.equal(calls,1);assert.equal(nodes(tree).some(node=>node.type==='form'),false);
-  const link=nodes(tree).find(node=>node.type==='a'&&node.props.children==='Apri WhatsApp (facoltativo)');assert.ok(link);assert.match(new URL(link.props.href).searchParams.get('text'),/Motivazione: Siamo al completo\./);
+  const link=nodes(tree).find(node=>node.type==='a'&&node.props.children==='Apri WhatsApp (email non disponibile)');assert.ok(link);assert.match(new URL(link.props.href).searchParams.get('text'),/Motivazione: Siamo al completo\./);
  }finally{await server.close();globalThis.window=previous.window;globalThis.fetch=previous.fetch;globalThis.__rejectionHooks=previous.hooks;globalThis.__rejectionClient=previous.client;}
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { dopocenaEmailLabel, loadOnlineDopocenaRequests, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../utils/onlineDopocenaRequests';
+import { dopocenaEmailLabel, dopocenaWhatsAppFallbackAllowed, loadOnlineDopocenaRequests, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../utils/onlineDopocenaRequests';
 
 function displayDate(value) {
   if (!value) return '';
@@ -53,12 +53,14 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
     setFeedback('');
     try {
       const result = await reviewOnlineDopocenaRequest(supabase, request, decision, undefined, reason);
-      const url = onlineDopocenaWhatsAppUrl({ ...request, rejection_reason: result.rejection_reason }, decision, result.booking_id);
-      if (url) setWhatsAppOffer({ url, label: 'Apri WhatsApp (facoltativo)' });
-      if (!url) setWhatsAppError('Decisione salvata. Messaggio WhatsApp non preparato: verifica il numero del cliente.');
+      const whatsAppFallback = dopocenaWhatsAppFallbackAllowed(result.email_status);
+      const url = whatsAppFallback
+        ? onlineDopocenaWhatsAppUrl({ ...request, rejection_reason: result.rejection_reason }, decision, result.booking_id) : null;
+      if (url) setWhatsAppOffer({ url, label: 'Apri WhatsApp (email non disponibile)' });
+      if (whatsAppFallback && !url) setWhatsAppError('Decisione salvata. Messaggio WhatsApp non preparato: verifica il numero del cliente.');
       setFeedback(decision === 'accepted'
-        ? `Richiesta DOPOCENA accettata. Prenotazione #${result.booking_id} registrata senza tavolo assegnato. ${dopocenaEmailLabel(result.email_status)}. WhatsApp è facoltativo.`
-        : `Richiesta DOPOCENA rifiutata. ${dopocenaEmailLabel(result.email_status)}. WhatsApp è facoltativo.`);
+        ? `Richiesta DOPOCENA accettata. Prenotazione #${result.booking_id} registrata senza tavolo assegnato. ${dopocenaEmailLabel(result.email_status)}.${whatsAppFallback ? ' Email non disponibile: puoi contattare il cliente su WhatsApp.' : ''}`
+        : `Richiesta DOPOCENA rifiutata. ${dopocenaEmailLabel(result.email_status)}.${whatsAppFallback ? ' Email non disponibile: puoi contattare il cliente su WhatsApp.' : ''}`);
       setRejectingId(null);
       setRejectionReason('');
       await refresh();
@@ -78,6 +80,7 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
   const archivedRequests = requests.filter(request => request.status !== 'pending');
   function renderRequest(request) {
     const whatsappUrl = request.status !== 'pending' && busyId !== request.request_id
+      && dopocenaWhatsAppFallbackAllowed(request.email_status)
       ? onlineDopocenaWhatsAppUrl(request, request.status, request.booking_id) : null;
     return <li className={`online-dopocena-item is-${request.status}`} key={request.request_id}>
       <div className="online-dopocena-customer">
@@ -91,7 +94,7 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
         <span>{request.status === 'pending' ? 'Ricevuta · in attesa dello staff' : request.status === 'accepted' ? `Richiesta accettata · tavolo da verificare in Agenda${request.booking_id ? ` · pren. #${request.booking_id}` : ''}` : 'Rifiutata'}</span>
         {request.rejection_reason && <p>Motivazione: {request.rejection_reason}</p>}
         {request.status !== 'pending' && <span>{dopocenaEmailLabel(request.email_status)}</span>}
-        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">Apri WhatsApp (facoltativo)</a>}
+        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">Apri WhatsApp (email non disponibile)</a>}
         {request.status === 'pending' && <div className="online-dopocena-actions">
           <button type="button" className="admin-button" disabled={disabled || busyId !== null || rejectingId !== null} onClick={() => decide(request, 'accepted')}>
             {busyId === request.request_id ? 'Decisione e invio email…' : 'Accetta'}
@@ -103,7 +106,7 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
       </div>
       {request.status === 'pending' && rejectingId === request.request_id && <form className="online-dopocena-rejection" aria-label={`Rifiuta la richiesta di ${request.name}`} onSubmit={event => { event.preventDefault(); return decide(request, 'rejected', rejectionReason); }}>
         <label htmlFor={`rejection-reason-${request.request_id}`}>Motivazione del rifiuto</label>
-        <p id={`rejection-help-${request.request_id}`}>Questo testo sarà inviato al cliente nell’email e nel messaggio WhatsApp precompilato.</p>
+        <p id={`rejection-help-${request.request_id}`}>Questo testo sarà inviato al cliente nell’email di rifiuto. Se l’email non è disponibile, resta nel messaggio WhatsApp alternativo.</p>
         <textarea id={`rejection-reason-${request.request_id}`} aria-describedby={`rejection-help-${request.request_id}`} value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} required maxLength={500} rows={4} autoFocus disabled={disabled || busyId !== null} />
         <span>{rejectionReason.length}/500 caratteri</span>
         <div className="online-dopocena-actions">

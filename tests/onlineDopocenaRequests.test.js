@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadOnlineDopocenaRequests, loadPendingOnlineDopocenaCount, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../src/utils/onlineDopocenaRequests.js';
+import { dopocenaWhatsAppFallbackAllowed, loadOnlineDopocenaRequests, loadPendingOnlineDopocenaCount, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../src/utils/onlineDopocenaRequests.js';
 
 test('loads the private DOPOCENA queue through its admin RPC', async () => {
   const rows=[{request_id:'r1',status:'pending'}];
@@ -33,6 +33,14 @@ test('accept and reject use the protected server endpoint and validate outcomes'
   await assert.rejects(reviewOnlineDopocenaRequest(client,request,'pending'));
   await assert.rejects(reviewOnlineDopocenaRequest(client,request,'accepted',async()=>Response.json({request_id:'other'})),/non confermato/);
   await assert.rejects(loadOnlineDopocenaRequests({rpc:async()=>({data:{}})}),/non confermato/);
+});
+
+test('WhatsApp is a fallback only when the email did not reach a valid address', () => {
+  assert.equal(dopocenaWhatsAppFallbackAllowed('skipped'), true);
+  assert.equal(dopocenaWhatsAppFallbackAllowed('failed'), true);
+  for (const status of ['queued', 'sending', 'accepted', 'unknown', undefined]) {
+    assert.equal(dopocenaWhatsAppFallbackAllowed(status), false);
+  }
 });
 
 test('prepares confirmation and pirate rejection WhatsApp links for the request phone', () => {
