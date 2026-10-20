@@ -68,6 +68,8 @@ Anteprima dei template locali aggiornata il 20 ottobre 2026. Stile pirata Makai,
 >
 > 📅 [data] · ⏰ [ora] · 👥 [numero] persone
 >
+> Motivazione: [motivazione inserita dallo staff]
+>
 > 🏴‍☠️ Scegli un’altra data:
 > https://www.makaipigneto.it/prenotazioni
 >
@@ -84,6 +86,8 @@ Anteprima dei template locali aggiornata il 20 ottobre 2026. Stile pirata Makai,
 > 📅 Data: [data]
 > ⏰ Ora: [ora]
 > 👥 Persone: [numero]
+>
+> Motivazione: [motivazione inserita dallo staff]
 >
 > 🏴‍☠️ Scegli un’altra data:
 > https://www.makaipigneto.it/prenotazioni
@@ -397,3 +401,5 @@ Anteprima dei template locali aggiornata il 20 ottobre 2026. Stile pirata Makai,
 Le anteprime legacy di conferma mantengono anche la nota e il link all’informativa privacy già previsti. Non vengono rimossi link utili al cliente. Rendering effettivo delle emoji su dispositivi e client email non verificato con invii reali.
 
 Controllo link del 20 ottobre 2026: il rifiuto porta al calendario pubblico `/prenotazioni`; il link personale `/prenotazioni/gestisci#token=…` serve a una prenotazione attiva. Non è proposto per richieste in attesa, cancellazioni o visite concluse. Aggiornamento locale: l’email automatica di accettazione DOPOCENA ora prepara e include il link personale di gestione tramite il sistema token server esistente. Token e messaggio vengono salvati insieme al tentativo email, senza rigenerazione nei replay. Le altre comunicazioni attive mostrano il link soltanto quando già presente nello snapshot.
+
+Aggiornamento locale: per rifiutare una nuova richiesta DOPOCENA lo staff compila il pannello “Motivazione del rifiuto” (obbligatoria, massimo 500 caratteri). Il testo viene condiviso con il cliente in email e WhatsApp ed è conservato in archivio. Le decisioni storiche non vengono riscritte.

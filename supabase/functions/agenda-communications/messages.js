@@ -46,6 +46,8 @@ export function communicationMessage(snapshot, kind, channel = 'email') {
   const management = !rejected && !inactive && typeof snapshot.management_url === 'string' && /^https:\/\/[^\s]+\/prenotazioni\/gestisci#token=[A-Za-z0-9_-]{43}$/.test(snapshot.management_url)
     && (!whatsapp || kind !== 'confirmation')
     ? `\n\n${managementLabel}\n${snapshot.management_url}` : '';
+  const rejectionReason = rejected && typeof snapshot.rejection_reason === 'string' && snapshot.rejection_reason.trim()
+    ? `\n\nMotivazione: ${snapshot.rejection_reason.trim()}` : '';
   const rebooking = rejected ? '\n\n🏴‍☠️ Scegli un’altra data:\nhttps://www.makaipigneto.it/prenotazioni' : '';
   const details = whatsapp ? `📅 ${date} · ⏰ ${time} · 👥 ${party_size} persone` : `📅 Data: ${date}\n⏰ Ora: ${time}\n👥 Persone: ${party_size}`;
   const greeting = `Ahoy ${name}! 🏴‍☠️`;
@@ -53,7 +55,7 @@ export function communicationMessage(snapshot, kind, channel = 'email') {
   const closing = whatsapp ? 'A presto a bordo! 🌴' : `${farewell ? 'Un saluto dall’equipaggio Makai.' : 'L’equipaggio Makai ti aspetta.'}\nA presto,\nMakai Grand Line Pigneto 🏴‍☠️`;
   return {
     subject: `${title}${kind === 'confirmation' ? '' : ' Makai'} · ${date}`,
-    text: `${greeting}${whatsapp ? ' ' : '\n\n'}${bodies[kind]}\n\n${details}${reconfirmation}${proposal}${management}${rebooking}\n\n${closing}`,
+    text: `${greeting}${whatsapp ? ' ' : '\n\n'}${bodies[kind]}\n\n${details}${reconfirmation}${proposal}${management}${rejectionReason}${rebooking}\n\n${closing}`,
   };
 }
 

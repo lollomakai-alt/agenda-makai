@@ -23,6 +23,8 @@ export async function sendDecisionEmail(client, requestId, apiKey, transport = f
     || snapshot.tables !== '') return result('failed');
   if (row.decision === 'accepted' && (typeof snapshot.management_url !== 'string'
     || !/^https:\/\/[^\s]+\/prenotazioni\/gestisci#token=[A-Za-z0-9_-]{43}$/.test(snapshot.management_url))) return result('failed');
+  if (row.decision === 'rejected' && (typeof snapshot.rejection_reason !== 'string'
+    || !snapshot.rejection_reason.trim() || snapshot.rejection_reason.length > 500)) return result('failed');
   const message = communicationMessage(snapshot, row.decision === 'accepted' ? 'confirmation' : 'rejected');
   try {
     const response = await transport('https://api.resend.com/emails', {

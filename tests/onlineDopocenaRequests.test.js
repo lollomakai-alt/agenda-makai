@@ -24,9 +24,9 @@ test('accept and reject use the protected server endpoint and validate outcomes'
   for (const decision of ['accepted','rejected']) {
     const result = await reviewOnlineDopocenaRequest(client,request,decision,async(url,options)=>{
       assert.equal(url,'/api/admin/bookings/dopocena-requests/r1/decision');
-      assert.deepEqual(JSON.parse(options.body),{decision});
-      return Response.json({request_id:'r1',status:decision,booking_id:decision==='accepted'?73:null,email_status:'accepted'});
-    });
+      assert.deepEqual(JSON.parse(options.body),{decision,...(decision==='rejected'?{rejection_reason:'Al completo.'}:{})});
+      return Response.json({request_id:'r1',status:decision,booking_id:decision==='accepted'?73:null,email_status:'accepted',rejection_reason:decision==='rejected'?'Al completo.':''});
+    },decision==='rejected'?'Al completo.':'');
     assert.equal(result.status,decision);
   }
   await assert.rejects(reviewOnlineDopocenaRequest(client,{...request,status:'accepted'},'rejected'));

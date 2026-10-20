@@ -203,7 +203,7 @@ Deno.test('DOPOCENA Edge route accepts only server callers and stored decision c
         check(new Headers(init?.headers).get('Authorization') === 'Bearer test-service-secret');
         return Response.json({request_id:rid,decision,status,attempted_at:new Date().toISOString(),
           recipient:'test@example.com',booking_id:decision === 'accepted' ? 7 : null,
-          snapshot:{name:'Ada',booking_date:'2026-10-25',booking_time:'23:00',party_size:2,tables:'',booking_type:'dopocena',status:decision,...(decision === 'accepted' ? {management_url:`https://www.makaipigneto.it/prenotazioni/gestisci#token=${'a'.repeat(43)}`} : {})}});
+          snapshot:{name:'Ada',booking_date:'2026-10-25',booking_time:'23:00',party_size:2,tables:'',booking_type:'dopocena',status:decision,...(decision === 'accepted' ? {management_url:`https://www.makaipigneto.it/prenotazioni/gestisci#token=${'a'.repeat(43)}`} : {rejection_reason:'Siamo al completo.'})}});
       }
       check(url === 'https://api.resend.com/emails');
       sends++;

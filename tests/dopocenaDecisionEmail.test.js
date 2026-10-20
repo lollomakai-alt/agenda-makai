@@ -6,7 +6,7 @@ import { reviewOnlineDopocenaRequest, dopocenaEmailLabel } from '../src/utils/on
 const rid='11111111-1111-4111-8111-111111111111';
 const managementUrl = `https://www.makaipigneto.it/prenotazioni/gestisci#token=${'a'.repeat(43)}`;
 const row = decision => ({request_id:rid,decision,status:'sending',attempted_at:new Date().toISOString(),recipient:'test@example.com',booking_id:decision==='accepted'?7:null,
- snapshot:{name:'Ada',booking_date:'2026-10-25',booking_time:'23:00',party_size:2,tables:'',booking_type:'dopocena',status:decision,...(decision==='accepted'?{management_url:managementUrl}:{})}});
+ snapshot:{name:'Ada',booking_date:'2026-10-25',booking_time:'23:00',party_size:2,tables:'',booking_type:'dopocena',status:decision,...(decision==='accepted'?{management_url:managementUrl}:{rejection_reason:'Siamo al completo.'})}});
 const client = record => ({rpc:async()=>({data:record})});
 test('server transport uses distinct acceptance/refusal templates, including no linked booking', async()=>{
  for (const decision of ['accepted','rejected']) {
@@ -23,6 +23,7 @@ test('server transport uses distinct acceptance/refusal templates, including no 
     assert.match(payload.text,/Gestisci o riconferma la prenotazione/);
    }
    if (decision === 'rejected') {
+    assert.match(payload.text,/Motivazione: Siamo al completo\./);
     assert.ok(payload.text.includes('https://www.makaipigneto.it/prenotazioni'));
     assert.doesNotMatch(payload.text,/Gestisci o riconferma|gestisci#token/i);
    }
@@ -45,9 +46,9 @@ test('client keeps saved decision on failed email and displays only confirmed pr
  const auth={getSession:async()=>({data:{session:{access_token:'admin-jwt'}}})};
  const result=await reviewOnlineDopocenaRequest({auth},{request_id:rid,status:'pending'},'rejected',async(url,options)=>{
   assert.equal(url,`/api/admin/bookings/dopocena-requests/${rid}/decision`);
-  assert.deepEqual(JSON.parse(options.body),{decision:'rejected'});
-  return Response.json({request_id:rid,status:'rejected',booking_id:null,email_status:'failed'});
- });
+  assert.deepEqual(JSON.parse(options.body),{decision:'rejected',rejection_reason:'Siamo al completo.'});
+  return Response.json({request_id:rid,status:'rejected',booking_id:null,email_status:'failed',rejection_reason:'Siamo al completo.'});
+ },'Siamo al completo.');
  assert.equal(result.status,'rejected');assert.match(dopocenaEmailLabel(result.email_status),/fallito/);
  assert.match(dopocenaEmailLabel('accepted'),/consegna non verificata/);
  assert.match(dopocenaEmailLabel('unexpected'),/non confermato/);
@@ -66,4 +67,14 @@ test('acceptance without a valid stored personal link cannot be sent',async()=>{
   const result=await sendDecisionEmail(client(record),rid,'key',async()=>{sends++;});
   assert.equal(result.status,'failed');assert.equal(sends,0);
  }
+});
+
+test('refusal without a reason is blocked before client transport and before Resend',async()=>{
+ const record=row('rejected');delete record.snapshot.rejection_reason;
+ let sends=0;
+ assert.equal((await sendDecisionEmail(client(record),rid,'key',async()=>{sends++;})).status,'failed');
+ for(const reason of ['', ' ', 'x'.repeat(501)]) {
+  await assert.rejects(reviewOnlineDopocenaRequest({}, {request_id:rid,status:'pending'}, 'rejected', async()=>{sends++;}, reason),/motivazione/);
+ }
+ assert.equal(sends,0);
 });

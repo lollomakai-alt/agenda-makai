@@ -26,7 +26,10 @@ export async function loadOnlineDopocenaRequests(client, includeEmailOutcomes = 
   if (!includeEmailOutcomes) return data;
   const outcomes = await client.rpc('admin_dopocena_email_outcomes').catch(() => ({ error: true }));
   const statuses = !outcomes.error && Array.isArray(outcomes.data) ? outcomes.data : [];
-  return data.map(row => ({ ...row, email_status: statuses.find(outcome => outcome.request_id === row.request_id)?.status || 'unknown' }));
+  return data.map(row => {
+    const outcome = statuses.find(outcome => outcome.request_id === row.request_id);
+    return { ...row, email_status: outcome?.status || 'unknown', rejection_reason: outcome?.rejection_reason || '' };
+  });
 }
 
 export async function loadPendingOnlineDopocenaCount(client) {
@@ -34,9 +37,13 @@ export async function loadPendingOnlineDopocenaCount(client) {
   return requests.filter(request => request.status === 'pending').length;
 }
 
-export async function reviewOnlineDopocenaRequest(client, request, decision, transport = globalThis.fetch) {
+export async function reviewOnlineDopocenaRequest(client, request, decision, transport = globalThis.fetch, rejectionReason = '') {
   if (!request?.request_id || request.status !== 'pending' || !DOPOCENA_DECISIONS.includes(decision)) {
     throw new Error('Decisione non valida o richiesta già gestita.');
+  }
+  const reason = String(rejectionReason).trim();
+  if (decision === 'rejected' && (!reason || reason.length > 500 || reason.includes('\0'))) {
+    throw new Error('Inserisci una motivazione del rifiuto (massimo 500 caratteri).');
   }
   const { data: { session } = {}, error } = await client.auth.getSession();
   if (error || !session?.access_token) throw new Error('Accedi per gestire le richieste.');
@@ -44,7 +51,7 @@ export async function reviewOnlineDopocenaRequest(client, request, decision, tra
   try {
     response = await transport(`/api/admin/bookings/dopocena-requests/${encodeURIComponent(request.request_id)}/decision`, {
       method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json', 'x-admin-request': '1' }, body: JSON.stringify({ decision }),
+        'Content-Type': 'application/json', 'x-admin-request': '1' }, body: JSON.stringify({ decision, ...(decision === 'rejected' ? { rejection_reason: reason } : {}) }),
     });
     data = await response.json();
   } catch {
@@ -56,6 +63,9 @@ export async function reviewOnlineDopocenaRequest(client, request, decision, tra
   }
   if (decision === 'accepted' && (!Number.isSafeInteger(data.booking_id) || data.booking_id < 1)) {
     throw new Error('Prenotazione DOPOCENA non confermata dal database.');
+  }
+  if (decision === 'rejected' && data.rejection_reason !== reason) {
+    throw new Error('Motivazione non confermata. Ricarica la coda prima di contattare il cliente.');
   }
   if (!Object.hasOwn(DOPOCENA_EMAIL_LABELS, data.email_status)) data.email_status = 'unknown';
   return data;
