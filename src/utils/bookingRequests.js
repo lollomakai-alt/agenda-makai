@@ -26,7 +26,7 @@ function failure(error) {
 
 export async function loadBookingRequests(client) {
   const { data, error } = await client.from('booking_requests')
-    .select('id,booking_id,request_type,requested_value,status,created_at,reviewed_at,alternative_note,origin,booking:bookings!booking_requests_booking_id_fkey(id,name,booking_date,booking_time,party_size,tables,status,booking_type)')
+    .select('id,booking_id,request_type,requested_value,status,created_at,reviewed_at,alternative_note,origin,booking:bookings!booking_requests_booking_id_fkey(id,name,phone,booking_date,booking_time,party_size,tables,status,booking_type)')
     .order('created_at', { ascending: false }).order('id', { ascending: false });
   if (error) failure(error);
   return data || [];

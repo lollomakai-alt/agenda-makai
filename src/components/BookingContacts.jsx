@@ -41,7 +41,7 @@ export default function BookingContacts({
         <span>Chiama</span>
       </a>
 
-      <button
+      {onWhatsApp && <button
         type="button"
         className="admin-button admin-button-secondary"
         disabled={busy}
@@ -62,7 +62,7 @@ export default function BookingContacts({
           <path d="M8.5 8.5c.5 3 2 4.5 5 5" />
         </svg>
         <span>WhatsApp</span>
-      </button>
+      </button>}
       </div>
     </details>
   );

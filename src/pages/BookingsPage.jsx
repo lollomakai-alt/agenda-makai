@@ -63,7 +63,8 @@ import { DAILY_COVER_LIMIT } from "../utils/bookingCapacity";
 
 import tables from "../config/tables.json" with { type: "json" };
 import { bookingsToCsv, formatBookingServiceDate, prepareBookingExport, BOOKING_EXPORT_COLUMNS } from "../utils/bookingExport";
-import { openBookingWhatsApp } from "../utils/bookingCommunications";
+import { sendCancellationEmail } from "../utils/bookingCancellation";
+import BookingCancellationFeedback from "../components/BookingCancellationFeedback";
 
 
 function consentDate(value) {
@@ -179,9 +180,7 @@ export default function BookingsPage() {
   const [statusFeedback, setStatusFeedback] =
     useState(null);
 
-  const [cancelWhatsAppOffer, setCancelWhatsAppOffer] = useState(null);
-  const [cancelWhatsAppError, setCancelWhatsAppError] = useState('');
-  const cancelWhatsAppPending = useRef(false);
+  const [cancellation, setCancellation] = useState(null);
 
   const [undoError, setUndoError] =
     useState("");
@@ -859,7 +858,7 @@ export default function BookingsPage() {
     if (
       status === 'cancelled'
       && !window.confirm(
-        `Confermi la cancellazione della prenotazione di ${booking.name} del ${booking.booking_date} alle ${booking.booking_time.slice(0, 5)}?\n\nLo stato diventerà “Cancellata”. La prenotazione resterà conservata nel database e nello storico.`
+        `Confermi la cancellazione della prenotazione di ${booking.name} del ${booking.booking_date} alle ${booking.booking_time.slice(0, 5)}?\n\nLo stato diventerà “Cancellata” e verrà inviata automaticamente l’email di cancellazione, se disponibile. La prenotazione resterà conservata nel database e nello storico.`
       )
     ) {
       return;
@@ -868,8 +867,7 @@ export default function BookingsPage() {
     statusChangePending.current =
       true;
 
-    setCancelWhatsAppOffer(null);
-    setCancelWhatsAppError('');
+    setCancellation(null);
 
     setStatusSavingId(
       booking.id
@@ -904,7 +902,11 @@ export default function BookingsPage() {
       setUndoError("");
 
       if (result.status === 'cancelled') {
-        setCancelWhatsAppOffer({ ...booking, status: 'cancelled' });
+        const cancelledBooking = { ...booking, status: 'cancelled' };
+        setCancellation({ booking: cancelledBooking, status: 'pending' });
+        refreshAppointments();
+        const email = await sendCancellationEmail(supabase, booking.id);
+        setCancellation({ booking: cancelledBooking, status: email.status });
       }
 
       refreshAppointments();
@@ -922,20 +924,6 @@ export default function BookingsPage() {
       setStatusSavingId(null);
     }
   }
-
-  async function openCancellationWhatsApp() {
-    if (!cancelWhatsAppOffer || cancelWhatsAppPending.current) return;
-    cancelWhatsAppPending.current = true;
-    setCancelWhatsAppError('');
-    try {
-      await openBookingWhatsApp(supabase, cancelWhatsAppOffer, false);
-    } catch (failure) {
-      setCancelWhatsAppError(failure.message || 'Chat WhatsApp non disponibile.');
-    } finally {
-      cancelWhatsAppPending.current = false;
-    }
-  }
-
 
   async function undoStatus() {
     if (
@@ -2401,15 +2389,8 @@ export default function BookingsPage() {
         </div>
       )}
 
-      {cancelWhatsAppOffer && (
-        <div className="booking-status-feedback" role="status">
-          <span>{cancelWhatsAppOffer.name}: cancellazione registrata. Puoi preparare WhatsApp e inviare il messaggio manualmente.</span>
-          <button type="button" className="admin-button" disabled={statusSavingId !== null} onClick={openCancellationWhatsApp}>
-            Prepara WhatsApp di cancellazione
-          </button>
-          {cancelWhatsAppError && <span role="alert">{cancelWhatsAppError}</span>}
-        </div>
-      )}
+      {cancellation && <BookingCancellationFeedback key={cancellation.booking.id}
+        booking={cancellation.booking} status={cancellation.status} />}
 
       {undoError && (
         <p

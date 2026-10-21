@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendCancellationEmail } from '../utils/bookingCancellation';
+import BookingCancellationFeedback from './BookingCancellationFeedback';
 import { createBookingRequest, loadBookingRequests, loadBookingRequestAlternatives, reviewBookingRequest, REQUEST_TYPES } from '../utils/bookingRequests';
 
 export default function BookingRequests({ appointments, disabled, onChanged }) {
   const [requests, setRequests] = useState([]);
+  const [cancellation, setCancellation] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,9 +42,18 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
   }
   async function review(request, decision) {
     if (busy || disabled) return;
-    setBusy(true); setError('');
+    if (decision === 'approved' && request.request_type === 'cancellazione'
+      && !window.confirm('Confermi la cancellazione della prenotazione? Verrà inviata automaticamente l’email di cancellazione, se disponibile.')) return;
+    setBusy(true); setError(''); setCancellation(null);
     try {
       await reviewBookingRequest(supabase, request, decision);
+      if (decision === 'approved' && request.request_type === 'cancellazione') {
+        const booking = request.booking || appointments.find(b => String(b.id) === String(request.booking_id)) || { id: request.booking_id };
+        setCancellation({ booking, status: 'pending' });
+        onChanged();
+        const email = await sendCancellationEmail(supabase, request.booking_id);
+        setCancellation({ booking, status: email.status });
+      }
       setRevision(x => x + 1); onChanged(); window.dispatchEvent(new Event('admin-notifications-changed'));
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
@@ -69,6 +81,7 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
       {pending.length ? `${pending.length} richieste ricevute, in attesa della decisione dello staff, anche per altre date.` : 'Nessuna richiesta in attesa dello staff.'}</p>}
     <button className="admin-button admin-button-secondary" disabled={busy} onClick={() => setRevision(x => x + 1)}>Aggiorna richieste</button>
     {error && <p role="alert">{error}</p>}
+    {cancellation && <BookingCancellationFeedback key={cancellation.booking.id} {...cancellation} />}
     <details><summary>Registra richiesta ricevuta dal cliente</summary>
       <form className="booking-admin-form" onSubmit={submit}>
         <fieldset disabled={busy || disabled}>

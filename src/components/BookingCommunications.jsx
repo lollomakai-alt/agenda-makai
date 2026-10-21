@@ -2,17 +2,20 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { COMMUNICATION_STATUSES, loadCommunications, prepareCommunication, openBookingWhatsApp, prepareEmailTemplate, sendEmailTemplate, usesDirectWhatsAppConfirmation } from '../utils/bookingCommunications';
 import BookingContacts from './BookingContacts';
+import { cancellationWhatsAppAllowed } from '../utils/bookingCancellation';
 import BookingConfirmationEmail, { canSendConfirmationEmail } from './BookingConfirmationEmail';
 import { KINDS } from '../../supabase/functions/agenda-communications/messages';
 export default function BookingCommunications({ booking, compact = false }) {
  const [template,setTemplate]=useState(booking.status==='cancelled'?'cancelled':'reconfirmation'),[proposal,setProposal]=useState('');
  const [open,setOpen]=useState(false),[rows,setRows]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0),[ready,setReady]=useState(false),[resetRevision,setResetRevision]=useState(0),[emailBusy,setEmailBusy]=useState(false),[retryAvailable,setRetryAvailable]=useState(false);
  useEffect(()=>{
-  if(!open) return;
+  if(!open && booking.status !== 'cancelled') return;
   let active=true; setReady(false); setError('');
   loadCommunications(supabase,booking.id).then(data=>{if(active){setRows(data);setReady(true);}}).catch(failure=>{if(active)setError(failure.message);});
   return ()=>{active=false;};
  },[open,compact,booking.id,booking.status,booking.booking_date,booking.booking_time,booking.party_size,booking.email,booking.name,booking.tables,revision]);
+ const cancellationEmail = rows.find(row => row.channel === 'email' && row.kind === 'cancelled' && row.status !== 'superseded');
+ const allowWhatsApp = booking.status !== 'cancelled' || (ready && cancellationWhatsAppAllowed(cancellationEmail?.status));
  async function action(run) {
   if(busy) return; setBusy(true);setError('');
   try{await run();}catch(failure){setError(failure.message);}finally{setBusy(false);setRevision(n=>n+1);}
@@ -25,9 +28,7 @@ export default function BookingCommunications({ booking, compact = false }) {
     <BookingContacts
       booking={booking}
       busy={busy || emailBusy}
-      onWhatsApp={() =>
-        action(whatsapp)
-      }
+      onWhatsApp={allowWhatsApp ? () => action(whatsapp) : undefined}
     />
   </div>;
  }
@@ -41,7 +42,7 @@ export default function BookingCommunications({ booking, compact = false }) {
   <BookingConfirmationEmail key={`${booking.status}-${booking.email}-${booking.booking_date}-${booking.booking_time}-${booking.party_size}-${booking.tables}-${booking.name}-${resetRevision}`} booking={booking} rows={rows} ready={ready} busy={busy} onBusy={setEmailBusy} onSettled={()=>{setRetryAvailable(true);setRevision(n=>n+1);}} />
   {!compact && canSendConfirmationEmail(booking) && <button className="admin-button admin-button-secondary" disabled={busy||emailBusy||!ready} onClick={()=>action(async()=>{await prepareCommunication(supabase,booking.id,'email');})}>Prepara email</button>}{' '}
   {compact ? <BookingContacts booking={booking} busy={busy||emailBusy} onWhatsApp={()=>action(whatsapp)} /> :
-    <button className="admin-button booking-detail-primary" disabled={busy||emailBusy||!booking.phone} onClick={()=>action(whatsapp)}>Apri WhatsApp ↗</button>}{' '}
+    allowWhatsApp && <button className="admin-button booking-detail-primary" disabled={busy||emailBusy||!booking.phone} onClick={()=>action(whatsapp)}>Apri WhatsApp ↗</button>}{' '}
   {(!compact || rows.length>0 || error || retryAvailable) && <button className="admin-button admin-button-secondary" disabled={busy||emailBusy} onClick={()=>{setResetRevision(n=>n+1);setRevision(n=>n+1);}}>Aggiorna log</button>}
   </div>
   {!compact && <details><summary>Altre email operative</summary>
