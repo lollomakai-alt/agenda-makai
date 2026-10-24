@@ -1484,3 +1484,5 @@
 .booking-request-rejection label { font-weight: 700; }
 .booking-request-rejection p { margin: 0; }
 .booking-request-rejection textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: .7rem; border: 1px solid var(--admin-border); border-radius: 8px; color: inherit; background: var(--admin-panel); font: inherit; resize: vertical; }
+.booking-requests li.booking-request-item { scroll-margin-top: 1rem; }
+.booking-requests li.booking-request-item.is-highlighted { outline: 2px solid var(--ui-primary, #245d65); outline-offset: 3px; border-radius: 8px; }

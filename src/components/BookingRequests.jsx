@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendCancellationEmail } from '../utils/bookingCancellation';
 import BookingCancellationFeedback from './BookingCancellationFeedback';
@@ -29,6 +29,7 @@ export default function BookingRequests({ appointments = [], disabled, onChanged
   const [alternatives, setAlternatives] = useState({});
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const focusedRequest = useRef('');
 
   useEffect(() => {
     let active = true;
@@ -45,6 +46,19 @@ export default function BookingRequests({ appointments = [], disabled, onChanged
     const timer = window.setInterval(load, 30000);
     return () => { active = false; window.clearInterval(timer); };
   }, [revision]);
+
+  useEffect(() => {
+    if (!requests.length || typeof document === 'undefined') return;
+    const requestId = /^#request-(\d+)$/.exec(window.location.hash)?.[1];
+    if (!requestId || focusedRequest.current === requestId) return;
+    const node = document.getElementById(`request-${requestId}`);
+    if (!node) return;
+    focusedRequest.current = requestId;
+    node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    node.classList.add('is-highlighted');
+    const timer = window.setTimeout(() => node.classList.remove('is-highlighted'), 4000);
+    return () => window.clearTimeout(timer);
+  }, [requests]);
 
   async function submit(event) {
     event.preventDefault();
@@ -146,7 +160,7 @@ export default function BookingRequests({ appointments = [], disabled, onChanged
     </details>
     <ul>{pending.map(request => {
       const original = request.booking || appointments.find(b => String(b.id) === String(request.booking_id));
-      return <li key={request.id}>
+      return <li key={request.id} id={`request-${request.id}`} className="booking-request-item">
       <p><a href={`/prenotazioni/giorno?date=${original?.booking_date || ''}#booking-${request.booking_id}`}>Prenotazione #{request.booking_id}</a>
         {' · '}{request.origin === 'customer' ? 'Cliente' : 'Staff'}
         {' · '}{new Date(request.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}</p>

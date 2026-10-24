@@ -6,6 +6,10 @@ export function notificationBookingUrl(notification) {
   if (notification.kind === 'dopocena_request') {
     return isDay(notification.booking_date) ? `/prenotazioni/giorno?date=${notification.booking_date}` : null;
   }
+  if (notification.kind === 'customer_request') {
+    const requestId = /^request:([1-9]\d*)$/.exec(String(notification.id || ''))?.[1];
+    return requestId ? `/richieste-clienti#request-${requestId}` : '/richieste-clienti';
+  }
   if (!/^[1-9]\d*$/.test(String(notification.booking_id)) || !isDay(notification.booking_date)) return null;
   const map = notification.kind === 'online_unassigned' ? `&assign=${notification.booking_id}` : '';
   return `/prenotazioni/giorno?date=${notification.booking_date}${map}#booking-${notification.booking_id}`;

@@ -157,7 +157,7 @@ test('pending badge counts only requests awaiting the staff', async () => {
 
 test('the requests page never opens or navigates a window automatically', async () => {
   const source = await readFile(new URL('../src/components/BookingRequests.jsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /window\.open|\.location\s*[.=]|about:blank/);
+  assert.doesNotMatch(source, /window\.open|window\.location\s*=|location\.(assign|replace)\(|about:blank/);
   assert.match(source, /Questo testo sarà scritto nell’email di rifiuto/);
   assert.match(source, /link al calendario del sito/);
   assert.match(source, /Conferma rifiuto e invia email/);

@@ -93,6 +93,10 @@ test('online notification opens the booking detail after automatic assignment', 
 test('pending DOPOCENA notification opens its service day without a booking ID', () => {
   assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-10-20'}),'/prenotazioni/giorno?date=2026-10-20');
   assert.equal(notificationBookingUrl({kind:'dopocena_request',booking_id:null,booking_date:'2026-02-30'}),null);
+ assert.equal(notificationBookingUrl({kind:'customer_request',id:'request:3',booking_id:42,booking_date:'2026-10-04'}),'/richieste-clienti#request-3');
+ assert.equal(notificationBookingUrl({kind:'customer_request',id:'request:0',booking_id:42,booking_date:'2026-10-04'}),'/richieste-clienti');
+ assert.equal(notificationBookingUrl({kind:'customer_request',id:'request:javascript',booking_id:42,booking_date:'2026-10-04'}),'/richieste-clienti');
+ assert.equal(notificationBookingUrl({kind:'customer_request',id:'request:3'}),'/richieste-clienti#request-3');
 });
 
 test('pending DOPOCENA requests are counted on their dedicated page, not in general notifications', () => {

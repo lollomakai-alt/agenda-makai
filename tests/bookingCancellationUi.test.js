@@ -42,7 +42,7 @@ test('cancellation buttons confirm first, save before automatic email and preser
   const server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, plugins: [{
     name: 'cancellation-ui', enforce: 'pre',
     transform(code, id) {
-      if (id.endsWith('/src/components/BookingRequests.jsx')) return code.replace("import { useEffect, useState } from 'react';", 'const {useEffect,useState}=globalThis.__cancelUi;');
+      if (id.endsWith('/src/components/BookingRequests.jsx')) return code.replace("import { useEffect, useRef, useState } from 'react';", 'const {useEffect,useRef,useState}=globalThis.__cancelUi;');
       if (id.endsWith('/src/pages/BookingsPage.jsx')) return code.replace('import { useEffect, useRef, useState } from "react";', 'const {useEffect,useRef,useState}=globalThis.__cancelUi;');
     },
     load(id) {
