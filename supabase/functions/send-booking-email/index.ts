@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import { sendDecisionEmail } from './dopocena.js';
+import { sendRejectionEmail } from './bookingRequest.js';
 import { communicationMessage } from '../agenda-communications/messages.js';
 
 const FROM = 'Makai Pigneto <prenotazioni@makaipigneto.it>';
@@ -101,6 +102,13 @@ export async function handler(request: Request): Promise<Response> {
         return respond({ error: 'Richiesta non valida' }, 400);
       }
       return respond(await sendDecisionEmail(client, body.requestId, apiKey));
+    }
+    if (body?.type === 'booking_request_rejected') {
+      if (Object.keys(body).some(key => !['requestId', 'type'].includes(key))
+        || !Number.isSafeInteger(body.requestId) || body.requestId < 1) {
+        return respond({ error: 'Richiesta non valida' }, 400);
+      }
+      return respond(await sendRejectionEmail(client, body.requestId, apiKey));
     }
     if (!body || typeof body !== 'object' || Array.isArray(body)
       || Object.keys(body).some(key => !['bookingId', 'type', 'communicationId'].includes(key))

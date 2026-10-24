@@ -6,6 +6,7 @@ import MobileSection from "./components/MobileSection";
 import LogoutButton from "./components/LogoutButton";
 import AppearanceControl from "./components/AppearanceControl";
 import AfterDinnerRequestsNavLink from "./components/AfterDinnerRequestsNavLink";
+import CustomerRequestsNavLink from "./components/CustomerRequestsNavLink";
 import useAgendaAppearance from "./hooks/useAgendaAppearance";
 import LoginPage from "./pages/LoginPage";
 import "./styles/admin.css";
@@ -16,6 +17,7 @@ const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage"));
 const MaintenanceSettingsPage = lazy(() => import("./pages/MaintenanceSettingsPage"));
 const AfterDinnerRequestsPage = lazy(() => import("./pages/AfterDinnerRequestsPage"));
+const CustomerRequestsPage = lazy(() => import("./pages/CustomerRequestsPage"));
 
 const routes = {
   "/attivita": { title: "Attività", Page: ActivityPage, restricted: true },
@@ -25,6 +27,7 @@ const routes = {
   "/prenotazioni/giorno": { title: "Giornata", Page: BookingsPage, restricted: true },
   "/manutenzione": { title: "Manutenzione sito", Page: MaintenanceSettingsPage, restricted: true },
   "/richieste-dopocena": { title: "Richieste DOPOCENA", Page: AfterDinnerRequestsPage, restricted: true },
+  "/richieste-clienti": { title: "Richieste clienti", Page: CustomerRequestsPage, restricted: true },
 };
 
 class ErrorBoundary extends Component {
@@ -74,6 +77,7 @@ export default function App() {
       <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
       <a href="/manutenzione" aria-current={path === "/manutenzione" ? "page" : undefined}>Manutenzione sito</a>
       <AfterDinnerRequestsNavLink active={path === "/richieste-dopocena"} />
+      <CustomerRequestsNavLink active={path === "/richieste-clienti"} />
       <AppearanceControl preference={preference} onChange={changePreference} />
       <LogoutButton />
     </div></MobileSection>}

@@ -15,7 +15,7 @@ test('all existing kinds preserve facts, secure functional links and literal alt
     const message = communicationMessage(snapshot, kind);
     assert.match(message.text, /^Ahoy Anna & Luca! 🏴‍☠️/);
     for (const fact of ['15/10/2026', '23:00', 'Persone: 2']) assert.ok(message.text.includes(fact));
-    assert.equal(message.text.includes(management_url), !['rejected','cancelled'].includes(kind));
+    assert.equal(message.text.includes(management_url), !['rejected','request_rejected','cancelled'].includes(kind));
     assert.doesNotMatch(message.text, /tavol|assegnazion|10\+11/i);
     assert.doesNotMatch(message.text, /offerte|sconti|compleanno|rispondi.*Sì|invio automatico/i);
     assert.equal(communicationMessage({ ...snapshot, management_url: 'javascript:alert(1)' }, kind).text.includes('javascript:'), false);

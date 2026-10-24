@@ -31,6 +31,9 @@ test('cancellation buttons confirm first, save before automatic email and preser
   globalThis.window = { location: { search: '?date=2026-10-21', hash: '' }, confirm() { events.push('confirm'); return confirmed; }, dispatchEvent() {}, open() { throw Error('WhatsApp must never open automatically'); } };
   globalThis.fetch = async (url, options) => {
     events.push({ url, body: JSON.parse(options.body) });
+    if (url.includes('/requests/')) {
+      return Response.json({ request_id: 3, status: 'rejected', booking_id: 42, email_status: sendStatus, rejection_reason: 'Siamo al completo.' });
+    }
     assert.equal(globalThis.__cancelUi.data.appointments[0].status, 'cancelled');
     return url.endsWith('/communications/prepare')
       ? Response.json({ communication: { id: 7, booking_id: 42, channel: 'email', kind: 'cancelled', status: 'queued', attempts: 0 } })
@@ -71,25 +74,43 @@ test('cancellation buttons confirm first, save before automatic email and preser
     }
     const { default: Requests } = await server.ssrLoadModule('/src/components/BookingRequests.jsx');
     const request = { id: 3, booking_id: 42, request_type: 'cancellazione', status: 'pending', created_at: '2026-10-21T12:00:00Z', booking };
-    for (const decision of ['decline','rejected','approved']) {
-      slots = [[request]]; index = 0; events.length = 0; confirmed = decision !== 'decline'; sendStatus = 'failed';
-      globalThis.__cancelUi.data.appointments = [booking];
-      globalThis.__cancelUi.client.rpc = async (name, args) => {
-        events.push({ name, args });
-        if (args.decision === 'approved') globalThis.__cancelUi.data.appointments = [{ ...booking, status: 'cancelled' }];
-        return { data: { ...request, status: args.decision } };
-      };
-      const tree = nodes(Requests({ appointments: [booking], onChanged() {} }));
-      await tree.find(n => n.type === 'button' && n.props.children === (decision === 'rejected' ? 'Rifiuta' : 'Approva')).props.onClick();
-      if (decision === 'decline') { assert.deepEqual(events, ['confirm']); continue; }
-      assert.equal(events.filter(e => e.name === 'admin_review_booking_request').length, 1);
-      assert.equal(events.filter(e => e.url).length, decision === 'approved' ? 2 : 0);
-      if (decision === 'approved') {
-        index = 0;
-        const feedback = nodes(Requests({ appointments: [booking], onChanged() {} })).find(n => n.type === Feedback);
-        assert.equal(feedback.props.status, 'failed');
-      }
-    }
+    const renderRequests = () => { index = 0; return nodes(Requests({ appointments: [booking], onChanged() {} })); };
+    globalThis.__cancelUi.client.rpc = async (name, args) => {
+      events.push({ name, args });
+      if (args.decision === 'approved') globalThis.__cancelUi.data.appointments = [{ ...booking, status: 'cancelled' }];
+      return { data: { ...request, status: args.decision } };
+    };
+    // Rifiuto: motivazione obbligatoria nel pannello, nessuna scrittura finché non si conferma.
+    slots = [[request]]; index = 0; events.length = 0; confirmed = true;
+    let tree = renderRequests();
+    await tree.find(n => n.type === 'button' && n.props.children === 'Rifiuta').props.onClick();
+    tree = renderRequests();
+    const reasonField = tree.find(n => n.type === 'textarea');
+    assert.ok(reasonField);
+    await tree.find(n => n.type === 'button' && n.props.children === 'Annulla').props.onClick();
+    tree = renderRequests();
+    assert.equal(tree.some(n => n.type === 'form' && n.props.className === 'booking-request-rejection'), false);
+    assert.deepEqual(events, []);
+    slots = [[request]]; index = 0; events.length = 0;
+    tree = renderRequests();
+    await tree.find(n => n.type === 'button' && n.props.children === 'Rifiuta').props.onClick();
+    tree = renderRequests();
+    tree.find(n => n.type === 'textarea').props.onChange({ target: { value: 'Siamo al completo.' } });
+    tree = renderRequests();
+    const rejectForm = tree.find(n => n.type === 'form' && n.props.className === 'booking-request-rejection');
+    assert.ok(rejectForm);
+    await rejectForm.props.onSubmit({ preventDefault() {} });
+    assert.equal(events.filter(e => e.name === 'admin_review_booking_request').length, 0);
+    assert.deepEqual(events.filter(e => e.url).map(e => e.url), ['/api/admin/bookings/requests/3/reject']);
+    // Accettazione: RPC atomica e email di cancellazione già accodata.
+    slots = [[request]]; index = 0; events.length = 0; confirmed = true; sendStatus = 'failed';
+    globalThis.__cancelUi.data.appointments = [booking];
+    tree = renderRequests();
+    await tree.find(n => n.type === 'button' && n.props.children === 'Accetta').props.onClick();
+    assert.equal(events.filter(e => e.name === 'admin_review_booking_request').length, 1);
+    assert.deepEqual(events.filter(e => e.url).map(e => e.url), ['/api/admin/bookings/42/communications/prepare','/api/admin/bookings/42/send-template-email']);
+    const requestFeedback = renderRequests().find(n => n.type === Feedback);
+    assert.equal(requestFeedback.props.status, 'failed');
     for (const status of ['accepted','failed','skipped','unknown','pending']) {
       const html = renderToString(React.createElement(Feedback, { booking, status }));
       assert.match(html, /Cancellazione confermata/);

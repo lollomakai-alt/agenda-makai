@@ -1,4 +1,5 @@
-export const KINDS = Object.freeze({ confirmation: 'Conferma prenotazione', updated: 'Prenotazione modificata', cancelled: 'Prenotazione cancellata', rejected: 'Richiesta DOPOCENA rifiutata', reminder: 'Promemoria della tua rotta', reconfirmation: 'Riconferma la tua prenotazione', delay: 'Ti aspettiamo al Makai', alternative: 'Proposta alternativa' });
+export const KINDS = Object.freeze({ confirmation: 'Conferma prenotazione', updated: 'Prenotazione modificata', cancelled: 'Prenotazione cancellata', rejected: 'Richiesta DOPOCENA rifiutata', request_rejected: 'Richiesta di modifica non accolta', reminder: 'Promemoria della tua rotta', reconfirmation: 'Riconferma la tua prenotazione', delay: 'Ti aspettiamo al Makai', alternative: 'Proposta alternativa' });
+export const REQUEST_LABELS = Object.freeze({ data: 'Data', ora: 'Orario', persone: 'Persone', note: 'Note', cancellazione: 'Cancellazione' });
 
 // Only presentation: older email snapshots do not carry booking_type or status.
 // Never infer the service from the time, or an assigned table from acceptance.
@@ -30,6 +31,7 @@ export function communicationMessage(snapshot, kind, channel = 'email') {
     updated: 'La tua prenotazione è stata aggiornata. Ecco i dettagli della tua rotta al Makai.',
     cancelled: 'La tua prenotazione è stata cancellata. Speriamo di averti di nuovo a bordo in un’altra occasione.',
     rejected: 'Ci dispiace, questa volta non possiamo accoglierti per il DOPOCENA nella data e nell’orario richiesti. Speriamo di averti a bordo un’altra volta.',
+    request_rejected: 'Ci dispiace, non possiamo accogliere la modifica richiesta: la tua prenotazione resta invariata. Se vuoi cambiare giorno o orario, scegli una nuova data dal calendario del sito.',
     reminder: 'Un promemoria dalla ciurma: ecco i dati della tua prenotazione al Makai.',
     reconfirmation: 'La ciurma ti chiede di riconfermare la tua prenotazione al Makai.',
     delay: 'La ciurma ti aspetta al Makai! Se sei in ritardo, facci sapere il tuo orario di arrivo.',
@@ -41,7 +43,16 @@ export function communicationMessage(snapshot, kind, channel = 'email') {
   const managementLabel = kind === 'reconfirmation' && !whatsapp
     ? 'Per riconfermare la presenza, modificare o annullare la prenotazione, apri il tuo link personale:'
     : 'Gestisci o riconferma la prenotazione:';
-  const rejected = kind === 'rejected' || (kind === 'confirmation' && String(snapshot.status || '').toLowerCase() === 'rejected');
+  const rejected = kind === 'rejected' || kind === 'request_rejected' || (kind === 'confirmation' && String(snapshot.status || '').toLowerCase() === 'rejected');
+  const requestLabel = kind === 'request_rejected' && Object.hasOwn(REQUEST_LABELS, snapshot.request_type) ? REQUEST_LABELS[snapshot.request_type] : '';
+  const requestedRaw = snapshot.requested_value;
+  const requestedValue = !requestLabel ? '' : snapshot.request_type === 'persone' && Number.isSafeInteger(requestedRaw)
+    ? `${requestedRaw} ${requestedRaw === 1 ? 'persona' : 'persone'}`
+    : snapshot.request_type === 'data' && typeof requestedRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(requestedRaw)
+      ? `${requestedRaw.slice(8, 10)}/${requestedRaw.slice(5, 7)}/${requestedRaw.slice(0, 4)}`
+      : (typeof requestedRaw === 'string' || typeof requestedRaw === 'number') ? String(requestedRaw).trim() : '';
+  const requestDetails = requestLabel
+    ? `\n\nRichiesta: ${requestLabel}${requestedValue && requestedValue !== 'null' ? ` → ${requestedValue}` : ''}` : '';
   const inactive = kind === 'cancelled' || ['pending','rejected','cancelled','arrived','completed','no_show'].includes(String(snapshot.status || '').toLowerCase());
   const management = !rejected && !inactive && typeof snapshot.management_url === 'string' && /^https:\/\/[^\s]+\/prenotazioni\/gestisci#token=[A-Za-z0-9_-]{43}$/.test(snapshot.management_url)
     && (!whatsapp || kind !== 'confirmation')
@@ -51,11 +62,11 @@ export function communicationMessage(snapshot, kind, channel = 'email') {
   const rebooking = rejected ? '\n\n🏴‍☠️ Scegli un’altra data:\nhttps://www.makaipigneto.it/prenotazioni' : '';
   const details = whatsapp ? `📅 ${date} · ⏰ ${time} · 👥 ${party_size} persone` : `📅 Data: ${date}\n⏰ Ora: ${time}\n👥 Persone: ${party_size}`;
   const greeting = `Ahoy ${name}! 🏴‍☠️`;
-  const farewell = ['cancelled', 'rejected'].includes(kind) || (kind === 'confirmation' && ['pending', 'rejected', 'cancelled', 'completed', 'no_show'].includes(String(snapshot.status || '').toLowerCase()));
+  const farewell = ['cancelled', 'rejected', 'request_rejected'].includes(kind) || (kind === 'confirmation' && ['pending', 'rejected', 'cancelled', 'completed', 'no_show'].includes(String(snapshot.status || '').toLowerCase()));
   const closing = whatsapp ? 'A presto a bordo! 🌴' : `${farewell ? 'Un saluto dall’equipaggio Makai.' : 'L’equipaggio Makai ti aspetta.'}\nA presto,\nMakai Grand Line Pigneto 🏴‍☠️`;
   return {
     subject: `${title}${kind === 'confirmation' ? '' : ' Makai'} · ${date}`,
-    text: `${greeting}${whatsapp ? ' ' : '\n\n'}${bodies[kind]}\n\n${details}${reconfirmation}${proposal}${management}${rejectionReason}${rebooking}\n\n${closing}`,
+    text: `${greeting}${whatsapp ? ' ' : '\n\n'}${bodies[kind]}\n\n${details}${requestDetails}${reconfirmation}${proposal}${management}${rejectionReason}${rebooking}\n\n${closing}`,
   };
 }
 

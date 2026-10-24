@@ -2,19 +2,34 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendCancellationEmail } from '../utils/bookingCancellation';
 import BookingCancellationFeedback from './BookingCancellationFeedback';
-import { createBookingRequest, loadBookingRequests, loadBookingRequestAlternatives, reviewBookingRequest, REQUEST_TYPES } from '../utils/bookingRequests';
+import {
+  bookingRequestEmailLabel,
+  bookingUpdateEmailLabel,
+  createBookingRequest,
+  loadBookingRequests,
+  loadBookingRequestAlternatives,
+  rejectBookingRequest,
+  reviewBookingRequest,
+  sendBookingUpdateEmail,
+  REQUEST_TYPES,
+} from '../utils/bookingRequests';
 
-export default function BookingRequests({ appointments, disabled, onChanged }) {
+export default function BookingRequests({ appointments = [], disabled, onChanged }) {
   const [requests, setRequests] = useState([]);
   const [cancellation, setCancellation] = useState(null);
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
   const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bookingId, setBookingId] = useState('');
   const [type, setType] = useState('data');
   const [value, setValue] = useState('');
   const [revision, setRevision] = useState(0);
   const [alternatives, setAlternatives] = useState({});
+  const [rejectingId, setRejectingId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   useEffect(() => {
     let active = true;
     let generation = 0;
@@ -30,41 +45,61 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
     const timer = window.setInterval(load, 30000);
     return () => { active = false; window.clearInterval(timer); };
   }, [revision]);
+
   async function submit(event) {
     event.preventDefault();
     if (busy || disabled) return;
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setFeedback('');
     try {
       await createBookingRequest(supabase, bookingId, type, value);
-      setValue(''); setRevision(x => x + 1); onChanged(); window.dispatchEvent(new Event('admin-notifications-changed'));
+      setValue(''); setRevision(x => x + 1); onChanged?.(); window.dispatchEvent(new Event('booking-requests-changed')); window.dispatchEvent(new Event('admin-notifications-changed'));
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
   }
-  async function review(request, decision) {
+
+  async function approve(request) {
     if (busy || disabled) return;
-    if (decision === 'approved' && request.request_type === 'cancellazione'
+    if (request.request_type === 'cancellazione'
       && !window.confirm('Confermi la cancellazione della prenotazione? Verrà inviata automaticamente l’email di cancellazione, se disponibile.')) return;
-    setBusy(true); setError(''); setCancellation(null);
+    setBusy(true); setBusyId(request.id); setError(''); setFeedback(''); setCancellation(null);
     try {
-      await reviewBookingRequest(supabase, request, decision);
-      if (decision === 'approved' && request.request_type === 'cancellazione') {
+      await reviewBookingRequest(supabase, request, 'approved');
+      if (request.request_type === 'cancellazione') {
         const booking = request.booking || appointments.find(b => String(b.id) === String(request.booking_id)) || { id: request.booking_id };
         setCancellation({ booking, status: 'pending' });
-        onChanged();
+        onChanged?.();
         const email = await sendCancellationEmail(supabase, request.booking_id);
         setCancellation({ booking, status: email.status });
+        setFeedback('Cancellazione confermata.');
+      } else {
+        const email = await sendBookingUpdateEmail(supabase, request.booking_id);
+        setFeedback(`Modifica confermata. ${bookingUpdateEmailLabel(email.status)}`);
       }
-      setRevision(x => x + 1); onChanged(); window.dispatchEvent(new Event('admin-notifications-changed'));
+      setRevision(x => x + 1); onChanged?.(); window.dispatchEvent(new Event('booking-requests-changed')); window.dispatchEvent(new Event('admin-notifications-changed'));
     } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setBusyId(null); }
   }
+
+  async function reject(request) {
+    if (busy || disabled) return;
+    setBusy(true); setBusyId(request.id); setError(''); setFeedback('');
+    try {
+      const result = await rejectBookingRequest(supabase, request, rejectionReason);
+      setFeedback(`Richiesta rifiutata. ${bookingRequestEmailLabel(result.email_status)}. La motivazione è stata inviata al cliente con il calendario per scegliere un altro giorno o orario.`);
+      setRejectingId(null); setRejectionReason('');
+      setRevision(x => x + 1); onChanged?.(); window.dispatchEvent(new Event('booking-requests-changed')); window.dispatchEvent(new Event('admin-notifications-changed'));
+    } catch (failure) { setError(failure.message); }
+    finally { setBusy(false); setBusyId(null); }
+  }
+
   async function propose(request, suggestion = '') {
     const proposal = window.prompt('Proposta da concordare con il cliente (data, ora o persone):', suggestion || request.alternative_note || '');
     if (!proposal?.trim() || busy || disabled) return;
     setBusy(true); setError('');
-    try { const {error} = await supabase.rpc('admin_propose_booking_alternative', {request_id:request.id,proposal:proposal.trim()}); if(error) throw error; setRevision(x=>x+1); onChanged(); }
+    try { const {error} = await supabase.rpc('admin_propose_booking_alternative', {request_id:request.id,proposal:proposal.trim()}); if(error) throw error; setRevision(x=>x+1); onChanged?.(); }
     catch(failure) { setError(failure.message); } finally {setBusy(false);}
   }
+
   async function showAlternatives(request) {
     if (busy || disabled) return;
     setBusy(true); setError('');
@@ -74,13 +109,17 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
   }
+
   const pending = requests.filter(request => request.status === 'pending');
+  const decided = requests.filter(request => request.status !== 'pending').slice(0, 6);
   return <section className="booking-requests" aria-label="Richieste clienti">
     <h2>Richieste clienti</h2>
     {loading ? <p role="status">Caricamento richieste…</p> : <p role={pending.length ? 'alert' : 'status'}>
       {pending.length ? `${pending.length} richieste ricevute, in attesa della decisione dello staff, anche per altre date.` : 'Nessuna richiesta in attesa dello staff.'}</p>}
+    <p>Accettare applica la modifica e invia al cliente l’email con i nuovi dettagli. Rifiutare richiede una motivazione: sarà scritta nell’email insieme al calendario del sito per scegliere un altro giorno o orario.</p>
     <button className="admin-button admin-button-secondary" disabled={busy} onClick={() => setRevision(x => x + 1)}>Aggiorna richieste</button>
     {error && <p role="alert">{error}</p>}
+    {feedback && <p role="status">{feedback}</p>}
     {cancellation && <BookingCancellationFeedback key={cancellation.booking.id} {...cancellation} />}
     <details><summary>Registra richiesta ricevuta dal cliente</summary>
       <form className="booking-admin-form" onSubmit={submit}>
@@ -125,8 +164,34 @@ export default function BookingRequests({ appointments, disabled, onChanged }) {
         </button>)}
       </details>}
       <button className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => propose(request)}>Proponi alternativa</button>
-      <button className="admin-button" disabled={busy || disabled} onClick={() => review(request, 'approved')}>Approva</button>{' '}
-      <button className="admin-button admin-button-secondary" disabled={busy || disabled} onClick={() => review(request, 'rejected')}>Rifiuta</button>
+      <button className="admin-button" disabled={busy || disabled || rejectingId !== null} onClick={() => approve(request)}>
+        {busyId === request.id ? 'Decisione e invio email…' : 'Accetta'}
+      </button>{' '}
+      <button className="admin-button admin-button-secondary" disabled={busy || disabled || rejectingId !== null}
+        onClick={() => { setRejectingId(request.id); setRejectionReason(''); setError(''); setFeedback(''); }}>Rifiuta</button>
+      {rejectingId === request.id && <form className="booking-request-rejection" aria-label={`Rifiuta la richiesta di ${original?.name || `prenotazione #${request.booking_id}`}`}
+        onSubmit={event => { event.preventDefault(); return reject(request); }}>
+        <label htmlFor={`request-rejection-${request.id}`}>Motivazione del rifiuto</label>
+        <p id={`request-rejection-help-${request.id}`}>Questo testo sarà scritto nell’email di rifiuto. Il cliente riceverà anche il link al calendario del sito per cambiare giorno o orario. La prenotazione attuale resta invariata.</p>
+        <textarea id={`request-rejection-${request.id}`} aria-describedby={`request-rejection-help-${request.id}`}
+          value={rejectionReason} onChange={event => setRejectionReason(event.target.value)}
+          required maxLength={500} rows={4} autoFocus disabled={disabled || busy} />
+        <span>{rejectionReason.length}/500 caratteri</span>
+        <div className="online-dopocena-actions">
+          <button className="admin-button" type="submit" disabled={disabled || busy || !rejectionReason.trim()}>
+            {busyId === request.id ? 'Rifiuto e invio email…' : 'Conferma rifiuto e invia email'}
+          </button>
+          <button className="admin-button admin-button-secondary" type="button" disabled={busy}
+            onClick={() => { setRejectingId(null); setRejectionReason(''); }}>Annulla</button>
+        </div>
+      </form>}
     </li>;})}</ul>
+    {!!decided.length && <details className="booking-requests-decided"><summary>Decisioni recenti</summary>
+      <ul>{decided.map(request => <li key={request.id}>
+        <p>Prenotazione #{request.booking_id} · {REQUEST_TYPES[request.request_type]}{request.requested_value !== null ? ` · ${String(request.requested_value)}` : ''} · {request.status === 'approved' ? 'Accettata' : 'Rifiutata'}</p>
+        {request.rejection_reason && <p>Motivazione inviata: {request.rejection_reason}</p>}
+        {request.status === 'rejected' && request.decision_email_status && <p>{bookingRequestEmailLabel(request.decision_email_status)}</p>}
+      </li>)}</ul>
+    </details>}
   </section>;
 }

@@ -21,15 +21,16 @@ test('creating a request calls only request RPC, never edits booking', async () 
   assert.equal(calls[1][1].requested_value, null);
 });
 
-test('review sends decision to atomic database RPC; duplicate and invalid decisions rejected', async () => {
+test('review sends only approvals to the atomic database RPC; rejection needs the reason path', async () => {
   const request = { id: 9, status: 'pending' };
   const calls = [];
   const client = { rpc: async (name,args) => { calls.push([name,args]); return { data:{ id:9,status:args.decision } }; } };
-  for (const decision of ['approved','rejected']) await reviewBookingRequest(client,request,decision);
-  assert.deepEqual(calls.map(x => x[0]), ['admin_review_booking_request','admin_review_booking_request']);
-  assert.deepEqual(calls[0][1], { request_id:9,decision:'approved' });
-  await assert.rejects(reviewBookingRequest(client,{...request,status:'approved'},'rejected'));
+  await reviewBookingRequest(client,request,'approved');
+  assert.deepEqual(calls, [['admin_review_booking_request',{ request_id:9,decision:'approved' }]]);
+  await assert.rejects(reviewBookingRequest(client,request,'rejected'), /motivazione/);
+  await assert.rejects(reviewBookingRequest(client,{...request,status:'approved'},'approved'));
   await assert.rejects(reviewBookingRequest(client,request,'pending'));
+  assert.equal(calls.length, 1);
 });
 
 test('errors and unconfirmed responses are surfaced', async () => {
