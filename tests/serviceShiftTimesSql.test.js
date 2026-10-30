@@ -101,3 +101,53 @@ test('planner and waitlist migration use only the three shift times', async () =
   assert.doesNotMatch(sql, /22:30/);
   assert.doesNotMatch(sql, /23:30/);
 });
+
+test('online closure applies to after-dinner as well as dinner', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create role anon;
+      create role authenticated;
+      create role service_role;
+      create schema auth;
+      create schema private;
+
+      create table public.online_booking_closures(booking_date date primary key);
+      create table public.bookings(
+        id bigint generated always as identity primary key,
+        booking_date text,
+        booking_type text,
+        party_size integer,
+        status text default 'confirmed'
+      );
+
+      create function private.service_slot_at(day text, slot text, service text)
+      returns timestamptz language sql stable
+      as $$ select (day || ' ' || slot)::timestamp at time zone 'Europe/Rome' $$;
+
+      create function private.dinner_physical_capacity()
+      returns integer language sql immutable as $$ select 26 $$;
+
+      create function private.choose_online_dinner_unit(day text, people integer, exclude_id bigint default null)
+      returns text language sql stable as $$ select '12'::text $$;
+    `);
+
+    await db.exec(await readFile(
+      new URL('../supabase/migrations/20261030140300_online_closure_all_services.sql', import.meta.url),
+      'utf8'
+    ));
+    await db.exec("insert into public.online_booking_closures(booking_date) values ('2026-11-20')");
+
+    const status = async (day, slot, service) => (await db.query(
+      'select private.online_slot_status($1,$2,2,$3) status', [day, slot, service]
+    )).rows[0].status;
+
+    assert.equal(await status('2026-11-20', '19:00', 'normale'), 'closed');
+    assert.equal(await status('2026-11-20', '23:00', 'dopocena'), 'closed');
+    assert.equal(await status('2026-11-21', '19:00', 'normale'), 'available');
+    assert.equal(await status('2026-11-21', '23:00', 'dopocena'), 'manual_review');
+    assert.equal(await status('2026-11-23', '19:00', 'normale'), 'closed');
+  } finally {
+    await db.close();
+  }
+});
