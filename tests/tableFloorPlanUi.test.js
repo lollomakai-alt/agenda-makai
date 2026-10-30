@@ -99,7 +99,7 @@ const textContent = value => (Array.isArray(value) ? value : [value]).flat(Infin
       assert.equal(calls.length, 0);
     });
 
-    await t.test('iPhone keeps the spatial floor plan and opens the shared booking detail below the map', () => {
+    await t.test('iPhone swaps the floor plan for a tappable table list that opens the shared booking detail', () => {
       const previousWindow = globalThis.window;
       globalThis.window = { matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) };
       try {
@@ -108,38 +108,39 @@ const textContent = value => (Array.isArray(value) ? value : [value]).flat(Infin
         const props = { renderBookingDetail: linked => ({ type: 'div', props: { 'data-shared-detail': linked.id, children: linked.name } }),
           onCreateBooking: () => created.push(true) };
         let tree = render(props);
-        const groups = () => tree.filter(node => node.props['data-unit']).map(node => node.props['data-unit']);
-        assert.deepEqual([...groups()].sort(), ['10+11', '12', '13+14', '15+16+17', '18', '19'].sort());
-        assert.equal(tree.some(node => node.props.className === 'floor-plan-physical-heading'), false);
-        assert.ok(tree.some(node => node.props.className === 'table-map table-floor-plan is-wide-map'));
-        assert.ok(tree.filter(node => node.type === 'li' && /floor-plan-unit/.test(node.props.className)).every(node =>
-          typeof node.props.style?.['--landscape-x'] === 'string' && typeof node.props.style?.['--landscape-y'] === 'string'));
+        const groups = () => tree.filter(node => node.props['data-phone-unit']).map(node => node.props['data-phone-unit']);
+        assert.ok(tree.some(node => node.props.className === 'table-map-phone'));
+        assert.equal(tree.some(node => node.props.className === 'floor-plan-canvas'), false, 'iPhone must not render the spatial plan');
+        assert.equal(tree.some(node => node.props.role === 'tab'), false, 'both rooms are listed without room tabs');
+        assert.ok(groups().includes('10+11') && groups().includes('20+21'));
+        assert.ok(tree.some(node => node.props.className === 'table-map-phone-room' && node.props['aria-label'] === 'Sala Principale'));
+        assert.ok(tree.some(node => node.props.className === 'table-map-phone-room' && node.props['aria-label'] === 'Sala Nami'));
         assert.equal(tree.some(node => node.props.id === 'table-map-detail'), false);
-        unit(tree, '10+11').props.onClick(); tree = render(props);
+        const first = tree.find(node => node.props['data-phone-unit'] === '10+11');
+        assert.equal(first.props['aria-expanded'], false);
+        first.props.onClick(); tree = render(props);
         const detailIndex = tree.findIndex(node => node.props.id === 'table-map-detail');
-        const canvasIndex = tree.findIndex(node => node.props.className === 'floor-plan-canvas');
-        assert.ok(canvasIndex < detailIndex);
+        const listIndex = tree.findIndex(node => node.props.className === 'table-map-phone-list');
+        assert.ok(listIndex < detailIndex);
         assert.equal(tree.find(node => node.props['data-shared-detail'] === 1).props.children, base.name);
-        assert.equal(unit(tree, '10+11').props['aria-expanded'], true);
+        assert.equal(tree.find(node => node.props['data-phone-unit'] === '10+11').props['aria-expanded'], true);
         tree.find(node => node.props['aria-label'] === 'Chiudi dettaglio tavolo 10+11').props.onClick();
         tree = render(props);
         assert.equal(tree.some(node => node.props.id === 'table-map-detail'), false);
-        unit(tree, '12').props.onClick(); tree = render(props);
-        assert.ok(tree.some(node => node.props.id === 'table-map-detail'), 'un tavolo libero apre il dettaglio');
+        tree.find(node => node.props['data-phone-unit'] === '12').props.onClick(); tree = render(props);
+        assert.ok(tree.some(node => node.props.id === 'table-map-detail'), 'a free table opens its detail');
         assert.equal(created.length, 0);
         tree.find(node => node.type === 'button' && node.props.children === 'Nuova prenotazione').props.onClick();
         assert.equal(created.length, 1);
-        tree.find(node => node.props.id === 'room-tab-nami').props.onClick(); tree = render(props);
-        assert.deepEqual([...groups()].sort(), ['20', '21', '22', '23'].sort());
         tree.find(node => node.props.children === 'DOPOCENA').props.onClick(); tree = render(props);
-        assert.match(unit(tree, '23').props.className, /service-dopocena/);
+        assert.match(textContent(tree.find(node => node.props['data-phone-unit'] === '23').props.children), /Cliente Dopocena/);
       } finally {
         if (previousWindow === undefined) delete globalThis.window;
         else globalThis.window = previousWindow;
       }
     });
 
-    await t.test('iPhone assignment switches valid physical combinations without saving on touch', () => {
+    await t.test('iPhone assignment switches valid physical combinations from the list without saving on touch', () => {
       const previousWindow = globalThis.window;
       globalThis.window = { matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) };
       try {
@@ -148,20 +149,20 @@ const textContent = value => (Array.isArray(value) ? value : [value]).flat(Infin
         const props = { appointments: [selected], assignmentBooking: selected };
         let tree = render(props);
         const choice = group => tree.find(node => node.props['data-choice'] === group);
-        assert.ok(unit(tree, '15') && unit(tree, '16') && unit(tree, '17'));
-        assert.equal(tree.some(node => node.props.className === 'floor-plan-physical-heading'), false);
-        assert.ok(tree.filter(node => node.type === 'li' && /floor-plan-unit/.test(node.props.className)).every(node =>
-          typeof node.props.style?.['--landscape-x'] === 'string' && typeof node.props.style?.['--landscape-y'] === 'string'));
-        choice('15+16+17').props.onClick(); tree = render(props);
-        assert.ok(unit(tree, '15') && unit(tree, '16') && unit(tree, '17'));
-        assert.equal(choice('15+16+17').props['aria-pressed'], true);
-        choice('22+23').props.onClick(); tree = render(props);
-        assert.ok(unit(tree, '22') && unit(tree, '23'));
-        assert.equal(choice('15+16+17').props['aria-pressed'], false);
-        assert.equal(choice('22+23').props['aria-pressed'], true);
-        unit(tree, '12').props.onClick(); tree = render(props);
+        const phoneUnit = group => tree.find(node => node.props['data-phone-unit'] === group);
+        assert.ok(tree.some(node => node.props.className === 'table-map-phone'));
+        assert.ok(phoneUnit('15') && phoneUnit('16') && phoneUnit('17'));
+        assert.equal(tree.some(node => node.props.className === 'floor-plan-canvas'), false);
+        phoneUnit('12').props.onClick(); tree = render(props);
+        assert.equal(phoneUnit('12').props['aria-pressed'], true);
         assert.equal(choice('12').props['aria-pressed'], true);
-        assert.equal(choice('22+23').props['aria-pressed'], false);
+        choice('15+16+17').props.onClick(); tree = render(props);
+        assert.equal(phoneUnit('15').props['aria-pressed'], true);
+        assert.equal(phoneUnit('16').props['aria-pressed'], true);
+        assert.equal(phoneUnit('17').props['aria-pressed'], true);
+        choice('22+23').props.onClick(); tree = render(props);
+        assert.equal(phoneUnit('22').props['aria-pressed'], true);
+        assert.equal(phoneUnit('15').props['aria-pressed'], false);
         assert.equal(calls.length, 0);
       } finally {
         if (previousWindow === undefined) delete globalThis.window;

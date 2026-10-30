@@ -61,7 +61,13 @@ test('map tile presentation uses physical count for area and shows the full grou
   assert.match(operationsCss, /floor-plan-room-tabs button, \.floor-plan-shifts button \{\s*min-height: 32px/);
   assert.match(operationsCss, /\.table-floor-plan\.is-wide-map \.floor-plan-canvas > li\s*\{\s*left: var\(--landscape-x\); top: var\(--landscape-y\)/);
   assert.match(component, /is-wide-map/);
-  assert.doesNotMatch(component, /compactMap|matchMedia/);
+  assert.match(component, /matchMedia\?\.\('\(max-width: 700px\)'\)/);
+  assert.match(component, /mobileTableRooms/);
+  assert.match(component, /table-map-phone/);
+  assert.match(component, /data-phone-unit/);
+  assert.doesNotMatch(component, /compactMap/);
+  assert.match(operationsCss, /\.table-map-phone-card\s*\{/);
+  assert.match(operationsCss, /\.table-map-phone-card\.is-selected/);
   assert.match(operationsCss, /data-physical-count="2"\] \{ width: calc\(2 \* var\(--table-square\)\)/);
   assert.match(operationsCss, /data-physical-count="3"\] \{ width: calc\(3 \* var\(--table-square\)\)/);
   assert.doesNotMatch(component, /data-physical-orientation/);

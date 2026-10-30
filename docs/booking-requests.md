@@ -8,6 +8,13 @@ link personale quando la modifica non è applicabile subito.
 ## Dove si gestiscono
 - Pagina `/richieste-clienti` dell’Agenda, con il collegamento “Richieste clienti”
   nel menu e il conteggio delle sole richieste in attesa.
+- La pagina mostra soltanto le richieste in attesa, come lista di card: cliente,
+  data e orario, persone e tavolo attuale. Le azioni sono Accetta, Proponi
+  alternativa e Rifiuta. Telefono, email e identificativi compaiono solo nel
+  dettaglio apribile; le decisioni concluse non vengono duplicate qui.
+- Le richieste decise confluiscono nell’unico Archivio eventi, collegate al
+  numero di prenotazione: non diventano prenotazioni confermate e non esiste
+  una seconda pagina di archivio richieste.
 - La Giornata non mostra il pannello delle richieste, così non si sovrappone alla
   mappa e all’elenco.
 

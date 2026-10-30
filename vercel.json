@@ -13,6 +13,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/archivio",
+      "destination": "/index.html"
+    },
+    {
       "source": "/attivita",
       "destination": "/index.html"
     },

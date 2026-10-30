@@ -6,10 +6,15 @@ Applicare `supabase/admin-activity-log.sql` dopo `booking-history.sql` e
 booking_id nello storico booking per eventi generali futuri e aggiunge actor_id.
 Non crea eventi retroattivi.
 
-La pagina ADMIN `/attivita` unisce i due storici e filtra per data locale
-Europe/Rome, azione e testo/ID. Mostra autore come UUID Supabase, data/ora,
-booking/lista d’attesa e dettagli essenziali. Legge fino a 500 eventi recenti
-per ciascuno storico. L’accesso resta protetto da AdminAccess e RLS.
+La pagina ADMIN `/archivio` (alias storico `/attivita`) unisce i due storici in
+un’unica lista cronologica. Ogni riga mostra data/ora, evento in italiano,
+prenotazione e numero, cliente e esito. Il tocco apre il dettaglio con i
+dettagli già registrati, la motivazione di un rifiuto, i contatti letti solo in
+quel momento e gli identificativi tecnici. I filtri sono in un pannello
+apribile: ricerca per numero o nome, tipo evento e intervallo di date. Il
+contatore mostra gli eventi visibili sul limite degli ultimi 500. Legge fino a
+500 eventi recenti per ciascuno storico; i nomi cliente sono caricati a blocchi
+di 100 ID senza contatti. L’accesso resta protetto da AdminAccess e RLS.
 
 Un trigger registra creazione e aggiornamenti booking solo con JWT ADMIN;
 contatti e note non sono inclusi nella riga di creazione. Le richieste cliente

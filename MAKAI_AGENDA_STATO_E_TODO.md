@@ -1,3 +1,15 @@
+## Redesign Agenda: mappa live, Richieste e Archivio — 30 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** tre interventi coordinati, senza modifiche a database, Edge o Backend. **Mappa live:** desktop e iPad mantengono la piantina esistente, scalata in proporzione; sotto i 700px la stessa giornata diventa una lista di card tappabili per sala, con tavolo, posti, stato LIBERO/IN ARRIVO/OCCUPATO, orario e cliente. Il tocco apre lo stesso dettaglio e le stesse azioni (“Cambia tavolo”, non venuto, nuova prenotazione); anche l’assegnazione usa la lista con selezioni e conferma invariate. **Richieste clienti:** la pagina `/richieste-clienti` mostra solo le richieste in attesa, in card con cliente, data/ora, persone e tavolo attuale; azioni Accetta, Proponi alternativa e Rifiuta; telefono ed email solo nel dettaglio; rimossi decisioni recenti, duplicati e testi lunghi; un solo pulsante “Aggiorna”; nessun UUID visibile. La proposta di alternativa usa un pannello interno, senza `window.prompt`. **Archivio:** nuova pagina `/archivio` (alias `/attivita`) con unica lista cronologica di eventi in italiano, prenotazione e esito, dettaglio apribile con identificativi, motivazione e contatti caricati solo all’apertura, filtri in pannello (numero o nome, tipo evento, intervallo date) e contatore “N eventi · ultimi 500”. Le richieste decise confluiscono in questo unico archivio eventi, come concordato, senza diventare prenotazioni confermate.
+- **File:** `src/components/TableMap.jsx`, `src/components/BookingRequests.jsx`, nuovi `src/pages/ArchivePage.jsx` e `src/styles/admin-records.css`, `src/pages/CustomerRequestsPage.jsx`, `src/App.jsx`, `src/utils/adminActivity.js`, `src/styles/{admin.css,admin-operations.css}`, `vercel.json`, rimozione del vecchio `src/pages/ActivityPage.jsx`, test `adminActivity`, `tableFloorPlanUi`, `tableMapPresentation`, `bookingsPageRender` e nuovo `redesignPages`; documenti `docs/{admin-activity-log,booking-requests,table-map}.md` e questo registro.
+- **Verifiche locali:** suite Agenda 317/317, build Vite riuscita (126 moduli, inclusi i chunk `CustomerRequestsPage` e `ArchivePage`) e `git diff --check` superato. I nuovi test coprono: lista iPhone senza piantina e assegnazione da lista; richieste solo in attesa con tre azioni e contatti dentro il dettaglio; archivio con eventi in italiano, esiti, filtri per numero/nome/tipo, contatore, identificativi e contatti non caricati prima dell’apertura. Test con hook, Supabase e trasporto simulati; nessuna equivalenza dichiarata con una prova live.
+- **Verifica visiva locale:** eseguita con un’anteprima temporanea dei componenti reali e dati finti, poi rimossa: desktop 1300px e 846px, iPhone 390px e 320px, tema chiaro e scuro. Confermati piantina desktop, lista e dettaglio su iPhone, tre azioni delle richieste, contatti nel solo dettaglio, archivio con righe, filtri e dettaglio, nessun overflow orizzontale a 320/390px. Corretto in questa fase il colore semantico dei pulsanti Accetta/Rifiuta nel tema chiaro, che il tema sovrascriveva. Non è stata usata alcuna sessione o dato di produzione.
+- **LIMITI / DA FARE:** nessuna verifica browser o dispositivo autenticato e nessuna prova su dati reali; l’archivio dipende dalle tabelle `booking_history`/`waitlist_history` già installate e la ricerca per nome richiede che il caricamento dei nomi riesca (in caso contrario restano disponibili numero e dettagli). I contatti nel dettaglio usano letture RLS ADMIN; nessun backfill di eventi o richieste storiche. La pagina resta protetta dal ruolo ADMIN esistente, unico ruolo disponibile: non è stato introdotto un ruolo “titolare” separato. Il breakpoint della lista è 700px; iPad e desktop restano sulla piantina.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push, deploy, SQL o mutazione dati. Preservate le modifiche preesistenti a `.env.example` e `AGENTS.md`.
+
+## Riallineamento .env.example e guida ambienti — 29 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE (solo documentazione):** `.env.example` dell’Agenda riorganizzato tra variabili browser (`VITE_*`), server del gateway (`API_PROXY_TARGET`, `AGENDA_BACKEND_SECRET`) e secret delle Edge Function Supabase; rimossa `AGENDA_EMAIL_FROM` non letta dal codice. Creato `../AMBIENTI.md` con matrice e checklist Production.
+- **Evidenze:** chiavi confrontate con `api/agenda-gateway.js`, `vite.config.js` e le Edge Function; `git diff --check` superato. **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessuna variabile Vercel/Supabase modificata. Su richiesta successiva il `.env` locale è stato deduplicato e `RESEND_API_KEY` è stata rimossa (appartiene ai secret Supabase; resta nel backup).
+
 ## Notifiche richieste cliente verso la pagina di gestione — 24 ottobre 2026
 - **IMPLEMENTATO LOCALMENTE:** gli avvisi “Richiesta cliente” della campanella aprono ora la pagina `/richieste-clienti` invece della Giornata, dove non esistevano i comandi di decisione. Il collegamento include l’identificativo della richiesta (`#request-<id>`); la pagina porta l’elemento in vista, lo evidenzia per pochi secondi e mostra **Accetta** e **Rifiuta**. Rifiuta apre il pannello con **Conferma rifiuto e invia email** e **Annulla**. Un identificativo non valido porta comunque alla pagina senza parametri. La lettura del frammento non provoca navigazioni o finestre automatiche.
 - **File:** `src/utils/adminNotifications.js`, `src/components/BookingRequests.jsx`, `src/styles/admin-operations.css`, test `adminNotifications`, `bookingRequestDecisionEmail` e `bookingCancellationUi` e questo registro. Backend, Edge, database e template invariati.
@@ -286,3 +298,36 @@
 - **Verifiche:** test mirati UI/notifiche/comunicazioni 18/18; build Vite 121 moduli; `git diff --check`. Anteprima locale desktop osservata: etichetta accanto al marchio, stato online verde. Nessuna prova su viewport iPhone, invio email o Production.
 - **Limite riconferma:** non è stato aggiunto o applicato SQL. Il pulsante usa il gateway template del Backend e dipende dalla disponibilità di `private.prepare_staff_email`; il helper è presente nello script schema locale, ma la sua presenza nell’ambiente live non è verificata.
 - **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no. Nessun commit, push o deploy.
+
+## Verifica collegamento Backend — 29 ottobre 2026
+- **VERIFICATO IN LOCALE, SOLA LETTURA:** il gateway Agenda (`api/agenda-gateway.js`) continua a inoltrare `/api/admin/*` al Backend con il Bearer Supabase e `X-Agenda-Backend-Key`. Il segreto `AGENDA_BACKEND_SECRET` locale coincide con quello del Backend e `API_PROXY_TARGET` punta a `https://backend-makai.vercel.app`.
+- **Verifica Backend:** `/api/admin/bookings/month` senza header gateway risponde 403; con il solo header condiviso il Backend locale risponde 503 perché il fallback legacy non è configurato, mentre in produzione il gateway invia sempre il Bearer e `require_admin` verifica il token su Supabase Auth.
+- **Limiti:** nessuna modifica al codice o alla configurazione Agenda, nessuna chiamata autenticata reale e nessuna verifica Production. Nessun commit, push o deploy.
+- **DEPLOYATO:** no. **VERIFICATO IN PRODUZIONE:** no.
+
+## Turni prenotazione e validazioni — 30 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** DOPOCENA 23:00–00:00 (slot 23:00, 23:30, 00:00) e CENA 19:00–22:30. Aggiornati default dell’editor, regex di modifica, validazione dopocena e messaggi. La compatibilità CENA/DOPOCENA resta a 120 minuti.
+- **SQL:** nuova migrazione `20261030120000_service_shift_times.sql` con `private.valid_service_slot`, `private.service_capacity`, `private.service_slot_at` e `public.admin_create_after_dinner_booking`. Nuovo test PGlite `tests/serviceShiftTimesSql.test.js`.
+- **VERIFICHE LOCALI:** 308/308 test e build Vite superati.
+- **DEPLOYATO:** commit `ac6a366` su `origin/main`; Vercel Production `agenda-makai-digkxzxhu-lollo1.vercel.app` READY su `agenda-makai.vercel.app`.
+- **SUPABASE PRODUCTION:** migrazione applicata e registrata su `fignmtkbwpbrmllbxoct`; verificati `valid_service_slot` e `service_slot_at` per 23:00/23:30/00:00 e rifiuto di 22:30 dopocena.
+- **VERIFICATO IN PRODUZIONE:** homepage Agenda HTTP 200; bundle con i nuovi messaggi “dalle 23:00”.
+- **DA FARE:** 3 prenotazioni DOPOCENA future ancora a `22:30` (31/10, 03/11, 10/11) da spostare o annullare; nessun backfill automatico.
+
+## Correzione: tre turni senza sotto orari — 30 ottobre 2026
+- **IMPLEMENTATO LOCALMENTE:** validazione e modifica accettano solo 19:00 e 21:30 per la cena e 23:00 per il dopocena. `isValidBookingTimeForType` usa elenchi espliciti, non intervalli. Messaggi e default editor allineati.
+- **SQL:** nuove migrazioni `20261030140000_three_shifts.sql` e `20261030140100_three_shifts_planner.sql`; test PGlite aggiornato ai tre turni.
+- **VERIFICHE LOCALI:** 309/309 test e build Vite superati.
+- **DEPLOYATO:** commit `10e0bd5`; Vercel Production `agenda-makai-f6t1f248n-lollo1.vercel.app` READY su `agenda-makai.vercel.app`.
+- **SUPABASE PRODUCTION:** migrazioni applicate e registrate; verificati `valid_service_slot` e `service_slot_at` per 19:00/21:30/23:00 e rifiuto di 19:30, 22:30, 23:30 e 00:00.
+- **DATI:** nessun backfill. Le prenotazioni cena esistenti restano a orari interni ai due turni; le 3 DOPOCENA future alle 22:30 sono da spostare o annullare.
+
+## Calendario Sito e manutenzione — 30 ottobre 2026
+- **CONTESTO:** il Sito distingue ora locale chiuso (grigio) da prenotazioni online chiuse/non prenotabile (rosso). Agenda non è stata modificata in questo passaggio.
+- **DEPLOYATO:** Backend `fe019e5`, Sito `e1ba0ab`/`280e251`. Agenda resta al commit `10e0bd5`.
+- **NOTA:** la manutenzione globale delle prenotazioni online è ancora attiva; i giorni già presenti in `online_booking_closures` restano invariati.
+
+## Audit pre-apertura — 30 ottobre 2026
+- **SQL:** migrazione `20261030140300_online_closure_all_services` applicata e registrata; le chiusure online valgono anche per il dopocena. Migrazione `20261030140400_legacy_table_compatibility` applicata e registrata; le prenotazioni storiche a 20:00/20:30/22:00/22:30 restano compatibili per il riuso tavolo dopo 120 minuti, mentre i nuovi booking restano limitati a 19:00/21:30/23:00.
+- **TEST:** 316/316 test e build Vite superati.
+- **NOTA:** l’inserimento manuale in Agenda usa ancora un campo orario libero; le validazioni automatiche del flusso online restano sui tre turni.

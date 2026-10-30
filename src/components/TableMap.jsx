@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { rankedMapAssignments, assignMapTable, tableMapForDate, tableBookingService } from '../utils/tableMap';
 import { floorPlanRooms, FLOOR_PLAN_STATUSES } from '../utils/tableFloorPlan';
-import { orderedMapChoices, landscapeTablePosition, portraitTablePosition } from '../utils/tableMapPresentation';
+import { orderedMapChoices, landscapeTablePosition, portraitTablePosition, mobileTableRooms } from '../utils/tableMapPresentation';
 import { bookingTypeLabel } from '../utils/bookingType';
 import { bookingStatus, bookingStatusLabel } from '../utils/bookingStatus';
 import { physicalTableIds, tableConfigurationError } from '../utils/tableConflicts';
@@ -11,6 +11,8 @@ import { notificationBookingUrl } from '../utils/adminNotifications';
 
 export default function TableMap({ appointments, date, disabled = false, onSaved, assignmentBooking, onCancel, onSaving, onOpenAssignment, onCreateBooking, renderBookingDetail, now = Date.now(), onNoShow }) {
   const [selected, setSelected] = useState(null);
+  const [phoneLayout, setPhoneLayout] = useState(typeof window !== 'undefined'
+    && Boolean(window.matchMedia?.('(max-width: 700px)').matches));
   const [activeRoom, setActiveRoom] = useState('Sala Principale');
   const [activeMode, setActiveMode] = useState('cena');
   const [selectedPhysicalIds, setSelectedPhysicalIds] = useState([]);
@@ -42,8 +44,21 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
   const presentedRooms = mapRooms;
   const visibleUnits = assignmentBooking ? presentedRooms.flatMap(room => room.units)
     : presentedRooms.find(room => room.name === activeRoom)?.units || [];
-  const counts = Object.fromEntries(Object.keys(FLOOR_PLAN_STATUSES).map(status => [status, visibleUnits.filter(unit => unit.status === status).length]));
-  const table = visibleUnits.find(item => item.physicalIds.includes(selected));
+  const phoneRooms = phoneLayout && !assignmentBooking ? mobileTableRooms(displayRooms, modeBookings) : [];
+  const phoneUnits = phoneRooms.flatMap(room => room.units);
+  const countUnits = phoneLayout && !assignmentBooking ? phoneUnits : visibleUnits;
+  const counts = Object.fromEntries(Object.keys(FLOOR_PLAN_STATUSES).map(status => [status, countUnits.filter(unit => unit.status === status).length]));
+  const table = assignmentBooking ? visibleUnits.find(item => item.physicalIds.includes(selected))
+    : phoneLayout ? phoneUnits.find(item => item.physicalIds.includes(selected))
+      : visibleUnits.find(item => item.physicalIds.includes(selected));
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const query = window.matchMedia('(max-width: 700px)');
+    const update = () => setPhoneLayout(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
   useEffect(() => {
     if (!assignmentBooking && selected !== null) {
       detailRef.current?.scrollIntoView({ block: 'nearest' });
@@ -156,12 +171,12 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
       {assignmentBooking.tables?.trim() && <span> · Tavolo attuale: {assignmentBooking.tables}</span>}</p>}
     {assignmentBooking && <button type="button" className="admin-button admin-button-secondary" disabled={saving} onClick={() => { if (!pending.current) onCancel?.(); }}>ANNULLA</button>}
     {!assignmentBooking && <div className="floor-plan-controls">
-      <div className="floor-plan-control-group">
+      {!phoneLayout && <div className="floor-plan-control-group">
         <span className="floor-plan-control-label">Sala:</span>
         <div className="floor-plan-room-tabs" role="tablist" aria-label="Sale">
           {['Sala Principale', 'Sala Nami'].map(room => <button key={room} id={`room-tab-${room === 'Sala Nami' ? 'nami' : 'principale'}`} type="button" role="tab" aria-controls={`room-panel-${room === 'Sala Nami' ? 'nami' : 'principale'}`} aria-selected={activeRoom === room} onClick={() => { setSelected(null); setActiveRoom(room); }}>{room.replace('Sala ', '')}</button>)}
         </div>
-      </div>
+      </div>}
       <div className="floor-plan-control-group">
         <span className="floor-plan-control-label">Servizio:</span>
         <div className="floor-plan-shifts" role="group" aria-label="Servizio">
@@ -178,7 +193,60 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
           {index === 0 && <strong>Consigliato · </strong>}Tavolo {group} · {capacity} posti{group === booking?.tables?.trim() ? ' · attuale' : ''}
         </button>)}</div>}
     </div>}
-    <div className="table-map-rooms">
+    {phoneLayout ? <div className="table-map-phone">
+      {(assignmentBooking ? presentedRooms : phoneRooms).map(room => <section key={room.name}
+        id={`room-panel-${room.name === 'Sala Nami' ? 'nami' : 'principale'}`}
+        className="table-map-phone-room" aria-label={room.name}>
+        <h3>{room.name}</h3>
+        <ul className="table-map-phone-list">
+          {room.units.map(item => {
+            const physicalCount = item.physicalIds.length;
+            if (assignmentBooking) {
+              const matchingSuggestions = suggestions.filter(([group]) =>
+                item.physicalIds.every(id => physicalTableIds(group).includes(id))
+              );
+              const canChoose = matchingSuggestions.length > 0;
+              const selectedCount = item.physicalIds.filter(id => selectedPhysicalIds.includes(id)).length;
+              const isSelected = selectedCount === item.physicalIds.length;
+              const isPartiallySelected = selectedCount > 0 && !isSelected;
+              const isRecommended = item.group === recommendedGroup;
+              return <li key={item.group}>
+                <button type="button" data-phone-unit={item.group}
+                  className={`table-map-phone-card is-${item.status}${canChoose ? ' is-available' : ''}${isRecommended ? ' is-recommended' : ''}${isSelected ? ' is-selected' : ''}${isPartiallySelected ? ' is-partially-selected' : ''}${!canChoose && !selectedCount ? ' is-unavailable' : ''}`}
+                  aria-pressed={isSelected}
+                  aria-label={`Tavolo ${item.group}: ${FLOOR_PLAN_STATUSES[item.status]}${isSelected ? ', selezionato' : isPartiallySelected ? ', parzialmente selezionato' : canChoose ? ', disponibile' : ', non disponibile'}${item.bookings.length ? `, ${item.bookings.map(linked => `${linked.booking_time?.slice(0, 5) || ''} ${linked.name}, ${linked.party_size} persone`).join('; ')}` : ''}`}
+                  disabled={saving || disabled || (!canChoose && !selectedCount)}
+                  onClick={() => toggleAssignmentUnit(item.physicalIds)}>
+                  <span className="table-map-phone-head"><strong>Tavolo {item.group}</strong>
+                    <span className={`makai-badge is-${item.status === 'free' ? 'ok' : item.status === 'reserved' ? 'wait' : 'no'}`}>{FLOOR_PLAN_STATUSES[item.status]}</span></span>
+                  <span className="table-map-phone-meta">{item.capacity} posti{item.bookings.length ? ` · ${item.bookings.map(linked => `${linked.booking_time?.slice(0, 5) || ''} ${linked.name}`).join(' · ')}` : ''}</span>
+                  {isRecommended && <span className="table-map-phone-hint">Consigliato</span>}
+                </button>
+              </li>;
+            }
+            const expanded = item.physicalIds.includes(selected);
+            return <li key={item.group}>
+              <button type="button" data-phone-unit={item.group} aria-expanded={expanded} aria-controls="table-map-detail"
+                className={`table-map-phone-card is-${item.status}${expanded ? ' is-expanded' : ''}`}
+                onClick={() => {
+                  if (pending.current || saving || disabled) return;
+                  setSelected(previous => previous === item.physicalIds[0] ? null : item.physicalIds[0]);
+                  setAssignment(''); setError(''); setFeedback('');
+                }}>
+                <span className="table-map-phone-head"><strong>Tavolo {item.group}</strong>
+                  <span className={`makai-badge is-${item.status === 'free' ? 'ok' : item.status === 'reserved' ? 'wait' : 'no'}`}>{FLOOR_PLAN_STATUSES[item.status]}</span></span>
+                <span className="table-map-phone-meta">{item.capacity} posti{physicalCount > 1 ? ` · ${physicalCount} tavoli uniti` : ''}</span>
+                {item.bookings.length > 0 && <span className="table-map-phone-guests">
+                  {item.bookings.map(linked => `${linked.booking_time?.slice(0, 5) || ''} ${linked.name} · ${linked.party_size} pers.`).join(' · ')}
+                </span>}
+                <span className="table-map-phone-hint">{item.bookings.length ? 'Tocca per le azioni' : 'Tocca per aprire il tavolo'}</span>
+              </button>
+            </li>;
+          })}
+        </ul>
+      </section>)}
+      {!assignmentBooking && table && bookingPanel(table)}
+    </div> : <div className="table-map-rooms">
       {presentedRooms.filter(room => assignmentBooking || room.name === activeRoom).map(room => <section key={room.name} id={`room-panel-${room.name === 'Sala Nami' ? 'nami' : 'principale'}`} aria-labelledby={!assignmentBooking ? `room-tab-${room.name === 'Sala Nami' ? 'nami' : 'principale'}` : undefined} className={`table-map-room${table ? ' has-detail' : ''}`} aria-label={room.name} role={!assignmentBooking ? 'tabpanel' : 'region'} tabIndex={0}>
         <h3>{room.name}</h3><ul className={`floor-plan-canvas${room.name === 'Sala Nami' ? ' floor-plan-nami' : ''}`} aria-label={`Piantina ${room.name}`}>{room.units.flatMap(item => {
           const physicalCount = item.physicalIds.length;
@@ -222,10 +290,10 @@ export default function TableMap({ appointments, date, disabled = false, onSaved
         </ul>
         {!assignmentBooking && table && bookingPanel(table)}
       </section>)}
-    </div>
+    </div>}
     {assignmentBooking && <form onSubmit={save} className="table-map-assignment-bar" aria-label="Conferma assegnazione tavoli">
       <span className="table-map-assignment-selection" aria-live="polite">
-        {assignment || (selectedPhysicalIds.length ? selectedPhysicalIds.join(' + ') : 'Seleziona i tavoli sulla mappa')}
+        {assignment || (selectedPhysicalIds.length ? selectedPhysicalIds.join(' + ') : 'Seleziona i tavoli')}
       </span>
       <span className="table-map-assignment-party">{booking?.party_size} pers.</span>
       <button type="submit" className="admin-button" disabled={saving || disabled || !assignment || !suggestions.some(([group]) => group === assignment)}>

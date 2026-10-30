@@ -13,14 +13,15 @@ import "./styles/admin.css";
 
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
-const ActivityPage = lazy(() => import("./pages/ActivityPage"));
+const ArchivePage = lazy(() => import("./pages/ArchivePage"));
 const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage"));
 const MaintenanceSettingsPage = lazy(() => import("./pages/MaintenanceSettingsPage"));
 const AfterDinnerRequestsPage = lazy(() => import("./pages/AfterDinnerRequestsPage"));
 const CustomerRequestsPage = lazy(() => import("./pages/CustomerRequestsPage"));
 
 const routes = {
-  "/attivita": { title: "Attività", Page: ActivityPage, restricted: true },
+  "/archivio": { title: "Archivio", Page: ArchivePage, restricted: true },
+  "/attivita": { title: "Archivio", Page: ArchivePage, restricted: true },
   "/": { title: "Accesso", Page: LoginPage, restricted: false },
   "/reimposta-password": { title: "Reimposta password", Page: PasswordResetPage, restricted: false },
   "/prenotazioni": { title: "Calendario", Page: CalendarPage, restricted: true },
@@ -74,7 +75,7 @@ export default function App() {
     </div>
     {restricted && <MobileSection title="Menu" className="mobile-header-menu"><div className="admin-header-actions">
       <a href="/prenotazioni" aria-current={path.startsWith("/prenotazioni") ? "page" : undefined}>Agenda</a>
-      <a href="/attivita" aria-current={path === "/attivita" ? "page" : undefined}>Attività</a>
+      <a href="/archivio" aria-current={["/archivio", "/attivita"].includes(path) ? "page" : undefined}>Archivio</a>
       <a href="/manutenzione" aria-current={path === "/manutenzione" ? "page" : undefined}>Manutenzione sito</a>
       <AfterDinnerRequestsNavLink active={path === "/richieste-dopocena"} />
       <CustomerRequestsNavLink active={path === "/richieste-clienti"} />

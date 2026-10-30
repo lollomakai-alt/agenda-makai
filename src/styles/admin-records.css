@@ -1,0 +1,512 @@
+/* Liste condivise da Richieste clienti e Archivio. */
+.makai-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.makai-page-header h1 { margin: 2px 0 0; }
+.makai-page-header > .admin-button { flex: 0 0 auto; }
+
+.makai-page-note {
+  margin: 0 0 8px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.makai-count {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.makai-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.makai-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.makai-list-item { margin: 0; min-width: 0; }
+
+.makai-record {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius);
+  background: var(--admin-panel);
+}
+
+.makai-record-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.makai-record-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.makai-record-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.makai-record-meta {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.makai-record-request {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.makai-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--admin-panel-2);
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.makai-badge.is-ok {
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+}
+
+.makai-badge.is-wait {
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+}
+
+.makai-badge.is-no {
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}
+
+.makai-record-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.makai-record-actions .admin-button {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 8px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.admin-shell .makai-record-actions .admin-button.is-accept {
+  --button-color: var(--admin-success);
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+}
+
+.admin-shell .makai-record-actions .admin-button.is-danger {
+  --button-color: var(--admin-danger);
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}
+
+.admin-shell .makai-record-actions .admin-button.is-accept:not(:disabled):hover,
+.admin-shell .makai-record-actions .admin-button.is-accept:not(:disabled):focus-visible {
+  border-color: var(--admin-success);
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+}
+
+.admin-shell .makai-record-actions .admin-button.is-danger:not(:disabled):hover,
+.admin-shell .makai-record-actions .admin-button.is-danger:not(:disabled):focus-visible {
+  border-color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}
+
+.makai-record-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: -4px 0;
+  color: var(--admin-accent);
+  font-size: 13px;
+  font-weight: 600;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.makai-record-details > summary::-webkit-details-marker { display: none; }
+.makai-record-details > summary::before {
+  content: "›";
+  font-size: 18px;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+
+.makai-record-details[open] > summary::before { transform: rotate(90deg); }
+
+.makai-record-details-body {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sm);
+  background: var(--admin-panel-2);
+  font-size: 13px;
+}
+
+.makai-record-details-body p { margin: 0; overflow-wrap: anywhere; }
+
+.makai-contact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.makai-contact-row span { color: var(--admin-muted); }
+
+.makai-detail-muted {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.makai-detail-link { font-size: 13px; font-weight: 600; }
+
+.makai-alternatives {
+  display: grid;
+  gap: 8px;
+}
+
+.makai-secondary-panel {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.makai-secondary-panel > summary {
+  min-height: 40px;
+  padding: 8px 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.makai-empty {
+  padding: 24px 16px;
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: var(--radius);
+  color: var(--admin-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Richieste: il contenitore storico non deve aggiungere un secondo riquadro. */
+.booking-requests.makai-collection {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.booking-requests.makai-collection > h2 { display: none; }
+.booking-requests.makai-collection .makai-list { margin: 0; padding-left: 0; }
+.booking-requests.makai-collection .makai-list > li { margin: 0; }
+.booking-requests.makai-collection .agenda-eyebrow { font-size: 11px; }
+@media screen and (max-width: 600px) {
+  .booking-requests.makai-collection > .makai-list > li {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+/* Archivio: riga comprimibile e pannello filtri. */
+.archive-list .makai-record { overflow: hidden; }
+
+.makai-record-summary {
+  display: grid;
+  grid-template-columns: minmax(132px, auto) minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  min-height: 56px;
+  padding: 12px 14px;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.makai-record-summary::-webkit-details-marker { display: none; }
+.makai-record-summary::marker { content: ""; }
+
+.makai-record[open] > .makai-record-summary {
+  border-bottom: 1px solid var(--admin-border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--admin-panel-2);
+}
+
+.makai-record-date {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.makai-record-title {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.makai-record-ref {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.makai-record-summary .makai-badge { justify-self: end; }
+
+.makai-record-detail {
+  display: grid;
+  gap: 16px;
+  padding: 14px;
+}
+
+.makai-detail-section {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.makai-detail-section h3 {
+  margin: 0 0 2px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.makai-detail-section p {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.makai-reason {
+  padding: 8px 10px;
+  border-left: 3px solid var(--admin-danger-border);
+  border-radius: 4px;
+  background: var(--admin-danger-bg);
+}
+
+.makai-contact-card {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.makai-contact-card p { margin: 0; }
+.makai-contact-name { font-weight: 650; }
+
+.makai-identifiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.makai-identifiers > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-xs);
+  background: var(--admin-panel);
+}
+
+.makai-identifiers dt {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.makai-identifiers dd {
+  margin: 3px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.makai-filter-panel { margin-left: auto; }
+.makai-filter-panel[open] { flex: 1 1 100%; }
+
+.makai-filter-panel > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.makai-filter-panel > summary::-webkit-details-marker { display: none; }
+.makai-filter-panel[open] > summary {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.makai-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(130px, 0.7fr)) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius);
+  background: var(--admin-panel);
+}
+
+.makai-filter-grid label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.makai-filter-grid input,
+.makai-filter-grid select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--admin-input);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.makai-filter-reset { min-height: 42px; }
+
+.booking-request-proposal {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.booking-request-proposal label { font-weight: 700; }
+.booking-request-proposal p { margin: 0; color: var(--admin-muted); font-size: 13px; }
+
+.booking-request-proposal textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--admin-panel);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
+.booking-request-rejection {
+  padding: 14px;
+  border-top: 1px solid var(--admin-border);
+}
+
+@media screen and (max-width: 900px) {
+  .makai-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .makai-filter-search,
+  .makai-filter-reset { grid-column: 1 / -1; }
+}
+
+@media screen and (max-width: 700px) {
+  .makai-page-header { align-items: center; }
+  .makai-page-header h1 { font-size: 22px; }
+  .makai-page-header .admin-button { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  .makai-toolbar { align-items: stretch; }
+  .makai-count { padding-top: 10px; }
+  .makai-filter-panel { margin-left: 0; }
+  .makai-filter-panel > summary { width: 100%; justify-content: center; }
+  .makai-filter-grid { grid-template-columns: 1fr; }
+  .makai-record-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "date badge"
+      "title title"
+      "ref ref";
+    gap: 4px 10px;
+    padding: 12px;
+  }
+  .makai-record-date { grid-area: date; }
+  .makai-record-summary .makai-badge { grid-area: badge; }
+  .makai-record-title { grid-area: title; }
+  .makai-record-ref { grid-area: ref; white-space: normal; }
+  .makai-record-card { padding: 12px; }
+  .makai-record-detail { padding: 12px; }
+  .makai-identifiers { grid-template-columns: 1fr; }
+  .makai-record-actions .admin-button { padding-inline: 4px; font-size: 12px; }
+}
+
+@media screen and (max-width: 360px) {
+  .makai-record-actions { grid-template-columns: 1fr; }
+  .makai-record-actions .admin-button { min-height: 44px; }
+}

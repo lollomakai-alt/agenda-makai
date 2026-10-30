@@ -605,23 +605,28 @@ test(
         /aria-expanded="false"/
       );
 
-      const { default: Activity } =
+      const { default: Archive } =
         await server.ssrLoadModule(
-          '/src/pages/ActivityPage.jsx'
+          '/src/pages/ArchivePage.jsx'
         );
 
-      const activity = renderToString(
-        React.createElement(Activity)
+      const archive = renderToString(
+        React.createElement(Archive)
       );
 
       assert.match(
-        activity,
-        /activity-filters/
+        archive,
+        /Archivio/
       );
 
       assert.match(
-        activity,
-        /activity-search/
+        archive,
+        /Eventi/
+      );
+
+      assert.match(
+        archive,
+        /Caricamento archivio/
       );
 
       /*

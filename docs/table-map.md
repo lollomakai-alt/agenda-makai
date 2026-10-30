@@ -53,6 +53,18 @@ Sale impilate su tutte le dimensioni; posizioni relative e
 controlli di almeno 44px. Dettaglio focalizzato dopo il tocco; stati e selezione
 accessibili anche da tastiera. Nessuna nuova libreria, nessuna liberazione automatica.
 
+## Mappa live su iPhone
+
+Sotto i 700px la stessa giornata viene presentata come lista di card tappabili
+invece della piantina: ogni card mostra tavolo, posti, stato LIBERO / IN ARRIVO /
+OCCUPATO e, se presente, orario e cliente. Il tocco apre lo stesso dettaglio
+della mappa con le azioni già esistenti (“Cambia tavolo”, non venuto, nuova
+prenotazione). Le due sale sono elencate insieme, senza tab. Anche
+l’assegnazione usa la lista: ogni card seleziona i tavoli fisici e il pulsante
+di conferma resta in fondo. Su desktop e iPad la piantina resta invariata e
+scalata in proporzione. La scelta è solo di presentazione: dati, disponibilità,
+conflitti e salvataggi sono gli stessi.
+
 Il motore ora considera la giornata prenotata senza finestre di durata:
 confirmed/arrived/completed con tavolo assegnato restano bloccanti indipendentemente
 dall’orario. La liberazione richiede cancelled/no_show o rimozione esplicita
