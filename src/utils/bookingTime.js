@@ -26,19 +26,16 @@ export function bookingScheduledAt(booking) {
   return matches.length ? Math.max(...matches) : wallTime - Math.min(...offsets);
 }
 
+export const BOOKING_SLOTS = {
+  normale: ['19:00', '21:30'],
+  dopocena: ['23:00'],
+};
+
 export function isValidBookingTimeForType(booking) {
   const scheduledAt = bookingScheduledAt(booking);
   if (scheduledAt === null) return false;
-
-  const start = booking.booking_type === 'dopocena' ? '23:00' : '19:00';
-  const end = booking.booking_type === 'dopocena' ? '00:00' : '22:30';
-  if (!['normale', 'dopocena'].includes(booking.booking_type)) return false;
-
-  const startAt = bookingScheduledAt({ ...booking, booking_time: start });
-  const endAt = bookingScheduledAt({ ...booking, booking_time: end });
-  const slotDuration = 30 * 60 * 1000;
-  if (scheduledAt < startAt || scheduledAt > endAt) return false;
-  return booking.booking_type === 'dopocena' || scheduledAt % slotDuration === 0;
+  const slot = String(booking.booking_time || '').slice(0, 5);
+  return (BOOKING_SLOTS[booking.booking_type] || []).includes(slot);
 }
 
 

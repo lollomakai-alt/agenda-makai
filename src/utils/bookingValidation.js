@@ -81,9 +81,9 @@ export function validateBooking(
     errors.party_size = 'Inserisci un numero intero da 1 a 6.';
   }
 
-  if (!/^(19|20|21):(00|30)$|^22:(00|30)$/.test(values.time)) {
+  if (!/^(19:00|21:30)$/.test(values.time)) {
     errors.time =
-      'Scegli un orario tra le 19:00 e le 22:30, ogni 30 minuti.';
+      'Scegli uno dei turni: 19:00 o 21:30.';
   }
 
   if (notes.length > 300) {

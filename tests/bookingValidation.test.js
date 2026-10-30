@@ -6,7 +6,7 @@ import { todayInRome } from '../src/utils/calendar.js';
 const day = new Date(`${todayInRome()}T12:00:00Z`);
 day.setUTCDate(day.getUTCDate() + 1);
 if (day.getUTCDay() === 1) day.setUTCDate(day.getUTCDate() + 1);
-const valid = { name: 'Nicolò D’Angelo', phone: '333 123 4567', email: '', date: day.toISOString().slice(0, 10), time: '21:00', party_size: '4', notes: '' };
+const valid = { name: 'Nicolò D’Angelo', phone: '333 123 4567', email: '', date: day.toISOString().slice(0, 10), time: '21:30', party_size: '4', notes: '' };
 
 test('valid booking preserves optional email and normalizes contacts', () => {
   const result = validateBooking(valid);

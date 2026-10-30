@@ -40,20 +40,20 @@ test('save keeps id and sends only changed editable fields, never state or custo
 });
 
 test('all five editable fields are supported and equivalent existing time/table formats remain unchanged', () => {
-  const values = { booking_date: '2026-10-11', booking_time: '21:00', party_size: '3', tables: '12, 13+14', notes: 'Terrazza' };
+  const values = { booking_date: '2026-10-11', booking_time: '21:30', party_size: '3', tables: '12, 13+14', notes: 'Terrazza' };
   assert.deepEqual(validateBookingEdit(values, booking, { now:Date.parse('2026-10-04T12:00:00Z') }), { errors: {}, changes: { ...values, party_size: 3, tables: '12,13+14' } });
   const historical = { ...booking, booking_time: '20:00:00', tables: '10, 11' };
   assert.deepEqual(validateBookingEdit({ ...editableBookingValues(historical), notes: 'Testo' }, historical).changes, { notes: 'Testo' });
 });
 
-test('DOPOCENA accepts the 23:00, 23:30 and 00:00 slots when editing', () => {
+test('DOPOCENA accepts only the 23:00 shift when editing', () => {
   const original = { ...booking, booking_type: 'dopocena', booking_date: '2026-10-10', booking_time: '23:00', tables: '' };
-  for (const booking_time of ['23:00', '23:30', '00:00']) {
+  for (const booking_time of ['23:00']) {
     const values = { ...editableBookingValues(original), booking_time };
     assert.equal(validateBookingEdit(values, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time, undefined);
   }
   const values = { ...editableBookingValues(original), booking_time: '23:30' };
-  for (const booking_time of ['22:29', '22:30', '22:59', '23:15', '00:01', '21:59']) {
+  for (const booking_time of ['19:00', '22:29', '22:30', '22:59', '23:15', '23:30', '00:00', '00:01', '21:59']) {
     assert.ok(validateBookingEdit({ ...values, booking_time }, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time);
   }
 });

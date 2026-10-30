@@ -4,8 +4,8 @@ import { availableWaitlistTables, createWaitlistEntry, convertWaitlistEntry, set
 import { todayInRome } from '../src/utils/calendar.js';
 import { historyChanges } from '../src/utils/bookingHistory.js';
 const day = new Date(`${todayInRome()}T12:00:00Z`); day.setUTCDate(day.getUTCDate()+1); if(day.getUTCDay()===1)day.setUTCDate(day.getUTCDate()+1);
-const values={name:'Mario Rossi',phone:'3331234567',email:'',date:day.toISOString().slice(0,10),time:'20:00',party_size:'2',notes:'Seggiolone'};
-const entry={id:9,status:'WAITING',booking_date:values.date,booking_time:'20:00',party_size:2};
+const values={name:'Mario Rossi',phone:'3331234567',email:'',date:day.toISOString().slice(0,10),time:'19:00',party_size:'2',notes:'Seggiolone'};
+const entry={id:9,status:'WAITING',booking_date:values.date,booking_time:'19:00',party_size:2};
 test('waitlist validates existing booking fields and accepts telephone or email, without accepting malformed contacts',()=>{
   assert.deepEqual(validateWaitlist(values).errors,{});
   assert.equal(validateWaitlist(values).data.phone,'+393331234567');

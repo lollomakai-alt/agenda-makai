@@ -27,7 +27,7 @@ test('configuration checks include every unreleased assignment on the same day',
 test('day scope is shared across normal/dopocena, with conservative unknown times', () => {
  const after={...booking,id:99,booking_type:'dopocena',booking_time:'23:00'};
  assert.deepEqual(conflictingTableIds({...booking,booking_time:'21:30'},[after]),['12']);
- assert.deepEqual(conflictingTableIds(booking,[after]),[]);
+ assert.deepEqual(conflictingTableIds({...booking,booking_time:'19:00'},[after]),[]);
  const late={...booking,booking_time:'23:00'};
  const tomorrow={...booking,id:99,booking_date:'2026-10-16',booking_time:'00:30'};
  assert.equal(bookingsOverlap(late,tomorrow),false);

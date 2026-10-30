@@ -5,8 +5,8 @@ export function validateAfterDinnerBooking(values) {
   const validation = validateManualBooking(values, { requirePhone: false });
   const errors = { ...validation.errors };
   const time = String(values.time || '');
-  if (!/^(23:(00|30)|00:00)$/.test(time)) {
-    errors.time = 'Il dopocena è disponibile dalle 23:00 alle 00:00.';
+  if (!/^23:00$/.test(time)) {
+    errors.time = 'Il dopocena è disponibile alle 23:00.';
   }
   if (Number(validation.data.party_size) > 25) {
     errors.party_size = 'Il dopocena ammette al massimo 25 persone per prenotazione.';

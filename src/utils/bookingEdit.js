@@ -37,8 +37,8 @@ export function validateBookingEdit(values, original, { manualTables = false, no
     if (original.status !== 'confirmed') errors.booking_type = 'Il cambio turno è disponibile solo per prenotazioni confermate.';
     if (!isDay(values.booking_date)) errors.booking_date = 'Inserisci una data valida.';
     if (!isValidBookingTimeForType(normalized)) errors.booking_time = normalized.booking_type === 'dopocena'
-      ? 'Il DOPOCENA è disponibile dalle 23:00 alle 00:00.'
-      : 'La CENA è disponibile dalle 19:00 alle 22:30, ogni 30 minuti.';
+      ? 'Il DOPOCENA è disponibile alle 23:00.'
+      : 'La CENA è disponibile alle 19:00 e alle 21:30.';
     if (normalized.booking_type === 'normale' && (!Number.isSafeInteger(partySize) || partySize < 1)) {
       errors.party_size = 'Inserisci un numero intero positivo.';
     }
@@ -61,11 +61,11 @@ export function validateBookingEdit(values, original, { manualTables = false, no
     }
   }
   const timePattern = normalized.booking_type === 'dopocena'
-    ? /^(23:(00|30)|00:00)$/ : /^(19|20|21):(00|30)$|^22:(00|30)$/;
+    ? /^23:00$/ : /^(19:00|21:30)$/;
   if (!manualTables && changesAvailability && !changesType && !timePattern.test(values.booking_time || '')) {
     errors.booking_time = normalized.booking_type === 'dopocena'
-      ? 'Il DOPOCENA è disponibile dalle 23:00 alle 00:00.'
-      : 'Scegli un orario tra le 19:00 e le 22:30, ogni 30 minuti.';
+      ? 'Il DOPOCENA è disponibile alle 23:00.'
+      : 'Scegli uno dei turni: 19:00 o 21:30.';
   }
   if (!changesType && changesAvailability && (!Number.isSafeInteger(partySize) || partySize < 1 || (!manualTables && partySize > 6))) errors.party_size = manualTables ? 'Inserisci un numero intero positivo.' : 'Inserisci un numero intero da 1 a 6.';
   if (changesAvailability && tables && !/^[1-9]\d*(?:\+[1-9]\d*)*(?:\s*,\s*[1-9]\d*(?:\+[1-9]\d*)*)*$/.test(tables)) {

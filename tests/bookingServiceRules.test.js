@@ -4,19 +4,20 @@ import {bookingScheduledAt,isValidBookingTimeForType} from '../src/utils/booking
 import {operationalDayInRome} from '../src/utils/calendar.js';
 import {conflictingTableIds} from '../src/utils/tableConflicts.js';
 import {communicationMessage} from '../supabase/functions/agenda-communications/messages.js';
-test('service slots and midnight stay in the selected operational day across DST',()=>{
+test('service shifts and midnight stay in the selected operational day across DST',()=>{
  for(const day of ['2026-10-24','2026-10-25','2027-03-28']) {
   const base={booking_date:day,booking_type:'dopocena'};
   assert.ok(bookingScheduledAt({...base,booking_time:'00:00'})>bookingScheduledAt({...base,booking_time:'23:30'}));
-  assert.ok(isValidBookingTimeForType({...base,booking_time:'00:00'}));
-  assert.equal(isValidBookingTimeForType({...base,booking_time:'00:30'}),false);
+  assert.equal(isValidBookingTimeForType({...base,booking_time:'00:00'}),false);
+  assert.ok(isValidBookingTimeForType({...base,booking_time:'23:00'}));
+  assert.equal(isValidBookingTimeForType({...base,booking_time:'23:30'}),false);
  }
- for(const [time,valid] of [['18:30',false],['19:00',true],['22:30',true],['23:00',false]]) assert.equal(isValidBookingTimeForType({booking_date:'2026-10-15',booking_type:'normale',booking_time:time}),valid);
+ for(const [time,valid] of [['18:30',false],['19:00',true],['21:30',true],['22:30',false],['23:00',false]]) assert.equal(isValidBookingTimeForType({booking_date:'2026-10-15',booking_type:'normale',booking_time:time}),valid);
  assert.equal(operationalDayInRome(Date.parse('2026-10-10T23:59:00Z')),'2026-10-10');
  assert.equal(operationalDayInRome(Date.parse('2026-10-11T00:00:00Z')),'2026-10-11');
 });
-test('exact 120-minute program permits a future service, never timed release within dinner',()=>{
- const dinner={id:1,booking_date:'2026-10-15',booking_time:'21:00',booking_type:'normale',tables:'12',status:'arrived'};
+test('only valid shift slots allow separate-service table reuse',()=>{
+ const dinner={id:1,booking_date:'2026-10-15',booking_time:'19:00',booking_type:'normale',tables:'12',status:'arrived'};
  assert.deepEqual(conflictingTableIds({...dinner,id:2,booking_time:'23:00',booking_type:'dopocena'},[dinner]),[]);
  assert.deepEqual(conflictingTableIds({...dinner,id:2,booking_time:'22:30'},[dinner]),['12']);
 });

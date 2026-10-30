@@ -30,14 +30,14 @@ test('normal and dopocena share tables only when service types and times are val
   assert.deepEqual(conflictingTableIds(
     afterDinner,
     [{ ...normal, booking_time: '19:30' }]
-  ), []);
+  ), ['12']);
   assert.deepEqual(conflictingTableIds(
     afterDinner,
     [{ ...normal, booking_time: '21:30' }]
   ), ['12']);
   assert.deepEqual(conflictingTableIds(afterDinner, [{ ...afterDinner, id: 100 }]), ['12']);
   assert.deepEqual(conflictingTableIds(
-    { ...normal, booking_time: '22:00' },
+    { ...normal, booking_time: '21:30' },
     [{ ...normal, id: 101, booking_time: '19:00' }]
   ), ['12']);
   assert.deepEqual(conflictingTableIds(
@@ -45,7 +45,7 @@ test('normal and dopocena share tables only when service types and times are val
     [{ ...afterDinner, id: 101, booking_time: '23:00' }]
   ), ['12']);
   assert.deepEqual(conflictingTableIds(
-    { ...normal, booking_time: '22:00' },
+    { ...normal, booking_time: '21:30' },
     [{ ...afterDinner, booking_time: '23:00' }]
   ), ['12']);
   assert.deepEqual(conflictingTableIds(

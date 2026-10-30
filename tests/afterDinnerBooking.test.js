@@ -11,10 +11,10 @@ const values = {
 };
 
 test('dopocena starts at 23:00 and accepts creation without an initial table', () => {
-  for (const time of ['23:00', '23:30', '00:00']) {
+  for (const time of ['23:00']) {
     assert.deepEqual(validateAfterDinnerBooking({ ...values, time }).errors, {});
   }
-  for (const time of ['21:30', '22:00', '22:30', '22:59', '23:15', '00:01', '00:30']) {
+  for (const time of ['21:30', '22:00', '22:30', '22:59', '23:15', '23:30', '00:00', '00:01', '00:30']) {
     assert.ok(validateAfterDinnerBooking({ ...values, time }).errors.time);
   }
   assert.deepEqual(validateAfterDinnerBooking(values).errors, {});

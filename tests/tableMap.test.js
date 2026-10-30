@@ -4,7 +4,7 @@ import { tableMapForDate, tableRooms, unverifiedTableBookings, tableGroupsForPhy
 import { todayInRome } from '../src/utils/calendar.js';
 const date='2026-10-04';
 const future=new Date(`${todayInRome()}T12:00:00Z`);future.setUTCDate(future.getUTCDate()+1);if(future.getUTCDay()===1)future.setUTCDate(future.getUTCDate()+1);
-const booking={id:42,booking_date:future.toISOString().slice(0,10),booking_time:'20:00',party_size:2,tables:'',notes:'Seggiolone',status:'confirmed',booking_type:'normale'};
+const booking={id:42,booking_date:future.toISOString().slice(0,10),booking_time:'19:00',party_size:2,tables:'',notes:'Seggiolone',status:'confirmed',booking_type:'normale'};
 
 test('map uses all 14 physical tables and distinguishes reserved/occupied/free with linked bookings',()=>{
   const rows=[{id:1,booking_date:date,tables:'10+11',status:'confirmed'},{id:2,booking_date:date,tables:'12',status:'arrived'},{id:3,booking_date:date,tables:'13+14',status:'completed'}];
@@ -85,7 +85,7 @@ test('map assignment reuses editor RPC and preserves contacts, scheduling, notes
   await assignMapTable(client,booking,'10+11',[],'11');
   assert.equal(calls[0][0],'admin_assign_booking_tables');
   assert.deepEqual(calls[0][1].changes,{tables:'10+11'});
-  assert.deepEqual(calls[0][1].expected,{booking_date:booking.booking_date,booking_time:'20:00',party_size:2,tables:'',notes:'Seggiolone'});
+  assert.deepEqual(calls[0][1].expected,{booking_date:booking.booking_date,booking_time:'19:00',party_size:2,tables:'',notes:'Seggiolone'});
   await assert.rejects(assignMapTable(client,booking,'12',[{...booking,id:43,tables:'12'}],'12'),/non disponibile/);
   assert.equal(calls.length,1);
   await assert.rejects(assignMapTable({rpc:async()=>({error:{message:'Prenotazione cambiata'}})},booking,'12',[],'12'),/cambiata/);
@@ -110,7 +110,7 @@ test('recommendations exclude conflicts, insufficient groups and invalid booking
   assert.ok(rankedMapAssignments(four,[busy]).some(([group])=>group==='18+19'));
   assert.ok(!rankedMapAssignments(four,[busy]).some(([group])=>group.includes('15')));
   assert.ok(!rankedMapAssignments(four,[{...busy,booking_type:'dopocena',booking_time:'23:00'}]).some(([group])=>group==='15+16')); // The table stays occupied until explicit release.
-  assert.ok(rankedMapAssignments({...four,booking_time:'21:00'},[{...busy,booking_type:'dopocena',booking_time:'23:00'}]).some(([group])=>group==='18+19'));
+  assert.ok(rankedMapAssignments({...four,booking_time:'19:00'},[{...busy,booking_type:'dopocena',booking_time:'23:00'}]).some(([group])=>group==='18+19'));
   assert.deepEqual(rankedMapAssignments({...booking,status:'cancelled'},[]),[]);
  assert.ok(rankedMapAssignments({...booking,party_size:7},[]).length>0); // The ADMIN manual selector has no six-person cap.
  assert.ok(rankedMapAssignments({...booking,party_size:4},[]).some(([group])=>group==='22+23'));
@@ -134,7 +134,7 @@ test('manual assignment permits over-capacity and preserves physical conflict pr
 
 
 test('pending bookings influence recommendations but never veto a free manual choice', () => {
- const online={id:301,name:'Pending Online',booking_date:'2026-10-15',booking_time:'20:00',party_size:6,tables:'',status:'confirmed',source:'booking',booking_type:'normale'};
+ const online={id:301,name:'Pending Online',booking_date:'2026-10-15',booking_time:'19:00',party_size:6,tables:'',status:'confirmed',source:'booking',booking_type:'normale'};
  const small={...online,id:302,name:'Staff Choice',party_size:2,source:'agenda'};
  const entries=[online,small];
  assert.ok(availableMapAssignments(small,entries,'15',{manualTables:true}).some(([group])=>group==='15+16+17'));
