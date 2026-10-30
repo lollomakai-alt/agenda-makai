@@ -64,7 +64,7 @@ test(
         id: 5,
         name: 'Cliente Dopocena Senza Tavolo',
         booking_type: 'dopocena',
-        booking_time: '22:30',
+        booking_time: '23:00',
       },
     ];
 

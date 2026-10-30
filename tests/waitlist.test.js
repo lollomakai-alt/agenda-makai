@@ -19,7 +19,7 @@ test('available tables reuse capacity, physical conflicts, day conflicts and all
   assert.ok(!available.includes('12') && !available.includes('15+16') && !available.includes('17') && !available.includes('18'));
   assert.ok(available.includes('10+11'));
   assert.ok(availableWaitlistTables(entry,[{...occupied[0],status:'cancelled'}]).some(([id])=>id==='12'));
-  assert.ok(availableWaitlistTables(entry,[{...occupied[0],booking_type:'dopocena',booking_time:'22:30'}]).some(([id])=>id==='12'));
+  assert.ok(availableWaitlistTables(entry,[{...occupied[0],booking_type:'dopocena',booking_time:'23:00'}]).some(([id])=>id==='12'));
   assert.deepEqual(availableWaitlistTables({...entry,status:'CONVERTED'},[]),[]);
   assert.deepEqual(availableWaitlistTables({...entry,party_size:6},[]).map(([id])=>id),['15+16+17']);
 });

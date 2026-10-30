@@ -38,7 +38,7 @@ test('either booking type keeps all active day assignments in map occupancy',()=
   assert.deepEqual(dinnerView.find(table=>table.id==='23').bookings,[]);
 });
 test('inactive, other-date and unassigned dopocena rows stay outside the map',()=>{
-  const rows=[{id:1,booking_date:date,tables:'10+11',status:'cancelled'},{id:2,booking_date:date,tables:'12',status:'no_show'},{id:3,booking_date:'2026-10-05',tables:'12',status:'confirmed'},{id:4,booking_date:date,tables:'99',status:'confirmed'},{id:5,booking_date:date,tables:'',status:'confirmed'},{id:6,booking_date:date,booking_time:'22:30',booking_type:'dopocena',tables:'',status:'confirmed'}];
+  const rows=[{id:1,booking_date:date,tables:'10+11',status:'cancelled'},{id:2,booking_date:date,tables:'12',status:'no_show'},{id:3,booking_date:'2026-10-05',tables:'12',status:'confirmed'},{id:4,booking_date:date,tables:'99',status:'confirmed'},{id:5,booking_date:date,tables:'',status:'confirmed'},{id:6,booking_date:date,booking_time:'23:00',booking_type:'dopocena',tables:'',status:'confirmed'}];
   assert.ok(tableMapForDate(rows,date).every(t=>t.status==='free'));
   for(const type of ['normale','dopocena']) {
     assert.ok(tableMapForDate(rows,date,type).filter(table=>['10','11','12'].includes(table.id)).every(table=>table.status==='free'));
@@ -74,7 +74,7 @@ test('assignment options honor capacity, physical conflicts, configuration, acti
   const busy={...booking,id:43,tables:'15+16+17'};
   assert.deepEqual(availableMapAssignments(booking,[busy],'17'),[]);
   assert.deepEqual(availableMapAssignments(booking,[{...busy,booking_type:'dopocena',booking_time:'23:00'}],'17'),[['17',2],['15+16+17',6]]);
-  assert.equal(availableMapAssignments({...booking,booking_time:'21:00'},[{...busy,booking_type:'dopocena',booking_time:'22:30'}],'17').length,0);
+  assert.equal(availableMapAssignments({...booking,booking_time:'21:30'},[{...busy,booking_type:'dopocena',booking_time:'23:00'}],'17').length,0);
   assert.ok(availableMapAssignments(booking,[{...busy,status:'cancelled'}],'17').length);
   for(const status of ['completed','cancelled','no_show'])assert.deepEqual(availableMapAssignments({...booking,status},[],'12'),[]);
   assert.deepEqual(availableMapAssignments({...booking,booking_date:'2020-01-01'},[],'12'),[]);
@@ -110,7 +110,7 @@ test('recommendations exclude conflicts, insufficient groups and invalid booking
   assert.ok(rankedMapAssignments(four,[busy]).some(([group])=>group==='18+19'));
   assert.ok(!rankedMapAssignments(four,[busy]).some(([group])=>group.includes('15')));
   assert.ok(!rankedMapAssignments(four,[{...busy,booking_type:'dopocena',booking_time:'23:00'}]).some(([group])=>group==='15+16')); // The table stays occupied until explicit release.
-  assert.ok(rankedMapAssignments({...four,booking_time:'21:00'},[{...busy,booking_type:'dopocena',booking_time:'22:30'}]).some(([group])=>group==='18+19'));
+  assert.ok(rankedMapAssignments({...four,booking_time:'21:00'},[{...busy,booking_type:'dopocena',booking_time:'23:00'}]).some(([group])=>group==='18+19'));
   assert.deepEqual(rankedMapAssignments({...booking,status:'cancelled'},[]),[]);
  assert.ok(rankedMapAssignments({...booking,party_size:7},[]).length>0); // The ADMIN manual selector has no six-person cap.
  assert.ok(rankedMapAssignments({...booking,party_size:4},[]).some(([group])=>group==='22+23'));

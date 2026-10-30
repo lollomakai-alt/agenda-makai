@@ -16,8 +16,8 @@ test('service slots and midnight stay in the selected operational day across DST
  assert.equal(operationalDayInRome(Date.parse('2026-10-11T00:00:00Z')),'2026-10-11');
 });
 test('exact 120-minute program permits a future service, never timed release within dinner',()=>{
- const dinner={id:1,booking_date:'2026-10-15',booking_time:'20:30',booking_type:'normale',tables:'12',status:'arrived'};
- assert.deepEqual(conflictingTableIds({...dinner,id:2,booking_time:'22:30',booking_type:'dopocena'},[dinner]),[]);
+ const dinner={id:1,booking_date:'2026-10-15',booking_time:'21:00',booking_type:'normale',tables:'12',status:'arrived'};
+ assert.deepEqual(conflictingTableIds({...dinner,id:2,booking_time:'23:00',booking_type:'dopocena'},[dinner]),[]);
  assert.deepEqual(conflictingTableIds({...dinner,id:2,booking_time:'22:30'},[dinner]),['12']);
 });
 test('separate templates share clear facts and accept only secure possession links',()=>{

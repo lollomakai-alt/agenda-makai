@@ -47,7 +47,7 @@ test('grouped arrivals/occupancy retain whole assignments without double-countin
   const rows = [
     { id: 1, booking_date: date, booking_time: '20:00', booking_type: 'cena', status: 'confirmed', party_size: 2, tables: '10+11' },
     { id: 2, booking_date: date, booking_time: '20:00', booking_type: 'cena', status: 'completed', party_size: 6, tables: '' },
-    { id: 3, booking_date: date, booking_time: '22:30', booking_type: 'dopocena', status: 'confirmed', party_size: 3, tables: '15+16' },
+    { id: 3, booking_date: date, booking_time: '23:00', booking_type: 'dopocena', status: 'confirmed', party_size: 3, tables: '15+16' },
     { id: 4, booking_date: date, booking_time: '20:00', booking_type: 'cena', status: 'arrived', party_size: 4, tables: '18+19' },
   ];
   assert.equal(unit(rows, '10+11').status, 'reserved');

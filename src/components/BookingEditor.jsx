@@ -31,7 +31,7 @@ export default function BookingEditor({ booking, appointments, disabled, onSaved
     const { name, value } = event.target;
     setValues(previous => name === 'booking_type' ? {
       ...previous, booking_type: value,
-      booking_time: value === bookingType(original.booking_type) ? original.booking_time.slice(0, 5) : value === 'dopocena' ? '22:30' : '19:00',
+      booking_time: value === bookingType(original.booking_type) ? original.booking_time.slice(0, 5) : value === 'dopocena' ? '23:00' : '19:00',
       tables: value === bookingType(original.booking_type) ? original.tables || '' : '',
     } : { ...previous, [name]: value });
   }

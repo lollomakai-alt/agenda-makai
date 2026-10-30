@@ -60,7 +60,7 @@ test('booking editor protects unsaved changes and duplicate saves', async () => 
     assert.deepEqual(nodes(serviceSelect).filter(node => node.type === 'option').map(node => node.props.value), ['normale','dopocena']);
     serviceSelect.props.onChange({ target: { name: 'booking_type', value: 'dopocena' } });
     tree = render(Editor);
-    assert.equal(tree.find(node => node.type === 'input' && node.props.name === 'booking_time').props.value, '22:30');
+    assert.equal(tree.find(node => node.type === 'input' && node.props.name === 'booking_time').props.value, '23:00');
     tree.find(node => node.type === 'select' && node.props.name === 'booking_type').props.onChange({ target: { name: 'booking_type', value: 'normale' } });
     tree = render(Editor);
     tree.find(node => node.type === 'textarea').props.onChange({ target: { name: 'notes', value: 'Terrazza' } });

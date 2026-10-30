@@ -14,7 +14,7 @@ test('floor plan touch actions reuse assignment flow, show all occupancy and gua
     tables: '10+11', phone: '+393331234567', notes: 'Conservare', status: 'confirmed', booking_type: 'normale' };
   const rows = [base, { ...base, id: 2, name: 'Cliente Arrivato', tables: '15+16+17', party_size: 6, status: 'arrived' },
     { ...base, id: 3, name: 'Cliente Da Assegnare', tables: '' },
-    { ...base, id: 4, name: 'Cliente Dopocena', tables: '23', booking_type: 'dopocena', booking_time: '22:30' },
+    { ...base, id: 4, name: 'Cliente Dopocena', tables: '23', booking_type: 'dopocena', booking_time: '23:00' },
     { ...base, id: 5, name: 'Cliente Completato', tables: '13+14', status: 'completed' },
     { ...base, id: 6, name: 'Cliente Dopocena Senza Tavolo', tables: '', booking_type: 'dopocena', booking_time: '23:00' }];
   globalThis.__floorPlan = {

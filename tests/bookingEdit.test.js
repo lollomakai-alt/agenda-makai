@@ -46,11 +46,14 @@ test('all five editable fields are supported and equivalent existing time/table 
   assert.deepEqual(validateBookingEdit({ ...editableBookingValues(historical), notes: 'Testo' }, historical).changes, { notes: 'Testo' });
 });
 
-test('DOPOCENA accepts any minute from 22:30 through midnight when editing', () => {
-  const original = { ...booking, booking_type: 'dopocena', booking_date: '2026-10-10', booking_time: '22:30', tables: '' };
-  const values = { ...editableBookingValues(original), booking_time: '22:47' };
-  assert.equal(validateBookingEdit(values, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time, undefined);
-  for (const booking_time of ['22:29', '00:01', '21:59']) {
+test('DOPOCENA accepts the 23:00, 23:30 and 00:00 slots when editing', () => {
+  const original = { ...booking, booking_type: 'dopocena', booking_date: '2026-10-10', booking_time: '23:00', tables: '' };
+  for (const booking_time of ['23:00', '23:30', '00:00']) {
+    const values = { ...editableBookingValues(original), booking_time };
+    assert.equal(validateBookingEdit(values, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time, undefined);
+  }
+  const values = { ...editableBookingValues(original), booking_time: '23:30' };
+  for (const booking_time of ['22:29', '22:30', '22:59', '23:15', '00:01', '21:59']) {
     assert.ok(validateBookingEdit({ ...values, booking_time }, original, { now: Date.parse('2026-10-04T12:00:00Z') }).errors.booking_time);
   }
 });
@@ -63,7 +66,7 @@ test('database failure and unexpected id are rejected', async () => {
 
 test('type change resets the time/table and uses the guarded server RPC on the same booking', async () => {
   const original = { ...booking, booking_type: 'normale', tables: '12', status: 'confirmed' };
-  const values = { ...editableBookingValues(original), booking_type: 'dopocena', booking_time: '22:30', tables: '' };
+  const values = { ...editableBookingValues(original), booking_type: 'dopocena', booking_time: '23:00', tables: '' };
   const calls = [];
   const client = { rpc: async (name, args) => {
     calls.push({ name, args });
@@ -74,7 +77,7 @@ test('type change resets the time/table and uses the guarded server RPC on the s
   assert.equal(saved.booking.booking_type, 'dopocena');
   assert.equal(saved.booking.tables, '');
   assert.equal(calls[0].name, 'admin_change_booking_type');
-  assert.deepEqual(calls[0].args.changes, { booking_time: '22:30', tables: '', booking_type: 'dopocena' });
+  assert.deepEqual(calls[0].args.changes, { booking_time: '23:00', tables: '', booking_type: 'dopocena' });
   assert.equal(calls[0].args.expected.booking_type, 'normale');
   assert.equal(calls[0].args.expected.tables, '12');
   assert.equal(calls[0].args.booking_id, original.id);
@@ -88,9 +91,9 @@ test('type change rejects invalid slots, sizes, occupied status and missing serv
   assert.match(validateBookingEdit({ ...base, tables: '' }, original, { manualTables: true }).errors.tables, /Seleziona/);
   assert.match(validateBookingEdit(base, { ...original, status: 'arrived' }, { manualTables: true }).errors.booking_type, /confermate/);
   const after = { ...booking, booking_type: 'normale', tables: '12', status: 'confirmed' };
-  const afterValues = { ...editableBookingValues(after), booking_type: 'dopocena', booking_time: '22:47', tables: '', party_size: '25' };
+  const afterValues = { ...editableBookingValues(after), booking_type: 'dopocena', booking_time: '23:00', tables: '', party_size: '25' };
   assert.equal(validateBookingEdit(afterValues, after, { manualTables: true }).errors.party_size, undefined);
-  assert.equal(validateBookingEdit({ ...afterValues, booking_time: '22:47' }, after, { manualTables: true }).errors.booking_time, undefined);
+  assert.equal(validateBookingEdit({ ...afterValues, booking_time: '23:00' }, after, { manualTables: true }).errors.booking_time, undefined);
   assert.match(validateBookingEdit({ ...afterValues, party_size: '26' }, after, { manualTables: true }).errors.party_size, /25/);
   await assert.rejects(saveBookingEdit({ rpc: async () => ({ error: { code: 'PGRST202' } }) }, original, base, [], { manualTables: true }), /migrazione ADMIN/);
 });

@@ -25,7 +25,7 @@ test('overlapping table conflicts; cancelled/no-show, different dates and own id
 
 test('normal and dopocena share tables only when service types and times are valid', () => {
   const normal = { ...original, booking_type: 'normale' };
-  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:30' };
+  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '23:00' };
   assert.deepEqual(conflictingTableIds(afterDinner, [normal]), []);
   assert.deepEqual(conflictingTableIds(
     afterDinner,
@@ -33,7 +33,7 @@ test('normal and dopocena share tables only when service types and times are val
   ), []);
   assert.deepEqual(conflictingTableIds(
     afterDinner,
-    [{ ...normal, booking_time: '21:00' }]
+    [{ ...normal, booking_time: '21:30' }]
   ), ['12']);
   assert.deepEqual(conflictingTableIds(afterDinner, [{ ...afterDinner, id: 100 }]), ['12']);
   assert.deepEqual(conflictingTableIds(
@@ -64,7 +64,7 @@ test('normal and dopocena share tables only when service types and times are val
 
 test('separate-service table reuse keeps physical configuration checks active', () => {
   const dinner = { ...original, booking_type: 'normale', booking_time: '19:00', tables: '15+16' };
-  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '22:30', tables: '15+16' };
+  const afterDinner = { ...original, id: 99, booking_type: 'dopocena', booking_time: '23:00', tables: '15+16' };
   assert.deepEqual(conflictingTableIds(afterDinner, [dinner]), []);
   assert.equal(tableConfigurationError(afterDinner, [dinner]), '');
 

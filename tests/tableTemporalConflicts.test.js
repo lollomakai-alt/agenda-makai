@@ -25,8 +25,8 @@ test('configuration checks include every unreleased assignment on the same day',
  assert.match(tableConfigurationError(middle,[early,late]),/non è consentita/);
 });
 test('day scope is shared across normal/dopocena, with conservative unknown times', () => {
- const after={...booking,id:99,booking_type:'dopocena',booking_time:'22:30'};
- assert.deepEqual(conflictingTableIds({...booking,booking_time:'21:00'},[after]),['12']);
+ const after={...booking,id:99,booking_type:'dopocena',booking_time:'23:00'};
+ assert.deepEqual(conflictingTableIds({...booking,booking_time:'21:30'},[after]),['12']);
  assert.deepEqual(conflictingTableIds(booking,[after]),[]);
  const late={...booking,booking_time:'23:00'};
  const tomorrow={...booking,id:99,booking_date:'2026-10-16',booking_time:'00:30'};

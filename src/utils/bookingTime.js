@@ -30,7 +30,7 @@ export function isValidBookingTimeForType(booking) {
   const scheduledAt = bookingScheduledAt(booking);
   if (scheduledAt === null) return false;
 
-  const start = booking.booking_type === 'dopocena' ? '22:30' : '19:00';
+  const start = booking.booking_type === 'dopocena' ? '23:00' : '19:00';
   const end = booking.booking_type === 'dopocena' ? '00:00' : '22:30';
   if (!['normale', 'dopocena'].includes(booking.booking_type)) return false;
 
