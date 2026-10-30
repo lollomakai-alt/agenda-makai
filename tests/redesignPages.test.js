@@ -27,6 +27,7 @@ function hooks(seed = []) {
     },
     useEffect() {},
     useMemo(fn) { return fn(); },
+    useCallback(fn) { return fn; },
   };
 }
 
@@ -79,6 +80,49 @@ test('customer requests page lists only pending cards with three actions and con
   } finally {
     await server.close();
     if (previous === undefined) delete globalThis.__requestsUi; else globalThis.__requestsUi = previous;
+  }
+});
+
+test('DOPOCENA requests page lists only pending cards with contact details and moves decisions to the archive', async () => {
+  const previous = globalThis.__dopocenaUi;
+  const pending = {
+    request_id: 'r1', status: 'pending', name: 'Alex Peterson', phone: '+393331234567', email: 'alex@example.com',
+    booking_date: '2026-10-28', booking_time: '23:00', party_size: 2, notes: 'Tiki please',
+  };
+  const decided = { ...pending, request_id: 'r2', status: 'accepted', name: 'Giulia Rossi', booking_id: 353 };
+  const state = hooks([[pending, decided], '', '', null, false]);
+  globalThis.__dopocenaUi = state;
+  const server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, plugins: [{
+    name: 'dopocena-list-ui', enforce: 'pre',
+    transform(code, id) {
+      if (id.endsWith('/src/components/OnlineDopocenaRequests.jsx')) return code.replace(
+        "import { useCallback, useEffect, useRef, useState } from 'react';",
+        'const {useCallback,useEffect,useRef,useState}=globalThis.__dopocenaUi;');
+    },
+    load(id) {
+      if (id.endsWith('/src/lib/supabase.js')) return 'export const supabase={};';
+    },
+  }] });
+  try {
+    const { default: Requests } = await server.ssrLoadModule('/src/components/OnlineDopocenaRequests.jsx');
+    const render = () => { state.reset(); return nodes(Requests({})); };
+    const tree = render();
+    const text = textContent(tree.map(node => node.props.children));
+    assert.match(text, /Alex Peterson/);
+    assert.doesNotMatch(text, /Giulia Rossi/);
+    assert.doesNotMatch(text, /Archiviate|Email accettata da Resend/);
+    assert.match(text, /1 richiesta da gestire/);
+    assert.deepEqual(tree.filter(node => node.type === 'button'
+      && ['Accetta', 'Rifiuta'].includes(node.props.children)).map(node => node.props.children), ['Accetta', 'Rifiuta']);
+    assert.equal(tree.filter(node => node.type === 'button' && node.props.children === 'Aggiorna').length, 1);
+    const detail = tree.find(node => node.type === 'details' && node.props.className === 'makai-record-details');
+    const detailNodes = nodes(detail);
+    assert.ok(detailNodes.some(node => node.type === 'a' && node.props.href === 'tel:+393331234567'));
+    assert.ok(detailNodes.some(node => node.type === 'a' && node.props.href === 'mailto:alex@example.com'));
+    assert.ok(tree.some(node => node.type === 'a' && node.props.href === '/archivio?tipo=dopocena'));
+  } finally {
+    await server.close();
+    if (previous === undefined) delete globalThis.__dopocenaUi; else globalThis.__dopocenaUi = previous;
   }
 });
 

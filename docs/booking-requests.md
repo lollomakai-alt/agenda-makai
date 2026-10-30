@@ -54,3 +54,13 @@ link personale quando la modifica non è applicabile subito.
 RLS limita lettura e scrittura agli utenti con app_metadata.role=admin; le
 funzioni di claim sono riservate a service_role. Nessun accesso anonimo e
 nessuna policy cliente inventata.
+
+## Richieste DOPOCENA
+
+La pagina `/richieste-dopocena` usa la stessa struttura a lista: mostra solo le
+richieste in attesa, con cliente, data/ora, persone e “Tavolo da assegnare”.
+Le azioni sono Accetta e Rifiuta; telefono, email e note compaiono solo nel
+dettaglio apribile. Le decisioni concluse non restano nella pagina: confluiscono
+nell’Archivio unico come eventi “Richiesta DOPOCENA accettata/rifiutata”, con
+motivazione, contatti e identificativi nel dettaglio. Il collegamento
+“Le decisioni concluse sono nell’Archivio” apre `/archivio?tipo=dopocena`.

@@ -127,6 +127,8 @@
   gap: 8px;
 }
 
+.makai-record-actions.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 .makai-record-actions .admin-button {
   width: 100%;
   min-width: 0;
@@ -257,6 +259,24 @@
 .booking-requests.makai-collection .makai-list { margin: 0; padding-left: 0; }
 .booking-requests.makai-collection .makai-list > li { margin: 0; }
 .booking-requests.makai-collection .agenda-eyebrow { font-size: 11px; }
+
+/* Richieste DOPOCENA: stesso elenco, senza il vecchio riquadro e senza archivio. */
+.online-dopocena-requests.makai-collection {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.online-dopocena-requests.makai-collection .makai-list { margin: 0; padding: 0; }
+.online-dopocena-requests.makai-collection .online-dopocena-item {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.online-dopocena-requests.makai-collection .agenda-eyebrow { font-size: 11px; }
+.makai-archive-link { margin-top: 16px; }
 @media screen and (max-width: 600px) {
   .booking-requests.makai-collection > .makai-list > li {
     padding-top: 0;
@@ -507,6 +527,7 @@
 }
 
 @media screen and (max-width: 360px) {
-  .makai-record-actions { grid-template-columns: 1fr; }
+  .makai-record-actions,
+  .makai-record-actions.is-two { grid-template-columns: 1fr; }
   .makai-record-actions .admin-button { min-height: 44px; }
 }

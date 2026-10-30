@@ -3,6 +3,15 @@ import { historyChanges } from './bookingHistory.js';
 const romeDateFormat = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Rome',
 });
+const dopocenaDateFormat = new Intl.DateTimeFormat('it-IT', {
+  weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Rome',
+});
+
+function dopocenaDateLabel(value) {
+  if (!value) return '';
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00Z`);
+  return Number.isFinite(date.getTime()) ? dopocenaDateFormat.format(date) : String(value);
+}
 
 export const ACTIVITY_LIMIT = 500;
 
@@ -18,6 +27,8 @@ export const ACTIVITY_ACTIONS = Object.freeze({
   customer_request_rejected: 'Richiesta cliente rifiutata',
   customer_request_alternative: 'Alternativa proposta',
   customer_alternative_proposed: 'Alternativa proposta al cliente',
+  dopocena_accepted: 'Richiesta DOPOCENA accettata',
+  dopocena_rejected: 'Richiesta DOPOCENA rifiutata',
   created: 'Voce lista d’attesa creata',
   status_changed_waitlist: 'Stato lista d’attesa modificato',
   converted: 'Voce lista d’attesa convertita',
@@ -27,6 +38,7 @@ export const ACTIVITY_ACTIONS = Object.freeze({
 export const ACTIVITY_TYPES = Object.freeze({
   prenotazioni: 'Prenotazioni',
   richieste: 'Richieste clienti',
+  dopocena: 'Richieste DOPOCENA',
   lista_attesa: 'Lista d’attesa',
   altri: 'Altri eventi',
 });
@@ -59,6 +71,7 @@ export function activityActionLabel(action) {
 }
 
 export function activityEventType(entry) {
+  if (entry.source === 'dopocena') return 'dopocena';
   if (String(entry.action || '').startsWith('customer_request_')
     || entry.action === 'customer_alternative_proposed') return 'richieste';
   if (['created', 'status_changed_waitlist', 'converted', 'waitlist_converted'].includes(entry.action)) return 'lista_attesa';
@@ -75,6 +88,8 @@ export function activityOutcome(entry) {
     case 'customer_request_rejected': return 'Rifiutata';
     case 'customer_request_alternative':
     case 'customer_alternative_proposed': return 'Proposta';
+    case 'dopocena_accepted': return 'Accettata';
+    case 'dopocena_rejected': return 'Rifiutata';
     case 'status_changed': return BOOKING_OUTCOMES[data.status] || 'Aggiornata';
     case 'status_changed_waitlist':
     case 'created': return WAITLIST_OUTCOMES[data.status] || 'In attesa';
@@ -124,6 +139,45 @@ function waitlistActivity(entry) {
     booking_id: entry.new_data?.booking_id || null,
     details,
   };
+}
+
+export function normalizeDopocenaRequests(requests) {
+  return (requests || [])
+    .filter(request => request?.request_id && (request.status === 'accepted' || request.status === 'rejected'))
+    .map(request => {
+      const when = [dopocenaDateLabel(request.booking_date), request.booking_time].filter(Boolean).join(' · ');
+      const created = request.reviewed_at || request.decided_at || request.created_at
+        || `${request.booking_date || '1970-01-01'}T12:00:00Z`;
+      const bookingId = Number(request.booking_id);
+      return {
+        source: 'dopocena',
+        id: request.request_id,
+        dopocena_id: request.request_id,
+        booking_id: Number.isSafeInteger(bookingId) && bookingId > 0 ? bookingId : null,
+        action: request.status === 'accepted' ? 'dopocena_accepted' : 'dopocena_rejected',
+        created_at: created,
+        booking_name: request.name || '',
+        contact: {
+          name: request.name || '',
+          phone: request.phone || '',
+          email: request.email || '',
+          booking_date: request.booking_date || '',
+          booking_time: request.booking_time || '',
+          party_size: request.party_size,
+          tables: '',
+        },
+        details: [
+          `${request.party_size ?? '—'} ${request.party_size === 1 ? 'persona' : 'persone'}`,
+          when,
+          request.status === 'accepted' ? 'Prenotazione registrata senza tavolo' : 'Prenotazione non creata',
+        ].filter(Boolean),
+        new_data: {
+          request_id: request.request_id,
+          request_status: request.status,
+          rejection_reason: request.rejection_reason || '',
+        },
+      };
+    });
 }
 
 function activityDateInRome(value) {
@@ -212,8 +266,8 @@ export async function loadAdminActivityNames(client, entries) {
 export function attachAdminActivityNames(entries, names) {
   return entries.map(entry => ({
     ...entry,
-    booking_name: entry.booking_id ? names?.bookings?.get(String(entry.booking_id)) || '' : '',
-    waitlist_name: entry.waitlist_id ? names?.waitlists?.get(String(entry.waitlist_id)) || '' : '',
+    booking_name: (entry.booking_id ? names?.bookings?.get(String(entry.booking_id)) || '' : '') || entry.booking_name || '',
+    waitlist_name: (entry.waitlist_id ? names?.waitlists?.get(String(entry.waitlist_id)) || '' : '') || entry.waitlist_name || '',
   }));
 }
 

@@ -13,7 +13,9 @@ import {
   loadAdminActivity,
   loadAdminActivityContact,
   loadAdminActivityNames,
+  normalizeDopocenaRequests,
 } from '../utils/adminActivity.js';
+import { loadOnlineDopocenaRequests } from '../utils/onlineDopocenaRequests.js';
 
 const eventDateFormat = new Intl.DateTimeFormat('it-IT', {
   dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Rome',
@@ -33,17 +35,26 @@ function entryKey(entry) {
 }
 
 function reference(entry) {
+  if (entry.source === 'dopocena') return entry.booking_id ? `DOPOCENA · pren. #${entry.booking_id}` : 'Richiesta DOPOCENA';
   if (entry.booking_id) return `Prenotazione #${entry.booking_id}`;
   if (entry.waitlist_id) return `Lista d’attesa #${entry.waitlist_id}`;
   return 'Attività generale';
 }
 
+function initialFilters() {
+  const empty = { from: '', to: '', type: '', search: '' };
+  if (typeof window === 'undefined') return empty;
+  const type = new URLSearchParams(window.location.search).get('tipo');
+  return Object.hasOwn(ACTIVITY_TYPES, type || '') ? { ...empty, type } : empty;
+}
+
 function ContactBlock({ entry, contact }) {
-  if (!entry.booking_id && !entry.waitlist_id) return <p className="makai-detail-muted">Nessun contatto collegato.</p>;
-  if (!contact || contact.loading) return <p className="makai-detail-muted" role="status">Caricamento contatti…</p>;
-  if (contact.error) return <p className="makai-detail-muted" role="alert">{contact.error}</p>;
-  if (!contact.data) return <p className="makai-detail-muted">Contatti non disponibili.</p>;
-  const data = contact.data;
+  const resolved = entry.contact ? { data: entry.contact, loading: false, error: '' } : contact;
+  if (!entry.booking_id && !entry.waitlist_id && !entry.dopocena_id) return <p className="makai-detail-muted">Nessun contatto collegato.</p>;
+  if (!resolved || resolved.loading) return <p className="makai-detail-muted" role="status">Caricamento contatti…</p>;
+  if (resolved.error) return <p className="makai-detail-muted" role="alert">{resolved.error}</p>;
+  if (!resolved.data) return <p className="makai-detail-muted">Contatti non disponibili.</p>;
+  const data = resolved.data;
   return <div className="makai-contact-card">
     <p className="makai-contact-name">{data.name || activityDisplayName(entry) || 'Cliente'}</p>
     <p>{data.phone ? <a href={`tel:${data.phone}`}>{data.phone}</a> : 'Telefono non disponibile'}</p>
@@ -57,7 +68,7 @@ function ContactBlock({ entry, contact }) {
 
 export default function ArchivePage() {
   const [entries, setEntries] = useState([]);
-  const [filters, setFilters] = useState({ from: '', to: '', type: '', search: '' });
+  const [filters, setFilters] = useState(initialFilters);
   const [state, setState] = useState({ loading: true, error: '' });
   const [revision, setRevision] = useState(0);
   const [contacts, setContacts] = useState({});
@@ -66,8 +77,15 @@ export default function ArchivePage() {
     let active = true;
     setState({ loading: true, error: '' });
     (async () => {
-      const rows = await loadAdminActivity(supabase);
-      const latest = rows.slice(0, ACTIVITY_LIMIT);
+      const [rows, dopocenaRows] = await Promise.all([
+        loadAdminActivity(supabase),
+        loadOnlineDopocenaRequests(supabase).catch(() => []),
+      ]);
+      const latest = [
+        ...rows.slice(0, ACTIVITY_LIMIT),
+        ...normalizeDopocenaRequests(dopocenaRows),
+      ].sort((first, second) => Date.parse(second.created_at) - Date.parse(first.created_at))
+        .slice(0, ACTIVITY_LIMIT);
       let named = latest;
       try {
         named = attachAdminActivityNames(latest, await loadAdminActivityNames(supabase, latest));
@@ -165,9 +183,10 @@ export default function ArchivePage() {
                 <div className="makai-detail-section">
                   <h3>Identificativi</h3>
                   <dl className="makai-identifiers">
-                    <div><dt>Evento</dt><dd>#{entry.id}</dd></div>
+                    {!entry.dopocena_id && <div><dt>Evento</dt><dd>#{entry.id}</dd></div>}
                     {entry.booking_id && <div><dt>Prenotazione</dt><dd>#{entry.booking_id}</dd></div>}
                     {entry.waitlist_id && <div><dt>Lista d’attesa</dt><dd>#{entry.waitlist_id}</dd></div>}
+                    {entry.dopocena_id && <div><dt>Richiesta DOPOCENA</dt><dd>{entry.dopocena_id}</dd></div>}
                     <div><dt>Autore</dt><dd>{entry.actor_id || 'non disponibile'}</dd></div>
                     <div><dt>Data evento</dt><dd><time dateTime={entry.created_at}>{eventDateFormat.format(new Date(entry.created_at))}</time></dd></div>
                   </dl>

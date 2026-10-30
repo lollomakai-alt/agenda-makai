@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activityActionLabel, activityEventType, activityOutcome, activityOutcomeTone, attachAdminActivityNames, filterAdminActivity, loadAdminActivity, loadAdminActivityContact, loadAdminActivityNames, normalizeAdminActivity } from '../src/utils/adminActivity.js';
+import { activityActionLabel, activityEventType, activityOutcome, activityOutcomeTone, attachAdminActivityNames, filterAdminActivity, loadAdminActivity, loadAdminActivityContact, loadAdminActivityNames, normalizeAdminActivity, normalizeDopocenaRequests } from '../src/utils/adminActivity.js';
 
 test('admin activity merges existing booking and waitlist histories with actor and essential details', () => {
   const rows = normalizeAdminActivity([
@@ -106,4 +106,27 @@ test('archive contact lookup exposes phone and email only for the opened event',
   assert.equal(contact.email, 'a@example.com');
   assert.deepEqual(calls[0][0], 'bookings');
   assert.deepEqual(calls[1], ['bookings', 'id', 9]);
+});
+
+test('decided DOPOCENA requests become archive events with contacts only in the detail', () => {
+  const rows = normalizeDopocenaRequests([
+    { request_id: 'r1', status: 'accepted', name: 'Alex Peterson', phone: '+39', email: 'alex@example.com',
+      booking_date: '2026-10-28', booking_time: '23:00', party_size: 2, booking_id: 353, created_at: '2026-10-27T10:00:00Z' },
+    { request_id: 'r2', status: 'rejected', name: 'Giulia Rossi', phone: '+39', email: 'giulia@example.com',
+      booking_date: '2026-11-01', booking_time: '23:00', party_size: 4, booking_id: null,
+      rejection_reason: 'Sala completa.', created_at: '2026-10-27T11:00:00Z' },
+    { request_id: 'r3', status: 'pending', name: 'Da gestire', booking_date: '2026-11-02' },
+  ]);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map(row => activityActionLabel(row.action)), ['Richiesta DOPOCENA accettata', 'Richiesta DOPOCENA rifiutata']);
+  assert.deepEqual(rows.map(activityOutcome), ['Accettata', 'Rifiutata']);
+  assert.deepEqual(rows.map(activityEventType), ['dopocena', 'dopocena']);
+  assert.equal(rows[0].booking_name, 'Alex Peterson');
+  assert.equal(rows[0].contact.email, 'alex@example.com');
+  assert.equal(rows[0].booking_id, 353);
+  assert.equal(rows[1].booking_id, null);
+  assert.match(rows[1].new_data.rejection_reason, /Sala completa/);
+  assert.equal(filterAdminActivity(rows, { type: 'dopocena', search: 'giulia' }).length, 1);
+  const named = attachAdminActivityNames(rows, { bookings: new Map(), waitlists: new Map() });
+  assert.equal(named[1].booking_name, 'Giulia Rossi', 'an event without booking keeps the DOPOCENA customer name');
 });

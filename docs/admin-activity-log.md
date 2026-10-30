@@ -14,7 +14,10 @@ quel momento e gli identificativi tecnici. I filtri sono in un pannello
 apribile: ricerca per numero o nome, tipo evento e intervallo di date. Il
 contatore mostra gli eventi visibili sul limite degli ultimi 500. Legge fino a
 500 eventi recenti per ciascuno storico; i nomi cliente sono caricati a blocchi
-di 100 ID senza contatti. L’accesso resta protetto da AdminAccess e RLS.
+di 100 ID senza contatti. Le richieste DOPOCENA concluse vengono lette dalla
+coda ADMIN e unite come eventi, con contatti già disponibili solo nel dettaglio;
+se la coda non è disponibile l’Archivio continua a mostrare gli altri eventi.
+L’accesso resta protetto da AdminAccess e RLS.
 
 Un trigger registra creazione e aggiornamenti booking solo con JWT ADMIN;
 contatti e note non sono inclusi nella riga di creazione. Le richieste cliente

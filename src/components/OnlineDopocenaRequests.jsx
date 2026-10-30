@@ -2,10 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { dopocenaEmailLabel, dopocenaWhatsAppFallbackAllowed, loadOnlineDopocenaRequests, onlineDopocenaWhatsAppUrl, reviewOnlineDopocenaRequest } from '../utils/onlineDopocenaRequests';
 
+const dateFormat = new Intl.DateTimeFormat('it-IT', {
+  weekday: 'short', day: '2-digit', month: 'short', timeZone: 'Europe/Rome',
+});
+
 function displayDate(value) {
   if (!value) return '';
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' });
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? value : dateFormat.format(date);
 }
 
 export default function OnlineDopocenaRequests({ disabled = false, onChanged }) {
@@ -59,8 +63,8 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
       if (url) setWhatsAppOffer({ url, label: 'Apri WhatsApp (email non disponibile)' });
       if (whatsAppFallback && !url) setWhatsAppError('Decisione salvata. Messaggio WhatsApp non preparato: verifica il numero del cliente.');
       setFeedback(decision === 'accepted'
-        ? `Richiesta DOPOCENA accettata. Prenotazione #${result.booking_id} registrata senza tavolo assegnato. ${dopocenaEmailLabel(result.email_status)}.${whatsAppFallback ? ' Email non disponibile: puoi contattare il cliente su WhatsApp.' : ''}`
-        : `Richiesta DOPOCENA rifiutata. ${dopocenaEmailLabel(result.email_status)}.${whatsAppFallback ? ' Email non disponibile: puoi contattare il cliente su WhatsApp.' : ''}`);
+        ? `Richiesta accettata. Prenotazione #${result.booking_id} registrata senza tavolo. ${dopocenaEmailLabel(result.email_status)}.`
+        : `Richiesta rifiutata. ${dopocenaEmailLabel(result.email_status)}.`);
       setRejectingId(null);
       setRejectionReason('');
       await refresh();
@@ -77,68 +81,79 @@ export default function OnlineDopocenaRequests({ disabled = false, onChanged }) 
   }
 
   const pendingRequests = requests.filter(request => request.status === 'pending');
-  const archivedRequests = requests.filter(request => request.status !== 'pending');
-  function renderRequest(request) {
-    const whatsappUrl = request.status !== 'pending' && busyId !== request.request_id
-      && dopocenaWhatsAppFallbackAllowed(request.email_status)
-      ? onlineDopocenaWhatsAppUrl(request, request.status, request.booking_id) : null;
-    return <li className={`online-dopocena-item is-${request.status}`} key={request.request_id}>
-      <div className="online-dopocena-customer">
-        <strong>{request.name}</strong>
-        <span>{displayDate(request.booking_date)} · {request.booking_time} · {request.party_size} {request.party_size === 1 ? 'persona' : 'persone'}</span>
-        <a href={`tel:${request.phone}`}>{request.phone}</a>
-        {request.email && <a href={`mailto:${request.email}`}>{request.email}</a>}
-        {request.notes && <p>Note: {request.notes}</p>}
-      </div>
-      <div className="online-dopocena-status">
-        <span>{request.status === 'pending' ? 'Ricevuta · in attesa dello staff' : request.status === 'accepted' ? `Richiesta accettata · tavolo da verificare in Agenda${request.booking_id ? ` · pren. #${request.booking_id}` : ''}` : 'Rifiutata'}</span>
-        {request.rejection_reason && <p>Motivazione: {request.rejection_reason}</p>}
-        {request.status !== 'pending' && <span>{dopocenaEmailLabel(request.email_status)}</span>}
-        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">Apri WhatsApp (email non disponibile)</a>}
-        {request.status === 'pending' && <div className="online-dopocena-actions">
-          <button type="button" className="admin-button" disabled={disabled || busyId !== null || rejectingId !== null} onClick={() => decide(request, 'accepted')}>
-            {busyId === request.request_id ? 'Decisione e invio email…' : 'Accetta'}
-          </button>
-          <button type="button" className="admin-button admin-button-secondary" disabled={disabled || busyId !== null || rejectingId !== null} onClick={() => { setRejectingId(request.request_id); setRejectionReason(''); setError(''); }}>
-            Rifiuta
-          </button>
-        </div>}
-      </div>
-      {request.status === 'pending' && rejectingId === request.request_id && <form className="online-dopocena-rejection" aria-label={`Rifiuta la richiesta di ${request.name}`} onSubmit={event => { event.preventDefault(); return decide(request, 'rejected', rejectionReason); }}>
-        <label htmlFor={`rejection-reason-${request.request_id}`}>Motivazione del rifiuto</label>
-        <p id={`rejection-help-${request.request_id}`}>Questo testo sarà inviato al cliente nell’email di rifiuto. Se l’email non è disponibile, resta nel messaggio WhatsApp alternativo.</p>
-        <textarea id={`rejection-reason-${request.request_id}`} aria-describedby={`rejection-help-${request.request_id}`} value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} required maxLength={500} rows={4} autoFocus disabled={disabled || busyId !== null} />
-        <span>{rejectionReason.length}/500 caratteri</span>
-        <div className="online-dopocena-actions">
-          <button className="admin-button" type="submit" disabled={disabled || busyId !== null || !rejectionReason.trim()}>{busyId === request.request_id ? 'Rifiuto e invio email…' : 'Conferma rifiuto e invia email'}</button>
-          <button className="admin-button admin-button-secondary" type="button" disabled={busyId !== null} onClick={() => { setRejectingId(null); setRejectionReason(''); }}>Annulla</button>
-        </div>
-      </form>}
-    </li>;
-  }
-  return <section className="online-dopocena-requests" aria-labelledby="online-dopocena-title">
-    <div className="online-dopocena-heading">
+  return <section className="online-dopocena-requests makai-collection" aria-labelledby="online-dopocena-title">
+    <header className="makai-page-header">
       <div>
-        <h2 id="online-dopocena-title">Richieste DOPOCENA</h2>
-        <p>In attesa dello staff: {pendingRequests.length}. La richiesta ricevuta non conferma la prenotazione. Accettarla registra una prenotazione senza tavolo assegnato. Le decisioni concluse restano in archivio.</p>
+        <p className="agenda-eyebrow">Richieste DOPOCENA</p>
+        <h1 id="online-dopocena-title">In attesa</h1>
       </div>
-      <button className="admin-button admin-button-secondary" type="button" disabled={busyId !== null} onClick={() => setRevision(value => value + 1)}>
-        Ricarica richieste
-      </button>
-    </div>
-    {loading && <p role="status">Caricamento richieste…</p>}
+      <button className="admin-button admin-button-secondary" type="button" disabled={busyId !== null || loading}
+        onClick={() => setRevision(value => value + 1)}>Aggiorna</button>
+    </header>
+
+    <p className="makai-page-note" role={pendingRequests.length ? 'status' : undefined}>
+      {loading ? 'Caricamento richieste…' : pendingRequests.length
+        ? `${pendingRequests.length} ${pendingRequests.length === 1 ? 'richiesta da gestire' : 'richieste da gestire'}`
+        : 'Nessuna richiesta in attesa.'}
+    </p>
+    <p className="makai-page-note">Accetta registra la prenotazione senza tavolo. Rifiuta richiede una motivazione.</p>
+
     {error && <p role="alert">{error}</p>}
     {feedback && <p role="status">{feedback}</p>}
     {whatsAppOffer && <p><a className="admin-button" href={whatsAppOffer.url} target="_blank" rel="noopener noreferrer">{whatsAppOffer.label}</a></p>}
     {whatsAppError && <p role="alert">{whatsAppError}</p>}
-    {!loading && !error && requests.length === 0 && <p role="status">Nessuna richiesta DOPOCENA in questa coda.</p>}
-    {pendingRequests.length > 0 && <section aria-labelledby="dopocena-pending-title">
-      <h3 id="dopocena-pending-title">Da gestire ({pendingRequests.length})</h3>
-      <ul className="online-dopocena-list">{pendingRequests.map(renderRequest)}</ul>
-    </section>}
-    {archivedRequests.length > 0 && <details className="online-dopocena-archive">
-      <summary>Archiviate ({archivedRequests.length})</summary>
-      <ul className="online-dopocena-list">{archivedRequests.map(renderRequest)}</ul>
-    </details>}
+
+    {pendingRequests.length === 0 ? (!loading && !error && <p className="makai-empty">Le nuove richieste compariranno qui.</p>) : <ul className="makai-list">
+      {pendingRequests.map(request => <li key={request.request_id} className="makai-list-item online-dopocena-item">
+        <article className="makai-record">
+          <div className="makai-record-card">
+            <div className="makai-record-heading">
+              <h2 className="makai-record-name">{request.name}</h2>
+              <span className="makai-badge is-wait">In attesa</span>
+            </div>
+            <p className="makai-record-meta">
+              {displayDate(request.booking_date)} · {String(request.booking_time || '').slice(0, 5)} · {request.party_size} {request.party_size === 1 ? 'persona' : 'persone'} · Tavolo da assegnare
+            </p>
+
+            <details className="makai-record-details">
+              <summary>Dettagli</summary>
+              <div className="makai-record-details-body">
+                <div className="makai-contact-row">
+                  {request.phone ? <a href={`tel:${request.phone}`}>{request.phone}</a> : <span>Telefono non disponibile</span>}
+                  {request.email ? <a href={`mailto:${request.email}`}>{request.email}</a> : <span>Email non disponibile</span>}
+                </div>
+                {request.notes && <p><strong>Note:</strong> {request.notes}</p>}
+              </div>
+            </details>
+
+            <div className="makai-record-actions is-two">
+              <button type="button" className="admin-button is-accept" disabled={disabled || busyId !== null || rejectingId !== null}
+                onClick={() => decide(request, 'accepted')}>
+                {busyId === request.request_id ? 'Invio…' : 'Accetta'}
+              </button>
+              <button type="button" className="admin-button admin-button-secondary is-danger" disabled={disabled || busyId !== null || rejectingId !== null}
+                onClick={() => { setRejectingId(request.request_id); setRejectionReason(''); setError(''); }}>
+                Rifiuta
+              </button>
+            </div>
+          </div>
+
+          {rejectingId === request.request_id && <form className="online-dopocena-rejection" aria-label={`Rifiuta la richiesta di ${request.name}`} onSubmit={event => { event.preventDefault(); return decide(request, 'rejected', rejectionReason); }}>
+            <label htmlFor={`rejection-reason-${request.request_id}`}>Motivazione del rifiuto</label>
+            <p id={`rejection-help-${request.request_id}`}>Questo testo sarà inviato al cliente nell’email di rifiuto. Se l’email non è disponibile, resta nel messaggio WhatsApp alternativo.</p>
+            <textarea id={`rejection-reason-${request.request_id}`} aria-describedby={`rejection-help-${request.request_id}`} value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} required maxLength={500} rows={4} autoFocus disabled={disabled || busyId !== null} />
+            <span>{rejectionReason.length}/500 caratteri</span>
+            <div className="online-dopocena-actions">
+              <button className="admin-button" type="submit" disabled={disabled || busyId !== null || !rejectionReason.trim()}>{busyId === request.request_id ? 'Rifiuto e invio email…' : 'Conferma rifiuto e invia email'}</button>
+              <button className="admin-button admin-button-secondary" type="button" disabled={busyId !== null} onClick={() => { setRejectingId(null); setRejectionReason(''); }}>Annulla</button>
+            </div>
+          </form>}
+        </article>
+      </li>)}
+    </ul>}
+
+    <p className="makai-page-note makai-archive-link">
+      <a href="/archivio?tipo=dopocena">Le decisioni concluse sono nell’Archivio.</a>
+    </p>
   </section>;
 }
