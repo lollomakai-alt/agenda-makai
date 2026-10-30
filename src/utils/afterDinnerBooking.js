@@ -1,5 +1,6 @@
 import { validateManualBooking } from './bookingValidation.js';
 import { TABLE_ASSIGNMENTS } from '../config/tableAssignments.js';
+import { backendJson, backendReachable, isBackendUnavailable } from '../lib/backendWrite.js';
 
 export function validateAfterDinnerBooking(values) {
   const validation = validateManualBooking(values, { requirePhone: false });
@@ -24,6 +25,17 @@ export async function createAfterDinnerBooking(client, values) {
   const validation = validateAfterDinnerBooking(values);
   if (Object.keys(validation.errors).length) return validation;
   const { name, phone, email, date, time, party_size, notes, table } = validation.data;
+  try {
+    if (backendReachable()) {
+      const data = await backendJson('/api/admin/bookings', {
+        body: { name, phone, email, date, time, party_size, notes, booking_type: 'dopocena', table },
+      });
+      if (!data?.id || data.booking_type !== 'dopocena') throw new Error('Salvataggio dopocena non confermato.');
+      return { errors: {}, data };
+    }
+  } catch (error) {
+    if (!isBackendUnavailable(error)) throw error;
+  }
   const { data, error } = await client.rpc('admin_create_after_dinner_booking', {
     p_customer_name: name, p_customer_phone: phone, p_customer_email: email,
     p_booking_date: date, p_booking_time: time, p_party_size: party_size,

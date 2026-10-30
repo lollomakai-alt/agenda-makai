@@ -160,3 +160,38 @@ test('DOPOCENA decision is forwarded only through the authenticated staff gatewa
   await handler(request({url:route,method:'POST',body:{decision:'rejected'}}),res);
   assert.equal(res.code,200);assert.equal(calls,2);
 }));
+
+test('booking edit, status and restore-table are forwarded only through the authenticated gateway', () => isolated(async () => {
+  for (const [method, path, body] of [
+    ['PATCH', '/api/admin/bookings/42', { changes: { party_size: 3 } }],
+    ['POST', '/api/admin/bookings/42/status', { status: 'arrived' }],
+    ['POST', '/api/admin/bookings/42/restore-table', { previous_tables: '12' }],
+  ]) {
+    let calls = 0;
+    globalThis.fetch = async (url, options) => {
+      calls++;
+      if (url.hostname === 'auth.invalid') return Response.json({ id: 'admin', app_metadata: { role: 'admin' } });
+      assert.equal(url.pathname, path);
+      assert.equal(options.method, method);
+      assert.equal(options.headers['x-agenda-backend-key'], secret);
+      assert.equal(options.body, JSON.stringify(body));
+      return Response.json({ ok: true });
+    };
+    const res = response();
+    await handler(request({ url: path, method, body,
+      headers: { authorization: 'Bearer test-session', 'x-admin-request': '1', 'content-type': 'application/json' } }), res);
+    assert.equal(res.code, 200);
+    assert.equal(calls, 2);
+  }
+  globalThis.fetch = () => { throw new Error('Unexpected network request'); };
+  for (const [method, path] of [
+    ['DELETE', '/api/admin/bookings/42'],
+    ['PATCH', '/api/admin/bookings/0'],
+    ['PATCH', '/api/admin/bookings/42/status'],
+    ['POST', '/api/admin/bookings/42/restore-table/extra'],
+  ]) {
+    const res = response();
+    await handler(request({ url: path, method }), res);
+    assert.equal(res.code, 404);
+  }
+}));

@@ -1,4 +1,5 @@
 import { bookingStatus, bookingStatusAction, saveBookingStatus } from './bookingStatus.js';
+import { backendJson, backendReachable, isBackendUnavailable } from '../lib/backendWrite.js';
 
 // Una sola azione in memoria, limitata alla vita della pagina. Ogni scrittura
 // passa dalla RPC esistente, compreso il ripristino e il relativo storico.
@@ -29,10 +30,23 @@ export function createBookingStatusUndo() {
       try {
         let result;
         if(last.status==='completed') {
-          const response=await client.rpc('admin_restore_released_table',{booking_id:last.bookingId,previous_tables:last.previousTables});
-          if(response.error) throw new Error(response.error.message || 'Tavolo già riassegnato: impossibile annullare.');
-          result=response.data;
-          if(result?.status!=='arrived' || String(result.booking_id)!==String(last.bookingId)) throw new Error('Ripristino non confermato. Aggiorna la pagina.');
+          if (backendReachable()) {
+            try {
+              result = await backendJson(`/api/admin/bookings/${last.bookingId}/restore-table`, {
+                body: { previous_tables: last.previousTables },
+              });
+              if(result?.status!=='arrived' || String(result.booking_id)!==String(last.bookingId)) throw new Error('Ripristino non confermato. Aggiorna la pagina.');
+            } catch (error) {
+              if (!isBackendUnavailable(error)) throw error;
+              result = null;
+            }
+          }
+          if (!result) {
+            const response=await client.rpc('admin_restore_released_table',{booking_id:last.bookingId,previous_tables:last.previousTables});
+            if(response.error) throw new Error(response.error.message || 'Tavolo già riassegnato: impossibile annullare.');
+            result=response.data;
+            if(result?.status!=='arrived' || String(result.booking_id)!==String(last.bookingId)) throw new Error('Ripristino non confermato. Aggiorna la pagina.');
+          }
         } else result = await saveBookingStatus(client, last.bookingId, last.previousStatus);
         last = null;
         return result;

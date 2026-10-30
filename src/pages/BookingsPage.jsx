@@ -3,6 +3,7 @@ import { bookingScheduledAt } from '../utils/bookingTime';
 import BookingNoShowAction from '../components/BookingNoShowAction';
 
 import { adminFetch } from "../lib/adminFetch";
+import { backendJson, isBackendUnavailable } from "../lib/backendWrite";
 
 import { useAppointments } from "../hooks/useAppointments";
 
@@ -92,6 +93,37 @@ function compactDayLabel(value) {
       )
     )
     .replace(/\./g, "");
+}
+
+
+// Fallback controllato: solo RPC autorizzate. Prima di creare, cerca una
+// prenotazione identica salvata negli ultimi 2 minuti per non duplicare una
+// scrittura il cui esito non e' tornato al browser.
+async function createManualBookingFallback(values) {
+  const phone = values.phone || "";
+  const { data: recent } = await supabase
+    .from("bookings")
+    .select("id,name,booking_date,booking_time,party_size,booking_type,tables")
+    .eq("phone", phone)
+    .eq("booking_date", values.date)
+    .eq("booking_time", values.time)
+    .eq("party_size", Number(values.party_size))
+    .gte("created_at", new Date(Date.now() - 120000).toISOString())
+    .order("id", { ascending: false })
+    .limit(1);
+  if (recent?.length) return recent[0];
+  const { data, error } = await supabase.rpc("admin_create_agenda_booking", {
+    p_name: values.name,
+    p_phone: phone,
+    p_email: values.email || "",
+    p_date: values.date,
+    p_time: values.time,
+    p_party_size: Number(values.party_size),
+    p_notes: values.notes || "",
+    p_booking_type: "normale",
+  });
+  if (error) throw new Error(error.message || "Prenotazione non salvata: controlla in Agenda.");
+  return data;
 }
 
 
@@ -572,50 +604,17 @@ export default function BookingsPage() {
         return;
       }
 
-      const response =
-        await adminFetch(
+      let data;
+      try {
+        data = await backendJson(
           "/api/admin/bookings",
           {
-            method: "POST",
-            credentials:
-              "same-origin",
-            headers: {
-              "Content-Type":
-                "application/json",
-              "X-Admin-Request":
-                "1",
-            },
-            body: JSON.stringify(
-              validation.data
-            ),
+            body: validation.data,
           }
         );
-
-      if (
-        response.status === 401
-      ) {
-        window.location.replace(
-          "/"
-        );
-
-        return;
-      }
-
-      const data =
-        await response
-          .json()
-          .catch(() => ({}));
-
-      if (!response.ok) {
-        const detail =
-          typeof data.detail
-            === "string"
-            ? data.detail
-            : "Controlla i campi della prenotazione e riprova.";
-
-        throw new Error(
-          detail
-        );
+      } catch (error) {
+        if (!isBackendUnavailable(error)) throw error;
+        data = await createManualBookingFallback(validation.data);
       }
 
       const createdId =

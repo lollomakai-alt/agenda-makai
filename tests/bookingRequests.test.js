@@ -21,12 +21,12 @@ test('creating a request calls only request RPC, never edits booking', async () 
   assert.equal(calls[1][1].requested_value, null);
 });
 
-test('review sends only approvals to the atomic database RPC; rejection needs the reason path', async () => {
+test('review sends only approvals to the public definer RPC; rejection needs the reason path', async () => {
   const request = { id: 9, status: 'pending' };
   const calls = [];
-  const client = { rpc: async (name,args) => { calls.push([name,args]); return { data:{ id:9,status:args.decision } }; } };
+  const client = { rpc: async (name,args) => { calls.push([name,args]); return { data:{ id:9,status:args.p_decision } }; } };
   await reviewBookingRequest(client,request,'approved');
-  assert.deepEqual(calls, [['admin_review_booking_request',{ request_id:9,decision:'approved' }]]);
+  assert.deepEqual(calls, [['admin_review_booking_request_with_reason',{ p_request_id:9,p_decision:'approved',p_reason:'' }]]);
   await assert.rejects(reviewBookingRequest(client,request,'rejected'), /motivazione/);
   await assert.rejects(reviewBookingRequest(client,{...request,status:'approved'},'approved'));
   await assert.rejects(reviewBookingRequest(client,request,'pending'));

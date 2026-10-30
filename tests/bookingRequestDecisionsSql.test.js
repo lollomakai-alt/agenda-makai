@@ -12,7 +12,7 @@ test('richieste cliente: rifiuto motivato, email unica e approvazione invariata'
       create schema auth; create schema private;
       create function auth.jwt() returns jsonb language sql as $$ select current_setting('request.jwt.claims',true)::jsonb $$;
       create function auth.uid() returns uuid language sql as $$ select '11111111-1111-1111-1111-111111111111'::uuid $$;
-      grant usage on schema auth,private to authenticated;
+      grant usage on schema auth to authenticated;
       create table public.bookings(id bigint primary key, name text, booking_date text, booking_time text, party_size integer, tables text, notes text, status text, booking_type text, source text default 'agenda', email text);
       create table public.booking_history(id bigint generated always as identity primary key,booking_id bigint,action text,old_data jsonb,new_data jsonb,created_at timestamptz default now());
       grant select,update on bookings to authenticated;
@@ -22,12 +22,15 @@ test('richieste cliente: rifiuto motivato, email unica e approvazione invariata'
       await db.exec(await readFile(new URL(`../supabase/${file}`,import.meta.url),'utf8'));
     }
     const migration = await readFile(new URL('../supabase/migrations/20261024120000_booking_request_decisions.sql',import.meta.url),'utf8');
+    const publicDefiner = await readFile(new URL('../supabase/migrations/20261030160000_booking_request_public_definer.sql',import.meta.url),'utf8');
     // Colonne introdotte dalla gestione cliente già distribuita prima di questa migrazione.
     await db.exec(`alter table public.booking_requests add column if not exists alternative_note text not null default '';
       alter table public.booking_requests add column if not exists origin text not null default 'staff';`);
     await db.exec(migration);
+    await db.exec(publicDefiner);
     // Idempotent application preserves schema and data.
     await db.exec(migration);
+    await db.exec(publicDefiner);
     const day = (await db.query(`select to_char(d,'YYYY-MM-DD') as day from generate_series(current_date+1,current_date+7,'1 day') d where extract(isodow from d) <> 1 limit 1`)).rows[0].day;
     await db.query(`insert into bookings values(42,'Ada',$1,'20:00',2,'','', 'confirmed','normale','agenda','cliente@example.com')`,[day]);
     await db.query(`insert into bookings values(43,'Bob',$1,'20:30',2,'','', 'confirmed','normale','agenda','non-valida')`,[day]);

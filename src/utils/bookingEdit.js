@@ -2,6 +2,7 @@ import { isDay, todayInRome, operationalDayInRome } from './calendar.js';
 import { bookingType } from './bookingType.js';
 import { conflictingTableIds, tableAssignmentError, tableConfigurationError } from './tableConflicts.js';
 import { isValidBookingTimeForType } from './bookingTime.js';
+import { backendJson, backendReachable, isBackendUnavailable } from '../lib/backendWrite.js';
 
 export const EDITABLE_BOOKING_FIELDS = ['booking_date', 'booking_time', 'party_size', 'tables', 'notes'];
 
@@ -102,6 +103,30 @@ export async function saveBookingEdit(client, original, values, appointments = [
   }
   const rpcName = changesType ? 'admin_change_booking_type'
     : manualTables && Object.keys(changes).every(key => key === 'tables') ? 'admin_assign_booking_tables' : 'admin_update_booking';
+
+  function confirmSaved(data) {
+    if (!data?.booking || String(data.booking.id) !== String(original.id)) {
+      throw new Error('Salvataggio non confermato. Aggiorna la pagina e verifica prima di riprovare.');
+    }
+    if (changesType && (data.booking.booking_type !== changes.booking_type ||
+      (changes.booking_type === 'dopocena' && String(data.booking.tables || '').trim()) ||
+      (changes.booking_type === 'normale' && !String(data.booking.tables || '').trim()))) {
+      throw new Error('Cambio turno non confermato. Aggiorna la pagina e verifica prima di riprovare.');
+    }
+    return data;
+  }
+
+  if (backendReachable()) {
+    try {
+      const data = await backendJson(`/api/admin/bookings/${original.id}`, {
+        method: 'PATCH', body: { changes, expected },
+      });
+      return confirmSaved(data);
+    } catch (error) {
+      if (!isBackendUnavailable(error)) throw error;
+    }
+  }
+
   const { data, error } = await client.rpc(rpcName, {
     booking_id: original.id, changes, expected,
   });
@@ -111,13 +136,5 @@ export async function saveBookingEdit(client, original, values, appointments = [
       : 'Modifica prenotazione non ancora configurata: applicare supabase/booking-edit.sql e supabase/manual-table-assignment.sql.');
     throw new Error(error.message || 'Modifica non salvata.');
   }
-  if (!data?.booking || String(data.booking.id) !== String(original.id)) {
-    throw new Error('Salvataggio non confermato. Aggiorna la pagina e verifica prima di riprovare.');
-  }
-  if (changesType && (data.booking.booking_type !== changes.booking_type ||
-    (changes.booking_type === 'dopocena' && String(data.booking.tables || '').trim()) ||
-    (changes.booking_type === 'normale' && !String(data.booking.tables || '').trim()))) {
-    throw new Error('Cambio turno non confermato. Aggiorna la pagina e verifica prima di riprovare.');
-  }
-  return data;
+  return confirmSaved(data);
 }

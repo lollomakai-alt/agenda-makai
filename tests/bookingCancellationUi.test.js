@@ -77,8 +77,8 @@ test('cancellation buttons confirm first, save before automatic email and preser
     const renderRequests = () => { index = 0; return nodes(Requests({ appointments: [booking], onChanged() {} })); };
     globalThis.__cancelUi.client.rpc = async (name, args) => {
       events.push({ name, args });
-      if (args.decision === 'approved') globalThis.__cancelUi.data.appointments = [{ ...booking, status: 'cancelled' }];
-      return { data: { ...request, status: args.decision } };
+      if (args.p_decision === 'approved') globalThis.__cancelUi.data.appointments = [{ ...booking, status: 'cancelled' }];
+      return { data: { ...request, status: args.p_decision } };
     };
     // Rifiuto: motivazione obbligatoria nel pannello, nessuna scrittura finché non si conferma.
     slots = [[request]]; index = 0; events.length = 0; confirmed = true;
@@ -100,14 +100,14 @@ test('cancellation buttons confirm first, save before automatic email and preser
     const rejectForm = tree.find(n => n.type === 'form' && n.props.className === 'booking-request-rejection');
     assert.ok(rejectForm);
     await rejectForm.props.onSubmit({ preventDefault() {} });
-    assert.equal(events.filter(e => e.name === 'admin_review_booking_request').length, 0);
+    assert.equal(events.filter(e => e.name === 'admin_review_booking_request_with_reason').length, 0);
     assert.deepEqual(events.filter(e => e.url).map(e => e.url), ['/api/admin/bookings/requests/3/reject']);
     // Accettazione: RPC atomica e email di cancellazione già accodata.
     slots = [[request]]; index = 0; events.length = 0; confirmed = true; sendStatus = 'failed';
     globalThis.__cancelUi.data.appointments = [booking];
     tree = renderRequests();
     await tree.find(n => n.type === 'button' && n.props.children === 'Accetta').props.onClick();
-    assert.equal(events.filter(e => e.name === 'admin_review_booking_request').length, 1);
+    assert.equal(events.filter(e => e.name === 'admin_review_booking_request_with_reason').length, 1);
     assert.deepEqual(events.filter(e => e.url).map(e => e.url), ['/api/admin/bookings/42/communications/prepare','/api/admin/bookings/42/send-template-email']);
     const requestFeedback = renderRequests().find(n => n.type === Feedback);
     assert.equal(requestFeedback.props.status, 'failed');

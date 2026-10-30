@@ -1,7 +1,6 @@
 # Istruzioni progetto — Agenda Makai
 
 ## Letture obbligatorie prima di ogni intervento
-- Leggi le istruzioni generali Codex in `~/.codex/AGENTS.md`.
 - Leggi questo file e poi [stato e attività di Agenda](MAKAI_AGENDA_STATO_E_TODO.md) e [roadmap comune dell'ecosistema](../MAKAI_ECOSISTEMA_STATO_E_ROADMAP.md).
 - Controlla `git status` e preserva ogni modifica preesistente.
 

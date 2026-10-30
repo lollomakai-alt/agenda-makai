@@ -56,12 +56,14 @@ export async function createBookingRequest(client, bookingId, type, value) {
   return data;
 }
 
-// Approval keeps its existing atomic RPC. A rejection always carries the reason
-// the customer will read in the email, so it uses the dedicated path below.
+// Approval and rejection share the public definer RPC. The database trigger
+// keeps availability, capacity and ADMIN assignment rules unchanged.
 export async function reviewBookingRequest(client, request, decision) {
   if (decision === 'rejected') throw new Error('Per rifiutare inserisci la motivazione nel pannello di rifiuto.');
   if (decision !== 'approved' || request.status !== 'pending') throw new Error('Decisione non valida o richiesta già gestita.');
-  const { data, error } = await client.rpc('admin_review_booking_request', { request_id: request.id, decision });
+  const { data, error } = await client.rpc('admin_review_booking_request_with_reason', {
+    p_request_id: request.id, p_decision: decision, p_reason: '',
+  });
   if (error) failure(error);
   if (String(data?.id) !== String(request.id) || data?.status !== decision) throw new Error('Decisione non confermata. Aggiorna prima di riprovare.');
   return data;

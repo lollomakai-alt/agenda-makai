@@ -113,11 +113,11 @@ test('client rejection sends only the reason and keeps the saved decision on unc
   })), /Motivazione non confermata/);
 });
 
-test('rejection is never sent through the legacy approval RPC', async () => {
+test('rejection is never sent through the approval RPC', async () => {
   const calls = [];
-  const rpc = { rpc: async (name, args) => { calls.push([name, args]); return { data: { id: 7, status: args.decision } }; } };
+  const rpc = { rpc: async (name, args) => { calls.push([name, args]); return { data: { id: 7, status: args.p_decision } }; } };
   await reviewBookingRequest(rpc, { id: 7, status: 'pending' }, 'approved');
-  assert.deepEqual(calls, [['admin_review_booking_request', { request_id: 7, decision: 'approved' }]]);
+  assert.deepEqual(calls, [['admin_review_booking_request_with_reason', { p_request_id: 7, p_decision: 'approved', p_reason: '' }]]);
   await assert.rejects(reviewBookingRequest(rpc, { id: 7, status: 'pending' }, 'rejected'), /motivazione/);
   assert.equal(calls.length, 1);
 });

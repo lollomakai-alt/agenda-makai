@@ -1,3 +1,5 @@
+import { backendJson, backendReachable, isBackendUnavailable } from '../lib/backendWrite.js';
+
 export const BOOKING_STATUSES = Object.freeze({
   confirmed: 'Confermata',
   arrived: 'Arrivato',
@@ -26,6 +28,17 @@ export function bookingStatusAction(value) {
 
 export async function saveBookingStatus(client, id, status) {
   if (!Object.hasOwn(BOOKING_STATUSES, status)) throw new Error('Stato non valido.');
+  if (backendReachable()) {
+    try {
+      const data = await backendJson(`/api/admin/bookings/${id}/status`, { body: { status } });
+      if (data?.status !== status || String(data?.booking_id) !== String(id)) {
+        throw new Error('Modifica non confermata. Aggiorna e verifica lo stato prima di riprovare.');
+      }
+      return data;
+    } catch (error) {
+      if (!isBackendUnavailable(error)) throw error;
+    }
+  }
   const { data, error } = await client.rpc(status === 'completed' ? 'admin_release_booking_table' : 'admin_set_booking_status_with_history', status === 'completed' ? { booking_id: id } : {
     booking_id: id, booking_status: status,
   });

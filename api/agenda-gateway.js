@@ -1,6 +1,7 @@
 const routes = {
   GET: /^\/api\/admin\/(?:session|site-maintenance|bookings(?:\/month|\/[1-9][0-9]*\/communications)?)$/,
-  POST: /^\/api\/admin\/(?:site-maintenance|bookings(?:\/dopocena-requests\/[0-9a-f-]{36}\/decision|\/requests\/[1-9][0-9]*\/reject|\/[1-9][0-9]*\/(?:arrived|cancel|marketing-consent(?:\/revoke)?|communications\/(?:prepare|prepare-template)|send-confirmation-email|send-template-email))?)$/,
+  PATCH: /^\/api\/admin\/bookings\/[1-9][0-9]*$/,
+  POST: /^\/api\/admin\/(?:site-maintenance|bookings(?:\/dopocena-requests\/[0-9a-f-]{36}\/decision|\/requests\/[1-9][0-9]*\/reject|\/[1-9][0-9]*\/(?:arrived|cancel|status|restore-table|marketing-consent(?:\/revoke)?|communications\/(?:prepare|prepare-template)|send-confirmation-email|send-template-email))?)$/,
 };
 
 // Server-only gateway: authenticated staff + a credential shared with FastAPI.
@@ -58,7 +59,7 @@ export default async function handler(request, response) {
     if (typeof value === 'string') headers[name] = value;
   }
   const options = { method: request.method, headers, signal: AbortSignal.timeout(15000), redirect: 'error' };
-  if (request.method === 'POST' && request.body !== undefined) {
+  if (['POST', 'PATCH'].includes(request.method) && request.body !== undefined) {
     options.body = typeof request.body === 'string' || Buffer.isBuffer(request.body) ? request.body : JSON.stringify(request.body);
   }
   try {
