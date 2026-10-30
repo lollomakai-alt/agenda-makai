@@ -102,7 +102,7 @@ test('planner and waitlist migration use only the three shift times', async () =
   assert.doesNotMatch(sql, /23:30/);
 });
 
-test('online closure applies to after-dinner as well as dinner', async () => {
+test('online closure applies to dinner but after-dinner remains a request', async () => {
   const db = new PGlite();
   try {
     await db.exec(`
@@ -133,7 +133,7 @@ test('online closure applies to after-dinner as well as dinner', async () => {
     `);
 
     await db.exec(await readFile(
-      new URL('../supabase/migrations/20261030140300_online_closure_all_services.sql', import.meta.url),
+      new URL('../supabase/migrations/20261030140500_after_dinner_ignores_online_closure.sql', import.meta.url),
       'utf8'
     ));
     await db.exec("insert into public.online_booking_closures(booking_date) values ('2026-11-20')");
@@ -143,10 +143,11 @@ test('online closure applies to after-dinner as well as dinner', async () => {
     )).rows[0].status;
 
     assert.equal(await status('2026-11-20', '19:00', 'normale'), 'closed');
-    assert.equal(await status('2026-11-20', '23:00', 'dopocena'), 'closed');
+    assert.equal(await status('2026-11-20', '23:00', 'dopocena'), 'manual_review');
     assert.equal(await status('2026-11-21', '19:00', 'normale'), 'available');
     assert.equal(await status('2026-11-21', '23:00', 'dopocena'), 'manual_review');
     assert.equal(await status('2026-11-23', '19:00', 'normale'), 'closed');
+    assert.equal(await status('2026-11-23', '23:00', 'dopocena'), 'closed');
   } finally {
     await db.close();
   }
