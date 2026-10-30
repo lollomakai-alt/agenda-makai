@@ -151,3 +151,75 @@ test('online closure applies to after-dinner as well as dinner', async () => {
     await db.close();
   }
 });
+
+test('legacy table compatibility keeps existing times working without reopening new slots', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create role anon;
+      create role authenticated;
+      create role service_role;
+      create schema auth;
+      create schema private;
+
+      create function auth.jwt()
+      returns jsonb language sql
+      as $$ select '{}'::jsonb $$;
+
+      create table public.bookings(
+        id bigint generated always as identity primary key,
+        name text,
+        phone text,
+        email text,
+        booking_date text,
+        booking_time text,
+        party_size integer,
+        notes text default '',
+        tables text default '',
+        status text default 'confirmed',
+        source text default 'agenda',
+        reminder_status text default 'skipped',
+        booking_type text default 'normale'
+      );
+
+      create function private.service_capacity_for_type(day text, reference_time text, service_type text, exclude_id bigint default null)
+      returns jsonb language sql stable
+      as $$ select jsonb_build_object('service', service_type) $$;
+
+      create function private.dinner_physical_capacity()
+      returns integer language sql immutable as $$ select 26 $$;
+
+      create function private.online_table_groups()
+      returns table(group_id text, capacity integer) language sql stable
+      as $$ select null::text, null::integer where false $$;
+    `);
+
+    for (const file of [
+      '20261030140000_three_shifts.sql',
+      '20261030140400_legacy_table_compatibility.sql',
+    ]) {
+      await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
+    }
+
+    const compatible = async (firstTime, firstType, secondTime, secondType) => (await db.query(
+      `select private.dinner_after_dinner_compatible(
+        '2026-11-21',$1,$2,'2026-11-21',$3,$4
+      ) value`, [firstTime, firstType, secondTime, secondType]
+    )).rows[0].value;
+
+    assert.equal(await compatible('19:00', 'normale', '23:00', 'dopocena'), true);
+    assert.equal(await compatible('20:00', 'normale', '23:00', 'dopocena'), true);
+    assert.equal(await compatible('21:30', 'normale', '23:00', 'dopocena'), false);
+    assert.equal(await compatible('22:30', 'dopocena', '19:00', 'normale'), true);
+    assert.equal(await compatible('22:30', 'dopocena', '21:30', 'normale'), false);
+
+    assert.equal((await db.query(
+      "select private.valid_service_slot('normale','20:00') value"
+    )).rows[0].value, false);
+    assert.equal((await db.query(
+      "select (private.service_capacity_for_type('2026-11-21','20:00','normale'))->>'verified' value"
+    )).rows[0].value, 'true');
+  } finally {
+    await db.close();
+  }
+});
