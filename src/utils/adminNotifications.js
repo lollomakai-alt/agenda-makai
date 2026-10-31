@@ -59,23 +59,30 @@ function fail(error) {
     : error.message || 'Notifiche non disponibili.');
 }
 
-export async function loadAdminNotifications(client, now = new Date()) {
-  const { data, error } = await client.rpc('admin_list_notifications');
+function withAbortSignal(query, signal) {
+  if (signal && typeof query?.abortSignal === 'function') query.abortSignal(signal);
+  return query;
+}
+
+export async function loadAdminNotifications(client, now = new Date(), signal) {
+  const request = withAbortSignal(client.rpc('admin_list_notifications'), signal);
+  const { data, error } = await request;
   if (error) fail(error);
   if (!Array.isArray(data)) throw new Error('Lettura notifiche non confermata.');
   return sortNotifications(currentDayNotifications(data, now).filter(isActionableNotification));
 }
 
-export async function loadRecentOnlineBookings(client, now = new Date()) {
+export async function loadRecentOnlineBookings(client, now = new Date(), signal) {
   const end = new Date(now);
   const start = new Date(end.getTime() - 48 * 60 * 60 * 1000);
-  const { data, error } = await client.from('bookings')
+  const request = withAbortSignal(client.from('bookings')
     .select('id,booking_date,booking_time,name,party_size,booking_type,status,created_at')
     .eq('source', 'booking')
     .gte('created_at', start.toISOString())
     .lte('created_at', end.toISOString())
     .order('created_at', { ascending: false })
-    .order('id', { ascending: false });
+    .order('id', { ascending: false }), signal);
+  const { data, error } = await request;
   if (error) throw new Error('Registro delle nuove prenotazioni non disponibile.');
   if (!Array.isArray(data)) throw new Error('Lettura del registro non confermata.');
   return data;
