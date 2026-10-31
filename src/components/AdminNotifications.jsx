@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { loadAdminNotifications, loadRecentOnlineBookings, notificationBookingUrl, NOTIFICATION_PRIORITIES } from '../utils/adminNotifications';
 
+const REQUEST_TIMEOUT_MS = 12000;
+
 const bookingStatusLabels = {
   confirmed: 'Confermata',
   arrived: 'Arrivata',
@@ -21,22 +23,64 @@ export default function AdminNotifications() {
   });
   const active = useRef(false);
   const generation = useRef(0);
-  const load = useCallback(async () => {
+  const inFlight = useRef(null);
+  const retryAfter = useRef(0);
+
+  const load = useCallback((options = {}) => {
+    if (inFlight.current && !options.force) return inFlight.current.promise;
+    if (inFlight.current && options.force) {
+      inFlight.current.controllers.forEach(controller => controller.abort());
+      inFlight.current = null;
+      generation.current++;
+    }
+    if (!options.force && Date.now() < retryAfter.current) return Promise.resolve();
+
     const current = ++generation.current;
-    const [actionResult, recentResult] = await Promise.allSettled([
-      loadAdminNotifications(supabase),
-      loadRecentOnlineBookings(supabase),
-    ]);
-    if (!active.current || current !== generation.current) return;
+    const controllers = [new AbortController(), new AbortController()];
     setState(previous => ({
-      entries: actionResult.status === 'fulfilled' ? actionResult.value : previous.entries,
-      recentOnline: recentResult.status === 'fulfilled' ? recentResult.value : previous.recentOnline,
-      loading: false,
-      recentLoading: false,
-      error: actionResult.status === 'rejected' ? actionResult.reason.message : '',
-      recentError: recentResult.status === 'rejected' ? recentResult.reason.message : '',
+      ...previous,
+      loading: previous.error ? true : previous.loading,
+      recentLoading: previous.recentError ? true : previous.recentLoading,
+      error: '',
+      recentError: '',
     }));
+
+    let failed = false;
+
+    async function loadSection(loader, dataKey, loadingKey, errorKey, controller) {
+      const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        const value = await loader(supabase, new Date(), controller.signal);
+        if (!active.current || current !== generation.current) return;
+        setState(previous => ({ ...previous, [dataKey]: value, [loadingKey]: false, [errorKey]: '' }));
+      } catch (failure) {
+        failed = true;
+        if (!active.current || current !== generation.current) return;
+        setState(previous => ({
+          ...previous,
+          [loadingKey]: false,
+          [errorKey]: controller.signal.aborted
+            ? 'Il caricamento ha superato il tempo limite.'
+            : failure.message || 'Dati non disponibili.',
+        }));
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
+    const promise = Promise.all([
+      loadSection(loadAdminNotifications, 'entries', 'loading', 'error', controllers[0]),
+      loadSection(loadRecentOnlineBookings, 'recentOnline', 'recentLoading', 'recentError', controllers[1]),
+    ]).finally(() => {
+      if (inFlight.current?.promise === promise) {
+        inFlight.current = null;
+        retryAfter.current = failed ? Date.now() + 15000 : 0;
+      }
+    });
+    inFlight.current = { promise, controllers };
+    return promise;
   }, []);
+
   useEffect(() => {
     active.current = true;
     void load();
@@ -51,11 +95,17 @@ export default function AdminNotifications() {
     window.addEventListener('admin-notifications-changed', load);
     const { data } = supabase.auth.onAuthStateChange(() => {
       generation.current++;
+      inFlight.current?.controllers.forEach(controller => controller.abort());
+      inFlight.current = null;
+      retryAfter.current = 0;
       setState({ entries: [], recentOnline: [], loading: true, recentLoading: true, error: '', recentError: '' });
       setTimeout(() => { if (active.current) void load(); }, 0);
     });
     return () => {
-      active.current = false; generation.current++;
+      active.current = false;
+      generation.current++;
+      inFlight.current?.controllers.forEach(controller => controller.abort());
+      inFlight.current = null;
       window.clearInterval(timer); data.subscription.unsubscribe(); void supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', visible);
       window.removeEventListener('admin-notifications-changed', load);
@@ -87,7 +137,7 @@ export default function AdminNotifications() {
         <h2 id="notification-actions-title">Da gestire</h2>
         <p className="notification-panel-help">Gli avvisi si aggiornano quando cambia lo stato della prenotazione.</p>
         {state.loading && <p role="status">Caricamento avvisi…</p>}
-        {state.error && <p role="alert">{state.error}</p>}
+        {state.error && <p role="alert">{state.error} <button className="admin-button admin-button-secondary" type="button" onClick={() => void load({ force: true })}>Riprova</button></p>}
         {!state.loading && !state.error && !count && <p>Nessun avviso da gestire.</p>}
         {!!state.entries.length && <ul>{state.entries.map(entry => {
           const href = notificationBookingUrl(entry);
@@ -102,7 +152,7 @@ export default function AdminNotifications() {
         <h2 id="notification-history-title">Nuove prenotazioni online</h2>
         <p className="notification-panel-help">Registro degli ultimi due giorni, dalla più recente.</p>
         {state.recentLoading && <p role="status">Caricamento registro…</p>}
-        {state.recentError && <p role="alert">{state.recentError}</p>}
+        {state.recentError && <p role="alert">{state.recentError} <button className="admin-button admin-button-secondary" type="button" onClick={() => void load({ force: true })}>Riprova</button></p>}
         {!state.recentLoading && !state.recentError && !recentOnline.length && <p>Nessuna nuova prenotazione online nelle ultime 48 ore.</p>}
         {!!recentOnline.length && <ul>{recentOnline.map(booking => {
           const href = notificationBookingUrl({ kind: 'online_booking', booking_id: booking.id, booking_date: booking.booking_date });
